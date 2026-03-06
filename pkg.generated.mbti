@@ -1,0 +1,184 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hustcer/fzip"
+
+// Values
+pub fn adler32(FixedArray[Byte]) -> UInt
+
+pub fn compress_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
+
+pub fn crc32(FixedArray[Byte]) -> UInt
+
+pub fn decompress_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
+
+pub fn deflate_sync(FixedArray[Byte], opts? : DeflateOptions) -> FixedArray[Byte]
+
+pub fn gunzip_sync(FixedArray[Byte], opts? : GunzipOptions) -> FixedArray[Byte] raise FzipError
+
+pub fn gzip_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
+
+pub fn inflate_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
+
+pub fn str_from_u8(FixedArray[Byte], latin1? : Bool) -> String raise FzipError
+
+pub fn str_to_u8(String, latin1? : Bool) -> FixedArray[Byte]
+
+pub fn unzip_list(FixedArray[Byte]) -> Array[UnzipFileInfo] raise FzipError
+
+pub fn unzip_sync(FixedArray[Byte]) -> Array[(String, FixedArray[Byte])] raise FzipError
+
+pub fn unzlib_sync(FixedArray[Byte], opts? : UnzlibOptions) -> FixedArray[Byte] raise FzipError
+
+pub fn zip_sync(Array[(String, FixedArray[Byte])], opts? : ZipEntryOptions) -> FixedArray[Byte]
+
+pub fn zlib_sync(FixedArray[Byte], opts? : ZlibOptions) -> FixedArray[Byte]
+
+// Errors
+pub(all) suberror FzipError {
+  FzipError(code~ : FzipErrorCode, message~ : String)
+}
+
+// Types and methods
+pub(all) struct DecompressStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn DecompressStream::new(opts? : InflateOptions) -> Self
+pub fn DecompressStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
+
+pub(all) struct DeflateOptions {
+  level : Int
+  mem : Int
+  dictionary : FixedArray[Byte]?
+}
+pub fn DeflateOptions::default() -> Self
+pub impl Show for DeflateOptions
+
+pub(all) struct DeflateStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn DeflateStream::new(opts? : DeflateOptions) -> Self
+pub fn DeflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
+
+pub(all) struct FlateStreamHandler((FixedArray[Byte], Bool) -> Unit)
+#deprecated
+pub fn FlateStreamHandler::inner(Self) -> (FixedArray[Byte], Bool) -> Unit
+
+pub(all) enum FzipErrorCode {
+  UnexpectedEOF
+  InvalidBlockType
+  InvalidLengthLiteral
+  InvalidDistance
+  StreamFinished
+  NoStreamHandler
+  InvalidHeader
+  NoCallback
+  InvalidUTF8
+  ExtraFieldTooLong
+  InvalidDate
+  FilenameTooLong
+  StreamFinishing
+  InvalidZipData
+  UnknownCompressionMethod
+}
+pub impl Eq for FzipErrorCode
+pub impl Show for FzipErrorCode
+
+pub(all) struct GunzipOptions {
+  out : FixedArray[Byte]?
+  dictionary : FixedArray[Byte]?
+}
+pub fn GunzipOptions::default() -> Self
+pub impl Show for GunzipOptions
+
+pub(all) struct GunzipStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn GunzipStream::new(opts? : GunzipOptions) -> Self
+pub fn GunzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
+
+pub(all) struct GzipOptions {
+  level : Int
+  mem : Int
+  dictionary : FixedArray[Byte]?
+  mtime : Int
+  filename : String
+}
+pub fn GzipOptions::default() -> Self
+pub impl Show for GzipOptions
+
+pub(all) struct GzipStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn GzipStream::new(opts? : GzipOptions) -> Self
+pub fn GzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
+
+pub(all) struct InflateOptions {
+  out : FixedArray[Byte]?
+  dictionary : FixedArray[Byte]?
+}
+pub fn InflateOptions::default() -> Self
+pub impl Show for InflateOptions
+
+pub(all) struct InflateStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn InflateStream::new(opts? : InflateOptions) -> Self
+pub fn InflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
+
+pub(all) struct UnzipFileInfo {
+  name : String
+  size : Int
+  original_size : Int
+  compression : Int
+}
+pub impl Show for UnzipFileInfo
+
+pub(all) struct UnzlibOptions {
+  out : FixedArray[Byte]?
+  dictionary : FixedArray[Byte]?
+}
+pub fn UnzlibOptions::default() -> Self
+pub impl Show for UnzlibOptions
+
+pub(all) struct UnzlibStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn UnzlibStream::new(opts? : UnzlibOptions) -> Self
+pub fn UnzlibStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
+
+pub(all) struct ZipEntryOptions {
+  level : Int
+  mem : Int
+  os : Int
+  attrs : Int
+  extra : Array[(Int, FixedArray[Byte])]
+  comment : String
+  mtime : Int
+}
+pub fn ZipEntryOptions::default() -> Self
+pub impl Show for ZipEntryOptions
+
+pub(all) struct ZlibOptions {
+  level : Int
+  mem : Int
+  dictionary : FixedArray[Byte]?
+}
+pub fn ZlibOptions::default() -> Self
+pub impl Show for ZlibOptions
+
+pub(all) struct ZlibStream {
+  mut ondata : FlateStreamHandler?
+  // private fields
+}
+pub fn ZlibStream::new(opts? : ZlibOptions) -> Self
+pub fn ZlibStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
+
+// Type aliases
+
+// Traits
+
