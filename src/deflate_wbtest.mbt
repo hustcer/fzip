@@ -328,3 +328,37 @@ test "perf opt - random data correctness" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "fast incompressible detection - random data" {
+  let size = 10000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 99999
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "fast incompressible detection - threshold 512" {
+  let sizes = [256, 512, 1024]
+  for i in 0..<sizes.length() {
+    let size = sizes[i]
+    let data = FixedArray::make(size, b'\x00')
+    let mut seed = 11111
+    for j in 0..<size {
+      seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+      data[j] = (seed % 256).to_byte()
+    }
+    let compressed = deflate_sync(data)
+    let decompressed = inflate_sync(compressed)
+    assert_eq(decompressed.length(), size)
+  }
+}
