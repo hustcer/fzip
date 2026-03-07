@@ -9,57 +9,57 @@
 
 | Pattern | Size | fzip      | moonzip   | zipc     | Winner  | Max-Min Ratio |
 | ------- | ---- | --------- | --------- | -------- | ------- | ------------- |
-| zeros   | 1K   | 36.93 µs  | 108.22 µs | 10.51 µs | zipc    | 10.3x         |
-| zeros   | 100K | 447.83 µs | 438.81 µs | 1070 µs  | moonzip | 2.4x          |
-| seq     | 1K   | 49.24 µs  | 110.81 µs | 10.49 µs | zipc    | 10.6x         |
-| seq     | 100K | 459.3 µs  | 445.76 µs | 1050 µs  | moonzip | 2.4x          |
-| random  | 1K   | 69.66 µs  | 205.75 µs | 10.5 µs  | zipc    | 19.6x         |
-| random  | 100K | 6560 µs   | 42650 µs  | 1050 µs  | zipc    | 40.6x         |
+| zeros   | 1K   | 6.75 µs   | 104.06 µs | 10.61 µs | fzip    | 15.4x         |
+| zeros   | 100K | 468.35 µs | 440.02 µs | 1050 µs  | moonzip | 2.4x          |
+| seq     | 1K   | 15.29 µs  | 118.98 µs | 10.58 µs | zipc    | 11.2x         |
+| seq     | 100K | 466.97 µs | 459.3 µs  | 1070 µs  | moonzip | 2.3x          |
+| random  | 1K   | 43.34 µs  | 193.01 µs | 10.59 µs | zipc    | 18.2x         |
+| random  | 100K | 3390 µs   | 42450 µs  | 1060 µs  | zipc    | 40.0x         |
 
 ## DEFLATE Decompress
 
-| Size | fzip      | moonzip   | zipc      | Winner | Max-Min Ratio |
-| ---- | --------- | --------- | --------- | ------ | ------------- |
-| 1K   | 3.07 µs   | 4.45 µs   | 0.77 µs   | zipc   | 5.8x          |
-| 100K | 119.27 µs | 304.15 µs | 117.38 µs | zipc   | 2.6x          |
+| Size | fzip      | moonzip   | zipc     | Winner | Max-Min Ratio |
+| ---- | --------- | --------- | -------- | ------ | ------------- |
+| 1K   | 3.08 µs   | 4.48 µs   | 0.77 µs  | zipc   | 5.8x          |
+| 100K | 116.99 µs | 304.49 µs | 117.8 µs | fzip   | 2.6x          |
 
 ## GZIP
 
-| Operation  | Size | fzip      | moonzip   | zipc     | Winner  | Max-Min Ratio |
-| ---------- | ---- | --------- | --------- | -------- | ------- | ------------- |
-| compress   | 1K   | 54.36 µs  | 120.13 µs | 15.6 µs  | zipc    | 7.7x          |
-| compress   | 100K | 826.17 µs | 812.54 µs | 1570 µs  | moonzip | 1.9x          |
-| decompress | 1K   | 2.94 µs   | 8.52 µs   | 4.89 µs  | fzip    | 2.9x          |
-| decompress | 100K | 89.37 µs  | 667.03 µs | 491.8 µs | fzip    | 7.5x          |
+| Operation  | Size | fzip      | moonzip   | zipc      | Winner  | Max-Min Ratio |
+| ---------- | ---- | --------- | --------- | --------- | ------- | ------------- |
+| compress   | 1K   | 19.05 µs  | 127.83 µs | 15.7 µs   | zipc    | 8.1x          |
+| compress   | 100K | 839.37 µs | 812.23 µs | 1550 µs   | moonzip | 1.9x          |
+| decompress | 1K   | 2.83 µs   | 8.35 µs   | 4.86 µs   | fzip    | 3.0x          |
+| decompress | 100K | 90.6 µs   | 670.84 µs | 486.32 µs | fzip    | 7.4x          |
 
 ## Zlib
 
 | Operation  | Size | fzip      | moonzip   | zipc     | Winner  | Max-Min Ratio |
 | ---------- | ---- | --------- | --------- | -------- | ------- | ------------- |
-| compress   | 1K   | 54.35 µs  | 118.4 µs  | 20.61 µs | zipc    | 5.7x          |
-| compress   | 100K | 526.79 µs | 513.91 µs | 2070 µs  | moonzip | 4.0x          |
-| decompress | 1K   | 3.11 µs   | 5.32 µs   | 9.91 µs  | fzip    | 3.2x          |
-| decompress | 100K | 118.3 µs  | 366.08 µs | 1910 µs  | fzip    | 16.1x         |
+| compress   | 1K   | 16.1 µs   | 123.87 µs | 20.76 µs | fzip    | 7.7x          |
+| compress   | 100K | 532.42 µs | 508.66 µs | 2060 µs  | moonzip | 4.0x          |
+| decompress | 1K   | 3.15 µs   | 5.38 µs   | 9.99 µs  | fzip    | 3.2x          |
+| decompress | 100K | 117.48 µs | 366.9 µs  | 1870 µs  | fzip    | 15.9x         |
 
 ## ZIP
 
-| Operation  | fzip      | moonzip   | Winner | Max-Min Ratio |
-| ---------- | --------- | --------- | ------ | ------------- |
-| compress   | 183.51 µs | 618.26 µs | fzip   | 3.4x          |
-| decompress | 4.45 µs   | 38.88 µs  | fzip   | 8.7x          |
+| Operation  | fzip     | moonzip   | Winner | Max-Min Ratio |
+| ---------- | -------- | --------- | ------ | ------------- |
+| compress   | 92.67 µs | 592.65 µs | fzip   | 6.4x          |
+| decompress | 4.47 µs  | 38.86 µs  | fzip   | 8.7x          |
 
 ## Checksum
 
-| Algorithm | Size | fzip      | moonzip   | zipc      | Winner  | Max-Min Ratio |
-| --------- | ---- | --------- | --------- | --------- | ------- | ------------- |
-| CRC32     | 1K   | 3.59 µs   | 3.52 µs   | 3.56 µs   | moonzip | 1.0x          |
-| CRC32     | 100K | 358.56 µs | 364.74 µs | 359.19 µs | fzip    | 1.0x          |
-| ADLER32   | 1K   | 0.63 µs   | 0.63 µs   | 8.71 µs   | fzip    | 13.8x         |
-| ADLER32   | 100K | 61.77 µs  | 61.92 µs  | 876.25 µs | fzip    | 14.2x         |
+| Algorithm | Size | fzip      | moonzip  | zipc      | Winner  | Max-Min Ratio |
+| --------- | ---- | --------- | -------- | --------- | ------- | ------------- |
+| CRC32     | 1K   | 3.52 µs   | 3.52 µs  | 3.59 µs   | fzip    | 1.0x          |
+| CRC32     | 100K | 356.31 µs | 357.5 µs | 371.89 µs | fzip    | 1.0x          |
+| ADLER32   | 1K   | 0.62 µs   | 0.63 µs  | 8.71 µs   | fzip    | 14.0x         |
+| ADLER32   | 100K | 61.43 µs  | 61.34 µs | 875.38 µs | moonzip | 14.3x         |
 
 ## Auto-detect Decompress
 
-| Size | fzip     | moonzip  | Winner | Max-Min Ratio |
-| ---- | -------- | -------- | ------ | ------------- |
-| 1K   | 2.9 µs   | 8.3 µs   | fzip   | 2.9x          |
-| 100K | 90.35 µs | 679.6 µs | fzip   | 7.5x          |
+| Size | fzip     | moonzip   | Winner | Max-Min Ratio |
+| ---- | -------- | --------- | ------ | ------------- |
+| 1K   | 2.85 µs  | 8.37 µs   | fzip   | 2.9x          |
+| 100K | 90.12 µs | 663.28 µs | fzip   | 7.4x          |
