@@ -1,0 +1,5 @@
+import {
+  "hustcer/fzip",
+  "ivgtr/moonzip",
+  "moonbitlang/core/bench",
+} for "test"

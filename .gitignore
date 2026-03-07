@@ -1,4 +1,5 @@
 _build/
+.mooncakes/
 findings.md
 progress.md
 task_plan.md
