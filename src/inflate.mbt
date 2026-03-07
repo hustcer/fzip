@@ -42,6 +42,9 @@ fn inflt(
     Some(b) => b
     None => FixedArray::make(sl * 3, b'\x00')
   }
+  // Scale buffer growth headroom based on input size to avoid
+  // over-allocation for small data (was hardcoded 131072 = 128KB)
+  let grow = if sl * 3 < 131072 { sl * 3 + 512 } else { 131072 }
   let tbts = sl * 8
   let mut final_ = st.final_
   let mut pos = st.pos
@@ -159,7 +162,7 @@ fn inflt(
     }
     // decode symbols
     if resize {
-      buf = ensure_buf(buf, bt + 131072)
+      buf = ensure_buf(buf, bt + grow)
     }
     let lms = (1 << lbt) - 1
     let dms = (1 << dbt) - 1
@@ -224,7 +227,7 @@ fn inflt(
           break
         }
         if resize {
-          buf = ensure_buf(buf, bt + 131072)
+          buf = ensure_buf(buf, bt + grow)
         }
         let end = bt + add
         // dictionary reference
