@@ -1,10 +1,10 @@
 {
   "name": "hustcer/fzip",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "readme": "README.md",
   "repository": "https://github.com/hustcer/fzip",
   "license": "MIT",
   "keywords": ["compression", "deflate", "gzip", "zlib", "zip", "fflate"],
-  "description": "High-performance compression library for MoonBit (DEFLATE/GZIP/Zlib/ZIP)",
+  "description": "High-performance compression library for MoonBit, ported from fflate. (DEFLATE/GZIP/Zlib/ZIP)",
   "source": "src"
 }
