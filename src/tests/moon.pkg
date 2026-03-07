@@ -1,0 +1,3 @@
+import {
+  "hustcer/fzip",
+} for "test"

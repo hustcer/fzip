@@ -4,8 +4,8 @@ test "compress/decompress roundtrip (gzip)" {
   for i in 0..<200 {
     data[i] = (i % 50).to_byte()
   }
-  let compressed = compress_sync(data)
-  let decompressed = decompress_sync(compressed)
+  let compressed = @fzip.compress_sync(data)
+  let decompressed = @fzip.decompress_sync(compressed)
   assert_eq(decompressed.length(), data.length())
   for i in 0..<data.length() {
     assert_eq(decompressed[i], data[i])
@@ -18,8 +18,8 @@ test "decompress auto-detects zlib" {
   for i in 0..<100 {
     data[i] = (i % 30).to_byte()
   }
-  let compressed = zlib_sync(data)
-  let decompressed = decompress_sync(compressed)
+  let compressed = @fzip.zlib_sync(data)
+  let decompressed = @fzip.decompress_sync(compressed)
   assert_eq(decompressed.length(), data.length())
   for i in 0..<data.length() {
     assert_eq(decompressed[i], data[i])
@@ -32,8 +32,8 @@ test "decompress auto-detects gzip" {
   for i in 0..<100 {
     data[i] = (i % 20).to_byte()
   }
-  let compressed = gzip_sync(data)
-  let decompressed = decompress_sync(compressed)
+  let compressed = @fzip.gzip_sync(data)
+  let decompressed = @fzip.decompress_sync(compressed)
   assert_eq(decompressed.length(), data.length())
   for i in 0..<data.length() {
     assert_eq(decompressed[i], data[i])
