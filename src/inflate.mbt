@@ -25,7 +25,7 @@ fn inflt(
   dict : FixedArray[Byte]?,
   dat_off? : Int = 0,
   dat_end? : Int = dat.length(),
-) -> FixedArray[Byte] raise FzipError {
+) -> (FixedArray[Byte], Int) raise FzipError {
   let sl = dat_end - dat_off
   let dl = match dict {
     Some(d) => d.length()
@@ -33,8 +33,8 @@ fn inflt(
   }
   if sl == 0 || (st.final_ != 0 && st.lm is None) {
     return match buf {
-      Some(b) => b
-      None => FixedArray::make(0, b'\x00')
+      Some(b) => (b, st.bt)
+      None => (FixedArray::make(0, b'\x00'), 0)
     }
   }
   let no_buf = buf is None
@@ -272,14 +272,7 @@ fn inflt(
       continue_loop = false
     }
   }
-  // return the right slice
-  if bt != buf.length() && no_buf {
-    slc(buf, 0, e=bt)
-  } else if bt < buf.length() {
-    slc(buf, 0, e=bt)
-  } else {
-    buf
-  }
+  (buf, bt)
 }
 
 ///|
@@ -302,5 +295,10 @@ pub fn inflate_sync(
   data : FixedArray[Byte],
   opts? : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
-  inflt(data, InflateState::new(2), opts.out, opts.dictionary)
+  let (buf, len) = inflt(data, InflateState::new(2), opts.out, opts.dictionary)
+  if len < buf.length() {
+    slc(buf, 0, e=len)
+  } else {
+    buf
+  }
 }

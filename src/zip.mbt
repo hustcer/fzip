@@ -13,9 +13,8 @@ fn zh(
   z : Bool,
 ) -> (Int, Int, Int, String, Int, Int) raise FzipError {
   let fnl = b2(d, b + 28)
-  let fn_data = slc(d, b + 46, e=b + 46 + fnl)
   let is_utf8 = (b2(d, b + 8) & 2048) != 0
-  let fn_str = str_from_u8(fn_data, latin1=not(is_utf8))
+  let fn_str = str_from_u8(d, latin1=not(is_utf8), offset=b + 46, len=fnl)
   let es = b + 46 + fnl
   let bs = b4(d, b + 20)
   let (sc, su, off) = if z && bs == 4294967295U {
@@ -206,23 +205,24 @@ pub fn zip_sync(
     let f = str_to_u8(fn_str)
     let s = f.length()
     let exl = exfl(opts.extra)
-    let d = if compression != 0 {
-      deflate_sync(file, opts={
-        level: opts.level,
-        mem: opts.mem,
-        dictionary: None,
-      })
+    let (d, c_len) = if compression != 0 {
+      dopt(
+        file,
+        { level: opts.level, mem: opts.mem, dictionary: None },
+        0,
+        0,
+        None,
+      )
     } else {
-      file
+      (file, file.length())
     }
-    let l = d.length()
     let crc_v = crc32(file)
     let is_utf8 = s != fn_str.length()
     entries.push(
-      (f, file, d, is_utf8, crc_v.reinterpret_as_int(), file.length(), l, o),
+      (f, file, d, is_utf8, crc_v.reinterpret_as_int(), file.length(), c_len, o),
     )
-    o += 30 + s + exl + l
-    tot += 76 + 2 * (s + exl) + l
+    o += 30 + s + exl + c_len
+    tot += 76 + 2 * (s + exl) + c_len
   }
   let out = FixedArray::make(tot + 22, b'\x00')
   let oe = o
@@ -320,7 +320,7 @@ pub fn unzip_sync(
       files.push((fn_str, slc(data, b_off, e=b_off + sc)))
     } else if comp == 8 {
       let out = FixedArray::make(su, b'\x00')
-      let result = inflt(
+      let (buf, _len) = inflt(
         data,
         InflateState::new(2),
         Some(out),
@@ -328,7 +328,7 @@ pub fn unzip_sync(
         dat_off=b_off,
         dat_end=b_off + sc,
       )
-      files.push((fn_str, result))
+      files.push((fn_str, buf))
     } else {
       raise fzip_err(
         UnknownCompressionMethod,

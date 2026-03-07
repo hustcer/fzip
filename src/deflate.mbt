@@ -183,7 +183,7 @@ fn dflt(
   pre : Int,
   post : Int,
   st : DeflateState,
-) -> FixedArray[Byte] {
+) -> (FixedArray[Byte], Int) {
   let s = if st.z != 0 { st.z } else { dat.length() }
   let o_size = pre + s + 5 * (1 + (s + 6999) / 7000) + post
   let o = FixedArray::make(o_size, b'\x00')
@@ -353,7 +353,7 @@ fn dflt(
     }
     st.i = s
   }
-  slc(o, 0, e=pre + shft(pos) + post)
+  (o, pre + shft(pos) + post)
 }
 
 ///|
@@ -364,7 +364,7 @@ fn dopt(
   pre : Int,
   post : Int,
   st : DeflateState?,
-) -> FixedArray[Byte] {
+) -> (FixedArray[Byte], Int) {
   let (dat, st) = match st {
     Some(s) => (dat, s)
     None => {
@@ -414,5 +414,6 @@ pub fn deflate_sync(
   data : FixedArray[Byte],
   opts? : DeflateOptions = DeflateOptions::default(),
 ) -> FixedArray[Byte] {
-  dopt(data, opts, 0, 0, None)
+  let (buf, len) = dopt(data, opts, 0, 0, None)
+  slc(buf, 0, e=len)
 }

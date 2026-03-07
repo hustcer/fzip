@@ -66,7 +66,7 @@ pub fn zlib_sync(
     Some(_) => 6
     None => 2
   }
-  let d = dopt(
+  let (d, len) = dopt(
     data,
     { level: opts.level, mem: opts.mem, dictionary: opts.dictionary },
     pre,
@@ -74,8 +74,8 @@ pub fn zlib_sync(
     None,
   )
   zlh(d, opts)
-  wbytes(d, d.length() - 4, a.digest().reinterpret_as_int())
-  d
+  wbytes(d, len - 4, a.digest().reinterpret_as_int())
+  slc(d, 0, e=len)
 }
 
 ///|
@@ -90,7 +90,7 @@ pub fn unzlib_sync(
   }
   let st = zls(data, has_dict)
   let end = data.length() - 4
-  inflt(
+  let (buf, len) = inflt(
     data,
     InflateState::new(2),
     opts.out,
@@ -98,4 +98,9 @@ pub fn unzlib_sync(
     dat_off=st,
     dat_end=end,
   )
+  if len < buf.length() {
+    slc(buf, 0, e=len)
+  } else {
+    buf
+  }
 }

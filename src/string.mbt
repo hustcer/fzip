@@ -59,22 +59,26 @@ pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
 pub fn str_from_u8(
   data : FixedArray[Byte],
   latin1? : Bool = false,
+  offset? : Int = 0,
+  len? : Int = -1,
 ) -> String raise FzipError {
+  let actual_len = if len < 0 { data.length() - offset } else { len }
+  let end = offset + actual_len
   if latin1 {
     let buf = StringBuilder::new()
-    for i in 0..<data.length() {
+    for i in offset..<end {
       buf.write_char(data[i].to_int().unsafe_to_char())
     }
     return buf.to_string()
   }
   let buf = StringBuilder::new()
-  let mut i = 0
-  while i < data.length() {
+  let mut i = offset
+  while i < end {
     let c = data[i].to_int()
     let eb = (if c > 127 { 1 } else { 0 }) +
       (if c > 223 { 1 } else { 0 }) +
       (if c > 239 { 1 } else { 0 })
-    if i + eb >= data.length() && eb > 0 {
+    if i + eb >= end && eb > 0 {
       raise fzip_err(InvalidUTF8)
     }
     if eb == 0 {
