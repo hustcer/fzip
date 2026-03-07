@@ -9,5 +9,6 @@
     "bobzhang/zipc": "0.1.1"
   },
   "keywords": ["compression", "deflate", "gzip", "zlib", "zip", "fflate"],
-  "description": "High-performance compression library for MoonBit (DEFLATE/GZIP/Zlib/ZIP)"
+  "description": "High-performance compression library for MoonBit (DEFLATE/GZIP/Zlib/ZIP)",
+  "source": "src"
 }
