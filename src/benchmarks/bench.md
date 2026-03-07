@@ -19,7 +19,7 @@ Run: `moon bench -p hustcer/fzip/benchmarks`
 | random       | 1KB   | 72 µs      | 197 µs   | **11 µs**   | zipc   |
 | random       | 100KB | 6.54 ms    | 42.89 ms | **1.09 ms** | zipc   |
 
-> Note: zipc 1KB compression times are uniformly ~11µs regardless of data pattern, suggesting it may use stored (uncompressed) mode for small data.
+> Note: zipc 1KB compression times are uniformly ~11µs regardless of data pattern.
 
 ## DEFLATE Decompress
 
@@ -76,22 +76,9 @@ Run: `moon bench -p hustcer/fzip/benchmarks`
 ## Key Findings
 
 1. **fzip is the most well-rounded** — Fastest or tied in decompression, large-data compression, checksums, ZIP, and auto-detect across all categories.
-2. **zipc excels at small-data compression** — 1KB DEFLATE/GZIP/Zlib compression is 3–7x faster than fzip, but with suspiciously uniform timing (~11µs regardless of data pattern).
-3. **zipc dominates random 100KB compression** — 1.09ms vs fzip 6.54ms (6x) vs moonzip 42.89ms (39x), likely due to a different compression strategy.
+2. **zipc excels at small-data compression** — 1KB DEFLATE/GZIP/Zlib compression is 3–7x faster than fzip, with uniform timing (~11µs regardless of data pattern).
+3. **zipc dominates random 100KB compression** — 1.09ms vs fzip 6.54ms (6x) vs moonzip 42.89ms (39x).
 4. **fzip dominates decompression** — GZIP decompress 100KB: fzip 90µs vs zipc 488µs (5.4x) vs moonzip 669µs (7.4x). Zlib decompress 100KB: fzip 119µs vs zipc 1.88ms (15.8x).
-5. **zipc Adler-32 is slow** — 969µs vs fzip/moonzip 62µs (15.6x slower), likely due to using `Bytes` type overhead.
+5. **zipc Adler-32 is slow** — 969µs vs fzip/moonzip 62µs (15.6x slower).
 6. **CRC-32 is identical across all three** — Same algorithm, same performance (~370µs for 100KB).
-7. **moonzip is generally the slowest** — Especially random 100KB compression (42.89ms) and GZIP/Zlib decompression.
 
-## Improvement Summary (P0–P3)
-
-| Metric                   | Before  | After  | Improvement      |
-| ------------------------ | ------- | ------ | ---------------- |
-| 1KB inflate_sync         | 93 µs   | 3.1 µs | **30x** (P0)     |
-| 1KB unzlib decompress    | 95 µs   | 3.2 µs | **30x** (P0)     |
-| 100KB zeros compress     | 783 µs  | 447 µs | **1.8x** (P2)    |
-| 100KB seq compress       | 778 µs  | 460 µs | **1.7x** (P2)    |
-| 100KB gzip compress      | 1.16 ms | 844 µs | **1.4x** (P2+P3) |
-| 100KB zlib compress      | 853 µs  | 534 µs | **1.6x** (P2+P3) |
-| 100KB deflate decompress | 187 µs  | 131 µs | **1.4x** (P3)    |
-| 100KB zlib decompress    | 183 µs  | 120 µs | **1.5x** (P3)    |

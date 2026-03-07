@@ -137,7 +137,7 @@ let text = @fzip.str_from_u8(bytes, latin1=true)
 
 ## Benchmark
 
-Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](src/benchmarks/bench.md).
+Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
 
 | Category                 | fzip vs moonzip | fzip vs zipc                     |
 | ------------------------ | --------------- | -------------------------------- |
