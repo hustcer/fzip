@@ -23,8 +23,10 @@ fn inflt(
   st : InflateState,
   buf : FixedArray[Byte]?,
   dict : FixedArray[Byte]?,
+  dat_off? : Int = 0,
+  dat_end? : Int = dat.length(),
 ) -> FixedArray[Byte] raise FzipError {
-  let sl = dat.length()
+  let sl = dat_end - dat_off
   let dl = match dict {
     Some(d) => d.length()
     None => 0
@@ -45,9 +47,9 @@ fn inflt(
   // Scale buffer growth headroom based on input size to avoid
   // over-allocation for small data (was hardcoded 131072 = 128KB)
   let grow = if sl * 3 < 131072 { sl * 3 + 512 } else { 131072 }
-  let tbts = sl * 8
+  let tbts = dat_end * 8
   let mut final_ = st.final_
-  let mut pos = st.pos
+  let mut pos = st.pos + dat_off * 8
   let mut bt = st.bt
   let mut lm = st.lm
   let mut dm = st.dm
@@ -71,7 +73,7 @@ fn inflt(
         let s = shft(pos) + 4
         let l = dat[s - 4].to_int() | (dat[s - 3].to_int() << 8)
         let t = s + l
-        if t > sl {
+        if t > dat_end {
           if no_st != 0 {
             raise fzip_err(UnexpectedEOF)
           }

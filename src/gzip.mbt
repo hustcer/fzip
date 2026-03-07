@@ -100,10 +100,16 @@ pub fn gunzip_sync(
   if st + 8 > data.length() {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
-  let compressed = slc(data, st, e=data.length() - 8)
   let out = match opts.out {
     Some(o) => o
     None => FixedArray::make(gzl(data), b'\x00')
   }
-  inflt(compressed, InflateState::new(2), Some(out), opts.dictionary)
+  inflt(
+    data,
+    InflateState::new(2),
+    Some(out),
+    opts.dictionary,
+    dat_off=st,
+    dat_end=data.length() - 8,
+  )
 }

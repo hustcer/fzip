@@ -90,6 +90,12 @@ pub fn unzlib_sync(
   }
   let st = zls(data, has_dict)
   let end = data.length() - 4
-  let compressed = slc(data, st, e=end)
-  inflt(compressed, InflateState::new(2), opts.out, opts.dictionary)
+  inflt(
+    data,
+    InflateState::new(2),
+    opts.out,
+    opts.dictionary,
+    dat_off=st,
+    dat_end=end,
+  )
 }
