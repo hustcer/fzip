@@ -164,7 +164,7 @@ fn compute_mem_level(len : Int) -> Int {
   while v > 256 {
     v = v >> 1
     log_val += 1
-    if log_val >= 13 {
+    if log_val >= 10 {
       break
     }
   }
