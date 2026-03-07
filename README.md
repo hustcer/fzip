@@ -141,15 +141,15 @@ Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.
 
 | Category                 | fzip vs moonzip | fzip vs zipc                     |
 | ------------------------ | --------------- | -------------------------------- |
-| DEFLATE compress (1KB)   | 2.3–2.9x faster | 0.3x (zipc faster on small data) |
+| DEFLATE compress (1KB)   | 2.2–2.7x faster | 0.3x (zipc faster on small data) |
 | DEFLATE compress (100KB) | tie             | 2.3x faster                      |
-| DEFLATE decompress       | 1.4–2.6x faster | 1.0–4.0x faster                  |
-| GZIP decompress (100KB)  | 7.4x faster     | 5.4x faster                      |
-| Zlib decompress (100KB)  | 3.1x faster     | 15.8x faster                     |
+| DEFLATE decompress       | 1.5–2.6x faster | 1.0–4.0x faster                  |
+| GZIP decompress (100KB)  | 7.4x faster     | 5.5x faster                      |
+| Zlib decompress (100KB)  | 3.1x faster     | 16x faster                       |
 | ZIP compress             | 3.2x faster     | —                                |
 | ZIP decompress           | 9.1x faster     | —                                |
 | CRC-32                   | tie             | tie                              |
-| Adler-32                 | tie             | 15.6x faster                     |
+| Adler-32                 | tie             | 14.3x faster                     |
 
 ## Development
 
