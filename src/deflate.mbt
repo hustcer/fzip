@@ -159,6 +159,13 @@ priv struct DeflateState {
 ///|
 /// Compute memory level for compression
 fn compute_mem_level(len : Int) -> Int {
+  // Aggressive memory strategy for small data to reduce hash table overhead
+  if len < 2048 {
+    return 10 // head array = 2^10 = 1KB (vs 128KB before)
+  }
+  if len < 8192 {
+    return 12 // head array = 2^12 = 4KB
+  }
   let mut log_val = 8
   let mut v = len
   while v > 256 {
@@ -198,9 +205,11 @@ fn dflt(
     let n = opt >> 13
     let c = opt & 8191
     let msk = (1 << plvl) - 1
+    // Adaptive window size for small data
+    let window_size = if s < 4096 { 4096 } else { 32768 }
     let prev = match st.prev {
       Some(p) => p
-      None => FixedArray::make(32768, 0)
+      None => FixedArray::make(window_size, 0)
     }
     let head = match st.head {
       Some(h) => h
@@ -208,7 +217,15 @@ fn dflt(
     }
     let bs1 = (plvl + 2) / 3
     let bs2 = 2 * bs1
-    let syms : FixedArray[Int] = FixedArray::make(25000, 0)
+    // Dynamic array allocation based on input size
+    let syms_size = if s < 1024 {
+      1024
+    } else if s < 8192 {
+      s * 2
+    } else {
+      25000
+    }
+    let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
     let lf : FixedArray[Int] = FixedArray::make(288, 0)
     let df : FixedArray[Int] = FixedArray::make(32, 0)
     let mut lc = 0
@@ -279,7 +296,10 @@ fn dflt(
           // Limit chain search depth for better performance
           let max_chain = if rem < 4096 { 16 } else { 32 }
           let mut chain_count = 0
-          while dif <= maxd && ch > 0 && imod != pimod && chain_count < max_chain {
+          while dif <= maxd &&
+                ch > 0 &&
+                imod != pimod &&
+                chain_count < max_chain {
             chain_count += 1
             // Early exit 1: found good enough match
             if l >= good_match_len {
