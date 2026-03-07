@@ -319,9 +319,15 @@ pub fn unzip_sync(
     if comp == 0 {
       files.push((fn_str, slc(data, b_off, e=b_off + sc)))
     } else if comp == 8 {
-      let infl_data = slc(data, b_off, e=b_off + sc)
       let out = FixedArray::make(su, b'\x00')
-      let result = inflt(infl_data, InflateState::new(2), Some(out), None)
+      let result = inflt(
+        data,
+        InflateState::new(2),
+        Some(out),
+        None,
+        dat_off=b_off,
+        dat_end=b_off + sc,
+      )
       files.push((fn_str, result))
     } else {
       raise fzip_err(

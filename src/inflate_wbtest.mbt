@@ -117,3 +117,106 @@ test "inflate/low_ratio/random_1kb" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+/// Test inflt() with dat_off/dat_end: embed compressed data in a larger buffer
+test "inflt/offset/basic" {
+  let data = FixedArray::make(256, b'\x00')
+  for i in 0..<256 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let cl = compressed.length()
+  // Embed compressed data at offset 10 inside a larger buffer
+  let prefix = 10
+  let suffix = 7
+  let padded = FixedArray::make(prefix + cl + suffix, b'\xAA')
+  compressed.blit_to(padded, len=cl, src_offset=0, dst_offset=prefix)
+  let result = inflt(
+    padded,
+    InflateState::new(2),
+    None,
+    None,
+    dat_off=prefix,
+    dat_end=prefix + cl,
+  )
+  assert_eq(result.length(), 256)
+  for i in 0..<256 {
+    assert_eq(result[i], data[i])
+  }
+}
+
+///|
+/// Test inflt() with dat_off/dat_end and pre-allocated output buffer
+test "inflt/offset/with_output_buf" {
+  let data = FixedArray::make(512, b'\x00')
+  for i in 0..<512 {
+    data[i] = (i % 128).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let cl = compressed.length()
+  let prefix = 20
+  let padded = FixedArray::make(prefix + cl + 5, b'\xFF')
+  compressed.blit_to(padded, len=cl, src_offset=0, dst_offset=prefix)
+  let out = FixedArray::make(512, b'\x00')
+  let result = inflt(
+    padded,
+    InflateState::new(2),
+    Some(out),
+    None,
+    dat_off=prefix,
+    dat_end=prefix + cl,
+  )
+  assert_eq(result.length(), 512)
+  for i in 0..<512 {
+    assert_eq(result[i], data[i])
+  }
+}
+
+///|
+/// Test gzip roundtrip with larger data (exercises gunzip_sync offset path)
+test "inflt/offset/gzip_roundtrip_8kb" {
+  let data = FixedArray::make(8192, b'\x00')
+  for i in 0..<8192 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = gzip_sync(data)
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), 8192)
+  for i in 0..<8192 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test zlib roundtrip with larger data (exercises unzlib_sync offset path)
+test "inflt/offset/zlib_roundtrip_8kb" {
+  let data = FixedArray::make(8192, b'\x00')
+  for i in 0..<8192 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = zlib_sync(data)
+  let decompressed = unzlib_sync(compressed)
+  assert_eq(decompressed.length(), 8192)
+  for i in 0..<8192 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test zip roundtrip (exercises unzip_sync offset path)
+test "inflt/offset/zip_roundtrip" {
+  let data = FixedArray::make(4096, b'\x00')
+  for i in 0..<4096 {
+    data[i] = (i % 256).to_byte()
+  }
+  let zipped = zip_sync([("test.bin", data)])
+  let entries = unzip_sync(zipped)
+  assert_eq(entries.length(), 1)
+  let (name, result) = entries[0]
+  assert_eq(name, "test.bin")
+  assert_eq(result.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(result[i], data[i])
+  }
+}
