@@ -4,28 +4,26 @@
 
 Based on benchmark comparison with moonzip (see `src/benchmarks/bench.md`).
 
-### P0: inflate 128KB minimum allocation
+### ~~P0: inflate 128KB minimum allocation~~ ✅
 
-`inflt()` in `src/inflate.mbt` always calls `ensure_buf(buf, bt + 131072)`, allocating at least 128KB even for tiny output. Then `slc()` copies again to right-size. This causes `inflate_sync`/`unzlib_sync` to be **18~21x slower** than moonzip for 1KB data (93µs vs 4.4µs), while `gunzip_sync` (which pre-allocates exact size from GZIP footer) only takes 2.8µs.
+`inflt()` in `src/inflate.mbt` always called `ensure_buf(buf, bt + 131072)`, allocating at least 128KB even for tiny output.
 
-Fix: scale `ensure_buf` growth relative to input size instead of hardcoding 131072.
+Fixed: scaled `ensure_buf` growth relative to input size. Result: 1KB inflate 93µs → 3.1µs (**30x faster**).
 
-### P1: Remove unnecessary slc() copy in gunzip_sync
+### ~~P1: Remove unnecessary slc() copy in gunzip_sync~~ ✅
 
-`gunzip_sync` (`src/gzip.mbt:103`) copies compressed data with `slc(data, st, e=data.length()-8)` before decompressing. This O(n) copy can be avoided by passing offset/length to `inflt()` directly.
+Added `dat_off`/`dat_end` parameters to `inflt()` to pass offset/length directly, eliminating the O(n) copy in `gunzip_sync`, `unzlib_sync`, and `unzip_sync`.
 
-Expected: ~10-20% improvement on GZIP decompression.
+### ~~P2: Large-data compression hash strategy~~ ✅
 
-### P2: Large-data compression hash strategy
+Capped deflate hash table to 32K entries matching the sliding window size. Result: 100KB zeros/sequential compress ~780µs → ~450µs (**1.7x faster**, now tied with moonzip).
 
-100KB compression of regular patterns (zeros/sequential) is **1.4~1.8x slower** than moonzip. `compute_mem_level` in `src/deflate.mbt` may produce suboptimal hash table sizes, and hash chain traversal efficiency may have room for improvement.
+### ~~P3: Reduce slc() copies across codebase~~ ✅
 
-### P3: Reduce slc() copies across codebase
+`dflt()`/`dopt()`/`inflt()` now return `(FixedArray[Byte], Int)` tuples, deferring `slc()` to public API boundaries. `str_from_u8()` gained `offset`/`len` parameters to avoid `slc()` in ZIP filename extraction. `zip_sync()` calls `dopt()` directly, eliminating one intermediate `slc()` per file.
 
-`slc()` always allocates + copies. Key sites:
+Result: 100KB deflate decompress 187µs → 131µs (**1.4x**), 100KB zlib decompress 183µs → 120µs (**1.5x**), 100KB gzip/zlib compress **1.4–1.6x faster**.
 
-- `dflt()` L356: truncates output buffer after compression
-- `inflt()` L271-274: truncates output after decompression
-- Various format wrappers
+## Current Status
 
-Consider length-tracking or buffer views to avoid O(n) copies.
+After P0–P3, fzip wins or ties moonzip on every benchmark. See `src/benchmarks/bench.md` for full results.
