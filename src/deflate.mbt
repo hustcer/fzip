@@ -217,11 +217,13 @@ fn dflt(
     }
     let bs1 = (plvl + 2) / 3
     let bs2 = 2 * bs1
-    // Dynamic array allocation based on input size
-    let syms_size = if s < 1024 {
-      1024
-    } else if s < 8192 {
-      s * 2
+    // Optimized buffer allocation (方案 5)
+    let syms_size = if s < 512 {
+      512
+    } else if s < 4096 {
+      s
+    } else if s < 16384 {
+      s + s / 4
     } else {
       25000
     }
@@ -234,6 +236,9 @@ fn dflt(
     let mut li = 0
     let mut wi = if st.w != 0 { st.w } else { 0 }
     let mut bs = 0
+    // Dynamic search tracking (方案 2)
+    let mut successful_matches = 0
+    let mut total_searches = 0
     while i + 2 < s {
       let hv = (
           dat[i].to_int() ^
@@ -290,11 +295,24 @@ fn dflt(
           let maxn_val = (if n < rem { n } else { rem }) - 1
           let maxd = if 32767 < i { 32767 } else { i }
           let ml = if 258 < rem { 258 } else { rem }
-          // Optimization: early exit thresholds
-          let good_match_len = 32
-          let min_improvement = 4
-          // Limit chain search depth for better performance
-          let max_chain = if rem < 4096 { 16 } else { 32 }
+          // Dynamic search parameters (方案 2)
+          let good_match_len = if rem < 1024 { 16 } else { 32 }
+          let min_improvement = if rem < 1024 { 2 } else { 4 }
+          let base_chain = if rem < 4096 { 8 } else { 16 }
+          total_searches += 1
+          // Adaptive chain depth based on success rate
+          let max_chain = if total_searches < 100 {
+            base_chain
+          } else {
+            let success_rate = successful_matches * 100 / total_searches
+            if success_rate < 5 {
+              4
+            } else if success_rate < 20 {
+              8
+            } else {
+              base_chain
+            }
+          }
           let mut chain_count = 0
           while dif <= maxd &&
                 ch > 0 &&
@@ -347,6 +365,7 @@ fn dflt(
           }
         }
         if d != 0 {
+          successful_matches += 1
           syms[li] = 268435456 | (revfl[l] << 18) | revfd[d]
           li += 1
           let lin = revfl[l] & 31
