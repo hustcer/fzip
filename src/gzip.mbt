@@ -76,18 +76,17 @@ pub fn gzip_sync(
   let c = CRC32State::new()
   let l = data.length()
   c.push(data)
-  let d = dopt(
+  let (d, len) = dopt(
     data,
     { level: opts.level, mem: opts.mem, dictionary: opts.dictionary },
     gzhl(opts),
     8,
     None,
   )
-  let s = d.length()
   gzh(d, opts)
-  wbytes(d, s - 8, c.digest().reinterpret_as_int())
-  wbytes(d, s - 4, l)
-  d
+  wbytes(d, len - 8, c.digest().reinterpret_as_int())
+  wbytes(d, len - 4, l)
+  slc(d, 0, e=len)
 }
 
 ///|
@@ -104,7 +103,7 @@ pub fn gunzip_sync(
     Some(o) => o
     None => FixedArray::make(gzl(data), b'\x00')
   }
-  inflt(
+  let (buf, _len) = inflt(
     data,
     InflateState::new(2),
     Some(out),
@@ -112,4 +111,5 @@ pub fn gunzip_sync(
     dat_off=st,
     dat_end=data.length() - 8,
   )
+  buf
 }

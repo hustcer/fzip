@@ -208,3 +208,80 @@ test "deflate/inflate roundtrip - manual mem option" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "dflt/dopt returns (buf, len) with len < buf.length()" {
+  let data : FixedArray[Byte] = FixedArray::make(500, b'\x00')
+  for i in 0..<500 {
+    data[i] = (i % 50).to_byte()
+  }
+  let (buf, len) = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+  )
+  // len should be less than buf.length() (over-allocated output buffer)
+  assert_true(len <= buf.length())
+  assert_true(len > 0)
+  // slc at boundary should produce valid compressed data
+  let compressed = slc(buf, 0, e=len)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 500)
+  for i in 0..<500 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "dflt/dopt with pre/post returns correct len" {
+  let data : FixedArray[Byte] = FixedArray::make(200, b'\x00')
+  for i in 0..<200 {
+    data[i] = (i % 26 + 65).to_byte()
+  }
+  let pre = 10
+  let post = 8
+  let (buf, len) = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    pre,
+    post,
+    None,
+  )
+  assert_true(len <= buf.length())
+  assert_true(len > pre + post)
+  // The compressed DEFLATE data starts at offset `pre` and ends at `len - post`
+  // Extract just the DEFLATE portion and verify decompression
+  let deflate_data = slc(buf, pre, e=len - post)
+  let decompressed = inflate_sync(deflate_data)
+  assert_eq(decompressed.length(), 200)
+  for i in 0..<200 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "zip_sync/unzip_sync multi-file roundtrip after slc optimization" {
+  let files : Array[(String, FixedArray[Byte])] = []
+  for k in 0..<5 {
+    let size = (k + 1) * 200
+    let data = FixedArray::make(size, b'\x00')
+    for i in 0..<size {
+      data[i] = ((i + k * 7) % 256).to_byte()
+    }
+    files.push(("file" + k.to_string() + ".bin", data))
+  }
+  let zipped = zip_sync(files)
+  let entries = unzip_sync(zipped)
+  assert_eq(entries.length(), 5)
+  for k in 0..<5 {
+    let (name, result) = entries[k]
+    let (expected_name, expected_data) = files[k]
+    assert_eq(name, expected_name)
+    assert_eq(result.length(), expected_data.length())
+    for i in 0..<expected_data.length() {
+      assert_eq(result[i], expected_data[i])
+    }
+  }
+}

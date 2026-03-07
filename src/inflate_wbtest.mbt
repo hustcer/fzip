@@ -132,7 +132,7 @@ test "inflt/offset/basic" {
   let suffix = 7
   let padded = FixedArray::make(prefix + cl + suffix, b'\xAA')
   compressed.blit_to(padded, len=cl, src_offset=0, dst_offset=prefix)
-  let result = inflt(
+  let (result, result_len) = inflt(
     padded,
     InflateState::new(2),
     None,
@@ -140,7 +140,7 @@ test "inflt/offset/basic" {
     dat_off=prefix,
     dat_end=prefix + cl,
   )
-  assert_eq(result.length(), 256)
+  assert_eq(result_len, 256)
   for i in 0..<256 {
     assert_eq(result[i], data[i])
   }
@@ -159,7 +159,7 @@ test "inflt/offset/with_output_buf" {
   let padded = FixedArray::make(prefix + cl + 5, b'\xFF')
   compressed.blit_to(padded, len=cl, src_offset=0, dst_offset=prefix)
   let out = FixedArray::make(512, b'\x00')
-  let result = inflt(
+  let (result, result_len) = inflt(
     padded,
     InflateState::new(2),
     Some(out),
@@ -167,7 +167,7 @@ test "inflt/offset/with_output_buf" {
     dat_off=prefix,
     dat_end=prefix + cl,
   )
-  assert_eq(result.length(), 512)
+  assert_eq(result_len, 512)
   for i in 0..<512 {
     assert_eq(result[i], data[i])
   }
@@ -218,5 +218,56 @@ test "inflt/offset/zip_roundtrip" {
   assert_eq(result.length(), 4096)
   for i in 0..<4096 {
     assert_eq(result[i], data[i])
+  }
+}
+
+///|
+test "inflt/tuple_return/no_buf" {
+  // Without pre-allocated buffer, inflt returns oversized buf with valid len
+  let data = FixedArray::make(300, b'\x00')
+  for i in 0..<300 {
+    data[i] = (i % 64).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let (buf, len) = inflt(compressed, InflateState::new(2), None, None)
+  assert_eq(len, 300)
+  // buf may be larger than len (over-allocated)
+  assert_true(buf.length() >= len)
+  for i in 0..<300 {
+    assert_eq(buf[i], data[i])
+  }
+}
+
+///|
+test "inflt/tuple_return/exact_buf" {
+  // With exact-size buffer, len should equal buf.length()
+  let data = FixedArray::make(256, b'\x00')
+  for i in 0..<256 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let out = FixedArray::make(256, b'\x00')
+  let (buf, len) = inflt(compressed, InflateState::new(2), Some(out), None)
+  assert_eq(len, 256)
+  assert_eq(buf.length(), 256)
+  for i in 0..<256 {
+    assert_eq(buf[i], data[i])
+  }
+}
+
+///|
+test "inflt/tuple_return/oversized_buf" {
+  // With oversized buffer, len < buf.length()
+  let data = FixedArray::make(100, b'\x00')
+  for i in 0..<100 {
+    data[i] = (i % 50).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let out = FixedArray::make(500, b'\x00')
+  let (buf, len) = inflt(compressed, InflateState::new(2), Some(out), None)
+  assert_eq(len, 100)
+  assert_eq(buf.length(), 500)
+  for i in 0..<100 {
+    assert_eq(buf[i], data[i])
   }
 }

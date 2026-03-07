@@ -18,7 +18,7 @@ pub fn gzip_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
 
 pub fn inflate_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
-pub fn str_from_u8(FixedArray[Byte], latin1? : Bool) -> String raise FzipError
+pub fn str_from_u8(FixedArray[Byte], latin1? : Bool, offset? : Int, len? : Int) -> String raise FzipError
 
 pub fn str_to_u8(String, latin1? : Bool) -> FixedArray[Byte]
 
