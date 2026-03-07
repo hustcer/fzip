@@ -273,14 +273,26 @@ fn dflt(
           let maxn_val = (if n < rem { n } else { rem }) - 1
           let maxd = if 32767 < i { 32767 } else { i }
           let ml = if 258 < rem { 258 } else { rem }
-          while dif <= maxd && ch > 0 && imod != pimod {
+          // Optimization: early exit thresholds
+          let good_match_len = 32
+          let min_improvement = 4
+          // Limit chain search depth for better performance
+          let max_chain = if rem < 4096 { 16 } else { 32 }
+          let mut chain_count = 0
+          while dif <= maxd && ch > 0 && imod != pimod && chain_count < max_chain {
+            chain_count += 1
+            // Early exit 1: found good enough match
+            if l >= good_match_len {
+              break
+            }
             ch -= 1
             if dat[i + l] == dat[i + l - dif] {
               let mut nl = 0
               while nl < ml && dat[i + nl] == dat[i + nl - dif] {
                 nl += 1
               }
-              if nl > l {
+              // Early exit 2: only update if significant improvement
+              if nl > l + min_improvement {
                 l = nl
                 d = dif
                 if nl > maxn_val {
@@ -297,6 +309,16 @@ fn dflt(
                     pimod = ti
                   }
                 }
+              } else if nl > l {
+                // Small improvement: still update but consider stopping
+                l = nl
+                d = dif
+                if nl > maxn_val {
+                  break
+                }
+              } else {
+                // Early exit 3: match quality degrading
+                break
               }
             }
             let old_imod = pimod
