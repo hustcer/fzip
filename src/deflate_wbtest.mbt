@@ -89,31 +89,24 @@ test "deflate level 9 - best" {
 
 ///|
 test "compute_mem_level - small inputs" {
-  // len=1 → log_val stays 8, plvl = (8*3+1)/2 = 12
-  assert_eq(compute_mem_level(1), 12)
-  // len=256 → log_val stays 8 (while loop: 256 not > 256)
-  assert_eq(compute_mem_level(256), 12)
+  // len < 2048 → returns 10 (optimized for small data)
+  assert_eq(compute_mem_level(1), 10)
+  assert_eq(compute_mem_level(256), 10)
+  assert_eq(compute_mem_level(1024), 10)
+  assert_eq(compute_mem_level(2047), 10)
 }
 
 ///|
 test "compute_mem_level - medium inputs" {
-  // len=257 → one iteration: v=128, log_val=9, plvl = (9*3+1)/2 = 14
-  assert_eq(compute_mem_level(257), 14)
-  // len=512 → one iteration: v=256, log_val=9
-  assert_eq(compute_mem_level(512), 14)
-  // len=513 → v=256, log_val=9 (256 not > 256, loop exits), plvl=14
-  assert_eq(compute_mem_level(513), 14)
-  // len=514 → v=257→128, log_val=10, breaks at >=10, plvl=15
-  assert_eq(compute_mem_level(514), 15)
-  // len=1024 → v=512→256, log_val=10, breaks at >=10
-  assert_eq(compute_mem_level(1024), 15)
+  // 2048 <= len < 8192 → returns 12
+  assert_eq(compute_mem_level(2048), 12)
+  assert_eq(compute_mem_level(4096), 12)
+  assert_eq(compute_mem_level(8191), 12)
 }
 
 ///|
 test "compute_mem_level - large inputs capped at 15" {
-  // 2KB+ all cap at plvl=15 due to log_val >= 10 break
-  assert_eq(compute_mem_level(2048), 15)
-  assert_eq(compute_mem_level(4096), 15)
+  // len >= 8192 → original algorithm, caps at 15
   assert_eq(compute_mem_level(8192), 15)
   assert_eq(compute_mem_level(65536), 15)
   assert_eq(compute_mem_level(100000), 15)
