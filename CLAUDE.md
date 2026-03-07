@@ -20,9 +20,11 @@ moon info               # Regenerate pkg.generated.mbti (public API summary)
 
 Validation loop: `moon check` → `moon test` → `moon fmt` → `moon info`
 
-## Architecture
+## Directory Structure
 
-Single-package design — all `.mbt` files share the same scope. No imports needed.
+Source code lives under `src/` (configured via `"source": "src"` in `moon.mod.json`). Single-package design — all `.mbt` files in `src/` share the same scope. No imports needed.
+
+## Architecture
 
 ### Data Flow (compression)
 
@@ -49,20 +51,20 @@ compressed → inflt() [block decoder] → raw data
 
 | File | Role |
 |------|------|
-| `bits.mbt` | Bit-level I/O (`bits`, `bits16`, `wbits`, `wbits16`), byte readers (`b2`/`b4`/`b8`), buffer helpers (`slc`, `fa_set`) |
-| `tables.mbt` | DEFLATE constant lookup tables (`fleb`, `fdeb`, `clim`, `rev`, `flt`, `fdt`, `deo`) |
-| `huffman.mbt` | Huffman tree construction (`h_map`, `h_tree`, `freb`, `lc_gen`, `clen`); derived tables (`fl`, `fd`, `flm`, `fdm` and their reverse variants) |
-| `deflate.mbt` | Core compressor: `dflt()` (LZ77 hash chain + Huffman), `wblk()`/`wfblk()` block writers, `dopt()`, public `deflate_sync()` |
-| `inflate.mbt` | Core decompressor: `inflt()` (~280 lines, handles stored/fixed/dynamic blocks), `ensure_buf()`, public `inflate_sync()` |
-| `gzip.mbt` | GZIP format: header write/parse (`gzh`/`gzs`), `gzip_sync()`, `gunzip_sync()` |
-| `zlib.mbt` | Zlib format: header write/parse (`zlh`/`zls`), `zlib_sync()`, `unzlib_sync()` |
-| `zip.mbt` | ZIP format: local/central headers (`wzh`/`wzf`/`zh`/`slzh`), ZIP64 (`z64e`), `zip_sync()`, `unzip_sync()`, `unzip_list()` |
-| `checksum.mbt` | CRC-32 and Adler-32 (both one-shot and incremental state) |
-| `string.mbt` | UTF-8 ↔ String conversion (`str_to_u8`, `str_from_u8`) with latin1 mode |
-| `stream.mbt` | Streaming wrappers: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream`, `ZlibStream`, `UnzlibStream`, `DecompressStream` |
-| `fzip.mbt` | Convenience API: `compress_sync()` (= gzip), `decompress_sync()` (auto-detect) |
-| `error.mbt` | `FzipErrorCode` enum (15 codes), `FzipError` suberror, `fzip_err()` helper |
-| `types.mbt` | Option structs with `::default()` methods |
+| `src/bits.mbt` | Bit-level I/O (`bits`, `bits16`, `wbits`, `wbits16`), byte readers (`b2`/`b4`/`b8`), buffer helpers (`slc`, `fa_set`) |
+| `src/tables.mbt` | DEFLATE constant lookup tables (`fleb`, `fdeb`, `clim`, `rev`, `flt`, `fdt`, `deo`) |
+| `src/huffman.mbt` | Huffman tree construction (`h_map`, `h_tree`, `freb`, `lc_gen`, `clen`); derived tables (`fl`, `fd`, `flm`, `fdm` and their reverse variants) |
+| `src/deflate.mbt` | Core compressor: `dflt()` (LZ77 hash chain + Huffman), `wblk()`/`wfblk()` block writers, `dopt()`, public `deflate_sync()` |
+| `src/inflate.mbt` | Core decompressor: `inflt()` (~280 lines, handles stored/fixed/dynamic blocks), `ensure_buf()`, public `inflate_sync()` |
+| `src/gzip.mbt` | GZIP format: header write/parse (`gzh`/`gzs`), `gzip_sync()`, `gunzip_sync()` |
+| `src/zlib.mbt` | Zlib format: header write/parse (`zlh`/`zls`), `zlib_sync()`, `unzlib_sync()` |
+| `src/zip.mbt` | ZIP format: local/central headers (`wzh`/`wzf`/`zh`/`slzh`), ZIP64 (`z64e`), `zip_sync()`, `unzip_sync()`, `unzip_list()` |
+| `src/checksum.mbt` | CRC-32 and Adler-32 (both one-shot and incremental state) |
+| `src/string.mbt` | UTF-8 ↔ String conversion (`str_to_u8`, `str_from_u8`) with latin1 mode |
+| `src/stream.mbt` | Streaming wrappers: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream`, `ZlibStream`, `UnzlibStream`, `DecompressStream` |
+| `src/fzip.mbt` | Convenience API: `compress_sync()` (= gzip), `decompress_sync()` (auto-detect) |
+| `src/error.mbt` | `FzipErrorCode` enum (15 codes), `FzipError` suberror, `fzip_err()` helper |
+| `src/types.mbt` | Option structs with `::default()` methods |
 
 ### Key Internal Patterns
 

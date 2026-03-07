@@ -1,5 +1,6 @@
 {
   "name": "hustcer/fzip",
   "version": "0.1.0",
-  "description": "High-performance compression library for MoonBit (DEFLATE/GZIP/Zlib/ZIP)"
+  "description": "High-performance compression library for MoonBit (DEFLATE/GZIP/Zlib/ZIP)",
+  "source": "src"
 }
