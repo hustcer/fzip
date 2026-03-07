@@ -182,6 +182,36 @@ fn compute_mem_level(len : Int) -> Int {
 }
 
 ///|
+/// Fast compressibility detection via sampling
+fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
+  if len < 512 {
+    return true
+  }
+  let sample_size = len / 64
+  let mut unique_count = 0
+  let seen : FixedArray[Bool] = FixedArray::make(256, false)
+  let mut match_count = 0
+  for i in 0..<sample_size {
+    let pos = start + i * 64
+    let b = dat[pos]
+    if not(seen[b.to_int()]) {
+      seen[b.to_int()] = true
+      unique_count += 1
+    }
+    if pos >= 3 &&
+      (
+        dat[pos] == dat[pos - 1] ||
+        (dat[pos] == dat[pos - 2] && dat[pos - 1] == dat[pos - 3])
+      ) {
+      match_count += 1
+    }
+  }
+  let entropy_high = unique_count > 200
+  let match_rate_low = match_count * 10 < sample_size
+  not(entropy_high && match_rate_low)
+}
+
+///|
 /// Core DEFLATE compression function
 fn dflt(
   dat : FixedArray[Byte],
@@ -198,6 +228,10 @@ fn dflt(
   let lst = st.l
   let mut pos = st.r & 7
   if lvl > 0 {
+    // Fast incompressible data detection (方案 1)
+    if not(is_compressible(dat, 0, s)) {
+      return dflt(dat, 0, plvl, pre, post, st)
+    }
     if pos != 0 {
       o[w_start] = (st.r >> 3).to_byte()
     }
