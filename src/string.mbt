@@ -84,10 +84,13 @@ pub fn str_from_u8(
       buf.write_char(c.unsafe_to_char())
       i += 1
     } else if eb == 3 {
-      let v = (((c & 15) << 18) |
-        ((data[i + 1].to_int() & 63) << 12) |
-        ((data[i + 2].to_int() & 63) << 6) |
-        (data[i + 3].to_int() & 63)) - 65536
+      let v = (
+          ((c & 15) << 18) |
+          ((data[i + 1].to_int() & 63) << 12) |
+          ((data[i + 2].to_int() & 63) << 6) |
+          (data[i + 3].to_int() & 63)
+        ) -
+        65536
       buf.write_char((55296 | (v >> 10)).unsafe_to_char())
       buf.write_char((56320 | (v & 1023)).unsafe_to_char())
       i += 4
