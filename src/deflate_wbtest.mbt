@@ -278,3 +278,53 @@ test "zip_sync/unzip_sync multi-file roundtrip after slc optimization" {
     }
   }
 }
+
+///|
+test "perf opt - buffer allocation boundaries" {
+  let sizes = [256, 512, 1024, 4096, 8192, 16384, 32768]
+  for i in 0..<sizes.length() {
+    let size = sizes[i]
+    let data = FixedArray::make(size, b'\x00')
+    for j in 0..<size {
+      data[j] = (j % 256).to_byte()
+    }
+    let compressed = deflate_sync(data)
+    let decompressed = inflate_sync(compressed)
+    assert_eq(decompressed.length(), size)
+  }
+}
+
+///|
+test "perf opt - small data compression" {
+  let sizes = [100, 256, 512, 1024]
+  for i in 0..<sizes.length() {
+    let size = sizes[i]
+    let data = FixedArray::make(size, b'\x00')
+    for j in 0..<size {
+      data[j] = ((j * 7 + 13) % 256).to_byte()
+    }
+    let compressed = deflate_sync(data)
+    let decompressed = inflate_sync(compressed)
+    assert_eq(decompressed.length(), size)
+    for j in 0..<size {
+      assert_eq(decompressed[j], data[j])
+    }
+  }
+}
+
+///|
+test "perf opt - random data correctness" {
+  let size = 10000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 54321
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
