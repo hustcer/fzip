@@ -46,132 +46,182 @@ def gen_deflate_compress [benches: list] {
     let patterns = [zeros seq random]
     let sizes = ['1k' '100k']
 
-    print "| Pattern | Size | fzip | moonzip | zipc | Winner | Max-Min Ratio |"
-    print "|---------|------|------|---------|------|--------|---------------|"
-
-    for pattern in $patterns {
-        for size in $sizes {
+    let rows = $patterns | each {|pattern|
+        $sizes | each {|size|
             let prefix = $'deflate/compress/($pattern)_($size)/'
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            print $"| ($pattern) | ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | (fmt_time $zipc) | ($stats.winner) | ($stats.ratio)x |"
+            {
+                Pattern: $pattern,
+                Size: ($size | str upcase),
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                zipc: (fmt_time $zipc),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x'
+            }
         }
-    }
+    } | flatten
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate DEFLATE decompress table
 def gen_deflate_decompress [benches: list] {
     print "## DEFLATE Decompress\n"
-    print "| Size | fzip | moonzip | zipc | Winner | Max-Min Ratio |"
-    print "|------|------|---------|------|--------|---------------|"
 
-    for size in ['1k' '100k'] {
+    let rows = ['1k' '100k'] | each {|size|
         let prefix = $'deflate/decompress/($size)/'
         let fzip = $benches | where name == $'($prefix)fzip' | get 0
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let zipc = $benches | where name == $'($prefix)zipc' | get 0
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-        print $"| ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | (fmt_time $zipc) | ($stats.winner) | ($stats.ratio)x |"
+        {
+            Size: ($size | str upcase),
+            fzip: (fmt_time $fzip),
+            moonzip: (fmt_time $moonzip),
+            zipc: (fmt_time $zipc),
+            Winner: $stats.winner,
+            'Max-Min Ratio': $'($stats.ratio)x'
+        }
     }
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate GZIP table
 def gen_gzip [benches: list] {
     print "## GZIP\n"
-    print "| Operation | Size | fzip | moonzip | zipc | Winner | Max-Min Ratio |"
-    print "|-----------|------|------|---------|------|--------|---------------|"
 
-    for op in [compress decompress] {
-        for size in ['1k' '100k'] {
+    let rows = [compress decompress] | each {|op|
+        ['1k' '100k'] | each {|size|
             let prefix = $'gzip/($op)/($size)/'
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            print $"| ($op) | ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | (fmt_time $zipc) | ($stats.winner) | ($stats.ratio)x |"
+            {
+                Operation: $op,
+                Size: ($size | str upcase),
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                zipc: (fmt_time $zipc),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x'
+            }
         }
-    }
+    } | flatten
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate Zlib table
 def gen_zlib [benches: list] {
     print "## Zlib\n"
-    print "| Operation | Size | fzip | moonzip | zipc | Winner | Max-Min Ratio |"
-    print "|-----------|------|------|---------|------|--------|---------------|"
 
-    for op in [compress decompress] {
-        for size in ['1k' '100k'] {
+    let rows = [compress decompress] | each {|op|
+        ['1k' '100k'] | each {|size|
             let prefix = $'zlib/($op)/($size)/'
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            print $"| ($op) | ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | (fmt_time $zipc) | ($stats.winner) | ($stats.ratio)x |"
+            {
+                Operation: $op,
+                Size: ($size | str upcase),
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                zipc: (fmt_time $zipc),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x'
+            }
         }
-    }
+    } | flatten
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate ZIP table
 def gen_zip [benches: list] {
     print "## ZIP\n"
-    print "| Operation | fzip | moonzip | Winner | Max-Min Ratio |"
-    print "|-----------|------|---------|--------|---------------|"
 
-    for op in [compress decompress] {
+    let rows = [compress decompress] | each {|op|
         let prefix = $'zip/($op)/'
         let fzip = $benches | where name == $'($prefix)fzip' | get 0
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip}
 
-        print $"| ($op) | (fmt_time $fzip) | (fmt_time $moonzip) | ($stats.winner) | ($stats.ratio)x |"
+        {
+            Operation: $op,
+            fzip: (fmt_time $fzip),
+            moonzip: (fmt_time $moonzip),
+            Winner: $stats.winner,
+            'Max-Min Ratio': $'($stats.ratio)x'
+        }
     }
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate checksum table
 def gen_checksum [benches: list] {
     print "## Checksum\n"
-    print "| Algorithm | Size | fzip | moonzip | zipc | Winner | Max-Min Ratio |"
-    print "|-----------|------|------|---------|------|--------|---------------|"
 
-    for algo in [crc32 adler32] {
-        for size in ['1k' '100k'] {
+    let rows = [crc32 adler32] | each {|algo|
+        ['1k' '100k'] | each {|size|
             let prefix = $'($algo)/($size)/'
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            print $"| ($algo | str upcase) | ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | (fmt_time $zipc) | ($stats.winner) | ($stats.ratio)x |"
+            {
+                Algorithm: ($algo | str upcase),
+                Size: ($size | str upcase),
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                zipc: (fmt_time $zipc),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x'
+            }
         }
-    }
+    } | flatten
+
+    print ($rows | to md)
     print ""
 }
 
 # Generate auto-detect table
 def gen_auto_detect [benches: list] {
     print "## Auto-detect Decompress\n"
-    print "| Size | fzip | moonzip | Winner | Max-Min Ratio |"
-    print "|------|------|---------|--------|---------------|"
 
-    for size in ['1k' '100k'] {
+    let rows = ['1k' '100k'] | each {|size|
         let prefix = $'decompress/auto_detect/($size)/'
         let fzip = $benches | where name == $'($prefix)fzip' | get 0
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip}
 
-        print $"| ($size | str upcase) | (fmt_time $fzip) | (fmt_time $moonzip) | ($stats.winner) | ($stats.ratio)x |"
+        {
+            Size: ($size | str upcase),
+            fzip: (fmt_time $fzip),
+            moonzip: (fmt_time $moonzip),
+            Winner: $stats.winner,
+            'Max-Min Ratio': $'($stats.ratio)x'
+        }
     }
+
+    print ($rows | to md)
     print ""
 }
 
