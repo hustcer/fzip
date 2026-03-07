@@ -36,11 +36,11 @@ def parse-data-line [name: string, line: string]: nothing -> record {
 
   {
     name: $name
-    mean_us: (to-microseconds $mean $unit | math round -p 3)
-    std_us: (to-microseconds $std $unit | math round -p 3)
-    min_us: (to-microseconds $min $unit | math round -p 3)
-    max_us: (to-microseconds $max $unit | math round -p 3)
-    unit: $unit
+    mean_us: (to-microseconds $mean $unit | math round -p 2)
+    std_us: (to-microseconds $std $unit | math round -p 2)
+    min_us: (to-microseconds $min $unit | math round -p 2)
+    max_us: (to-microseconds $max $unit | math round -p 2)
+    unit: 'µs'  # All values are now in microseconds
     iterations: ($parsed.iters | into int)
     runs: ($parsed.runs | into int)
   }
