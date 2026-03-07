@@ -1,83 +1,65 @@
-# fzip vs moonzip vs zipc Benchmark
+# fzip Benchmark Report
 
-- Platform: macOS (Darwin 25.3.0, Apple Silicon)
-- MoonBit: moon 0.1.20260209
-- fzip: 0.1.2, moonzip: 0.2.4, zipc: 0.1.1
-- Target: wasm-gc (default)
+- Platform: Darwin arm64
+- MoonBit: moon 0.1.20260209 (b129ae2 2026-02-09)
+- Target: wasm-gc
 - Date: 2026-03-07
 
-Run: `moon bench -p hustcer/fzip/benchmarks`
+## DEFLATE Compress
 
-## DEFLATE Compress (level 6)
-
-| Data Pattern | Size  | fzip       | moonzip  | zipc        | Winner |
-| ------------ | ----- | ---------- | -------- | ----------- | ------ |
-| zeros        | 1KB   | 38 µs      | 99 µs    | **11 µs**   | zipc   |
-| zeros        | 100KB | **448 µs** | 451 µs   | 1.07 ms     | fzip   |
-| sequential   | 1KB   | 50 µs      | 112 µs   | **11 µs**   | zipc   |
-| sequential   | 100KB | **464 µs** | 447 µs   | 1.05 ms     | fzip   |
-| random       | 1KB   | 72 µs      | 195 µs   | **11 µs**   | zipc   |
-| random       | 100KB | 6.59 ms    | 42.80 ms | **1.05 ms** | zipc   |
-
-> Note: zipc 1KB compression times are uniformly ~11µs regardless of data pattern.
+| Pattern | Size | fzip      | moonzip   | zipc     | Winner  | Max-Min Ratio |
+| ------- | ---- | --------- | --------- | -------- | ------- | ------------- |
+| zeros   | 1K   | 39.47 µs  | 104.32 µs | 10.55 µs | zipc    | 9.9x          |
+| zeros   | 100K | 464.03 µs | 459.44 µs | 1050 µs  | moonzip | 2.3x          |
+| seq     | 1K   | 49.12 µs  | 118.23 µs | 10.72 µs | zipc    | 11.0x         |
+| seq     | 100K | 459.18 µs | 438.98 µs | 1050 µs  | moonzip | 2.4x          |
+| random  | 1K   | 68.94 µs  | 183.93 µs | 10.94 µs | zipc    | 16.8x         |
+| random  | 100K | 6500 µs   | 43190 µs  | 1050 µs  | zipc    | 41.1x         |
 
 ## DEFLATE Decompress
 
-| Size  | fzip       | moonzip | zipc       | Winner            |
-| ----- | ---------- | ------- | ---------- | ----------------- |
-| 1KB   | 3.1 µs     | 4.7 µs  | **0.8 µs** | zipc              |
-| 100KB | **118 µs** | 306 µs  | 118 µs     | tie (fzip ≈ zipc) |
+| Size | fzip      | moonzip   | zipc      | Winner | Max-Min Ratio |
+| ---- | --------- | --------- | --------- | ------ | ------------- |
+| 1K   | 3.04 µs   | 4.42 µs   | 0.78 µs   | zipc   | 5.7x          |
+| 100K | 116.84 µs | 303.37 µs | 117.46 µs | fzip   | 2.6x          |
 
-## GZIP Compress / Decompress
+## GZIP
 
-| Op         | Size  | fzip       | moonzip | zipc      | Winner |
-| ---------- | ----- | ---------- | ------- | --------- | ------ |
-| compress   | 1KB   | 55 µs      | 117 µs  | **16 µs** | zipc   |
-| compress   | 100KB | **827 µs** | 823 µs  | 1.57 ms   | fzip   |
-| decompress | 1KB   | **2.8 µs** | 8.5 µs  | 4.9 µs    | fzip   |
-| decompress | 100KB | **90 µs**  | 670 µs  | 499 µs    | fzip   |
+| Operation  | Size | fzip     | moonzip   | zipc      | Winner | Max-Min Ratio |
+| ---------- | ---- | -------- | --------- | --------- | ------ | ------------- |
+| compress   | 1K   | 54.59 µs | 120.86 µs | 15.61 µs  | zipc   | 7.7x          |
+| compress   | 100K | 824.1 µs | 883.04 µs | 1550 µs   | fzip   | 1.9x          |
+| decompress | 1K   | 2.91 µs  | 8.49 µs   | 4.9 µs    | fzip   | 2.9x          |
+| decompress | 100K | 89.88 µs | 737.72 µs | 504.82 µs | fzip   | 8.2x          |
 
-## Zlib Compress / Decompress
+## Zlib
 
-| Op         | Size  | fzip       | moonzip | zipc      | Winner |
-| ---------- | ----- | ---------- | ------- | --------- | ------ |
-| compress   | 1KB   | 50 µs      | 118 µs  | **21 µs** | zipc   |
-| compress   | 100KB | **526 µs** | 512 µs  | 2.09 ms   | fzip   |
-| decompress | 1KB   | **3.1 µs** | 5.4 µs  | 9.9 µs    | fzip   |
-| decompress | 100KB | **117 µs** | 368 µs  | 1.87 ms   | fzip   |
+| Operation  | Size | fzip      | moonzip   | zipc     | Winner  | Max-Min Ratio |
+| ---------- | ---- | --------- | --------- | -------- | ------- | ------------- |
+| compress   | 1K   | 52.83 µs  | 112.39 µs | 20.73 µs | zipc    | 5.4x          |
+| compress   | 100K | 525.23 µs | 524.23 µs | 2110 µs  | moonzip | 4.0x          |
+| decompress | 1K   | 3.17 µs   | 5.32 µs   | 9.97 µs  | fzip    | 3.1x          |
+| decompress | 100K | 116.41 µs | 365.7 µs  | 1870 µs  | fzip    | 16.1x         |
 
-## ZIP Compress / Decompress
+## ZIP
 
-| Op                   | fzip       | moonzip | zipc | Winner |
-| -------------------- | ---------- | ------- | ---- | ------ |
-| compress (3 files)   | **184 µs** | 585 µs  | —    | fzip   |
-| decompress (3 files) | **4.4 µs** | 40 µs   | —    | fzip   |
-
-> Note: zipc uses a different Archive builder API, not comparable for ZIP operations.
+| Operation  | fzip      | moonzip   | Winner | Max-Min Ratio |
+| ---------- | --------- | --------- | ------ | ------------- |
+| compress   | 187.67 µs | 598.98 µs | fzip   | 3.2x          |
+| decompress | 4.52 µs   | 38.97 µs  | fzip   | 8.6x          |
 
 ## Checksum
 
-| Algorithm | Size  | fzip        | moonzip | zipc   | Winner |
-| --------- | ----- | ----------- | ------- | ------ | ------ |
-| CRC-32    | 1KB   | 3.5 µs      | 3.5 µs  | 3.6 µs | tie    |
-| CRC-32    | 100KB | 356 µs      | 356 µs  | 362 µs | tie    |
-| Adler-32  | 1KB   | **0.62 µs** | 0.63 µs | 8.7 µs | fzip   |
-| Adler-32  | 100KB | **61 µs**   | 61 µs   | 872 µs | fzip   |
+| Algorithm | Size | fzip      | moonzip   | zipc      | Winner  | Max-Min Ratio |
+| --------- | ---- | --------- | --------- | --------- | ------- | ------------- |
+| CRC32     | 1K   | 3.51 µs   | 3.52 µs   | 3.58 µs   | fzip    | 1.0x          |
+| CRC32     | 100K | 362.71 µs | 356.28 µs | 358.71 µs | moonzip | 1.0x          |
+| ADLER32   | 1K   | 0.63 µs   | 0.63 µs   | 8.67 µs   | fzip    | 13.8x         |
+| ADLER32   | 100K | 61.97 µs  | 61.26 µs  | 870.68 µs | moonzip | 14.2x         |
 
-## Auto-detect Decompress (decompress_sync)
+## Auto-detect Decompress
 
-| Size  | fzip       | moonzip | zipc | Winner |
-| ----- | ---------- | ------- | ---- | ------ |
-| 1KB   | **2.9 µs** | 8.4 µs  | —    | fzip   |
-| 100KB | **90 µs**  | 666 µs  | —    | fzip   |
-
-> Note: zipc does not provide an auto-detect decompress API.
-
-## Key Findings
-
-1. **fzip is the most well-rounded** — Fastest or tied in decompression, large-data compression, checksums, ZIP, and auto-detect across all categories.
-2. **zipc excels at small-data compression** — 1KB DEFLATE/GZIP/Zlib compression is 3–7x faster than fzip, with uniform timing (~11µs regardless of data pattern).
-3. **zipc dominates random 100KB compression** — 1.05ms vs fzip 6.59ms (6.3x) vs moonzip 42.80ms (40.8x).
-4. **fzip dominates decompression** — GZIP decompress 100KB: fzip 90µs vs zipc 499µs (5.5x) vs moonzip 670µs (7.4x). Zlib decompress 100KB: fzip 117µs vs zipc 1.87ms (16x).
-5. **zipc Adler-32 is slow** — 872µs vs fzip/moonzip 61µs (14.3x slower).
-6. **CRC-32 is identical across all three** — Same algorithm, same performance (~356µs for 100KB).
+| Size | fzip     | moonzip   | Winner | Max-Min Ratio |
+| ---- | -------- | --------- | ------ | ------------- |
+| 1K   | 2.87 µs  | 8.3 µs    | fzip   | 2.9x          |
+| 100K | 89.71 µs | 668.27 µs | fzip   | 7.4x          |
