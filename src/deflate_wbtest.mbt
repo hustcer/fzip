@@ -409,3 +409,24 @@ test "deflate pool correctness - multiple compressions" {
     assert_eq(decompressed3[i], (i % 256).to_byte())
   }
 }
+
+///|
+test "deflate - very small data" {
+  // Test data < 256 bytes to trigger edge cases in compute_mem_level
+  let tiny = FixedArray::make(100, b'x')
+  let compressed = deflate_sync(tiny)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 100)
+  for i in 0..<100 {
+    assert_eq(decompressed[i], b'x')
+  }
+}
+
+///|
+test "deflate - extremely small data" {
+  // Test data < 50 bytes
+  let micro = FixedArray::make(20, b'a')
+  let compressed = deflate_sync(micro)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 20)
+}

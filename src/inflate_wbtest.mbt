@@ -271,3 +271,22 @@ test "inflt/tuple_return/oversized_buf" {
     assert_eq(buf[i], data[i])
   }
 }
+
+///|
+test "inflate - corrupted data error" {
+  // Test error handling with corrupted data
+  let corrupted = FixedArray::make(10, b'\xff')
+  let result = try? inflate_sync(corrupted)
+  assert_true(result is Err(_))
+}
+
+///|
+test "inflate - truncated data error" {
+  // Test error handling with truncated compressed data
+  let data = FixedArray::make(100, b'x')
+  let compressed = deflate_sync(data)
+  // Take only first half of compressed data
+  let truncated = slc(compressed, 0, e=compressed.length() / 2)
+  let result = try? inflate_sync(truncated)
+  assert_true(result is Err(_))
+}
