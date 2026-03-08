@@ -29,6 +29,10 @@ fn inflt(
   dat_end? : Int = dat.length(),
 ) -> (FixedArray[Byte], Int) raise FzipError {
   let sl = dat_end - dat_off
+  // Check input size against configured limit (before any processing)
+  if sl > max_input_size {
+    raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
+  }
   let dl = match dict {
     Some(d) => d.length()
     None => 0
@@ -45,10 +49,6 @@ fn inflt(
   let mut buf = match buf {
     Some(b) => b
     None => {
-      // Check input size against configured limit
-      if sl > max_input_size {
-        raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
-      }
       // Prevent integer overflow: check if sl * 3 would overflow
       let max_safe = max_output_size / 3
       if sl > max_safe {

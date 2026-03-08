@@ -315,3 +315,54 @@ test "inflate - truncated data error" {
   let result = try? inflate_sync(truncated)
   assert_true(result is Err(_))
 }
+
+///|
+test "inflate - custom max_output_size limit" {
+  // Test that max_output_size is enforced
+  let data = FixedArray::make(1000, b'A')
+  let compressed = deflate_sync(data)
+  // Set max_output_size to 500 bytes (less than actual output)
+  let result = try? inflate_sync(compressed, opts={
+    out: None,
+    dictionary: None,
+    max_output_size: 500,
+    max_input_size: 1073741824,
+  })
+  assert_true(result is Err(_))
+}
+
+///|
+test "inflate - custom max_input_size limit" {
+  // Test that max_input_size is enforced
+  // Use larger data to ensure compressed size exceeds limit
+  let data = FixedArray::make(10000, b'B')
+  for i in 0..<10000 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  // Set max_input_size smaller than compressed size
+  let result = try? inflate_sync(compressed, opts={
+    out: None,
+    dictionary: None,
+    max_output_size: 104857600,
+    max_input_size: 100,
+  })
+  assert_true(result is Err(_))
+}
+
+///|
+test "inflate - large limits allow decompression" {
+  // Test that setting large limits allows normal decompression
+  let data = FixedArray::make(5000, b'C')
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed, opts={
+    out: None,
+    dictionary: None,
+    max_output_size: 10000,
+    max_input_size: 10000,
+  })
+  assert_eq(decompressed.length(), 5000)
+  for i in 0..<5000 {
+    assert_eq(decompressed[i], b'C')
+  }
+}
