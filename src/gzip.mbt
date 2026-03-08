@@ -29,6 +29,9 @@ fn gzh(c : FixedArray[Byte], o : GzipOptions) -> Unit {
 ///|
 /// Parse GZIP header and return data start offset
 fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
+  if d.length() < 10 {
+    raise fzip_err(InvalidHeader, msg="invalid gzip data")
+  }
   if d[0] != b'\x1F' || d[1] != b'\x8B' || d[2] != b'\x08' {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
@@ -40,6 +43,9 @@ fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
   // skip FNAME and FCOMMENT
   let mut zs = ((flg >> 3) & 1) + ((flg >> 4) & 1)
   while zs > 0 {
+    if st >= d.length() {
+      raise fzip_err(InvalidHeader, msg="invalid gzip data")
+    }
     if d[st] == b'\x00' {
       zs -= 1
     }
