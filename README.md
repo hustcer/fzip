@@ -8,6 +8,10 @@ High-performance compression library for [MoonBit](https://www.moonbitlang.com/)
 moon add hustcer/fzip
 ```
 
+## Benchmark
+
+Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
+
 ## Quick Start
 
 ```moonbit
@@ -134,10 +138,6 @@ let text = @fzip.str_from_u8(bytes)
 let bytes = @fzip.str_to_u8("Hello", latin1=true)
 let text = @fzip.str_from_u8(bytes, latin1=true)
 ```
-
-## Benchmark
-
-Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
 
 ## Development
 
