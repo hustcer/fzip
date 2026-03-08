@@ -68,14 +68,17 @@ fn z64e(
   b : Int,
 ) -> (Int, Int, Int) raise FzipError {
   let mut b = b
-  while b + 3 < d.length() && b2(d, b) != 1 {
+  while b + 4 <= d.length() && b2(d, b) != 1 {
     let field_len = b2(d, b + 2)
-    if field_len < 0 || b + 4 + field_len > d.length() {
+    if b + 4 + field_len > d.length() {
       raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
     }
     b += 4 + field_len
   }
-  if b + 28 > d.length() || b2(d, b) != 1 {
+  if b + 28 > d.length() {
+    raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
+  }
+  if b2(d, b) != 1 {
     raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
   }
   (b8(d, b + 12).to_int(), b8(d, b + 4).to_int(), b8(d, b + 20).to_int())
