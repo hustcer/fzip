@@ -50,7 +50,7 @@ pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
     }
     i += 1
   }
-  slc(ar, 0, e=ai)
+  trim_buf(ar, ai)
 }
 
 ///|

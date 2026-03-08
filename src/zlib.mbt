@@ -78,7 +78,7 @@ pub fn zlib_sync(
   )
   zlh(d, opts)
   wbytes(d, len - 4, a.digest().reinterpret_as_int())
-  slc(d, 0, e=len)
+  trim_buf(d, len)
 }
 
 ///|
@@ -104,9 +104,5 @@ pub fn unzlib_sync(
     dat_off=st,
     dat_end=end,
   )
-  if len < buf.length() {
-    slc(buf, 0, e=len)
-  } else {
-    buf
-  }
+  trim_buf(buf, len)
 }

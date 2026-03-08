@@ -119,11 +119,22 @@ fn fa_set(
 ///|
 /// Find max value in FixedArray
 fn max_val(a : FixedArray[Byte]) -> Int {
-  let mut m = a[0].to_int()
-  for i in 1..<a.length() {
-    if a[i].to_int() > m {
-      m = a[i].to_int()
+  a.fold(init=a[0].to_int(), fn(m, b) {
+    let v = b.to_int()
+    if v > m {
+      v
+    } else {
+      m
     }
+  })
+}
+
+///|
+/// Trim buffer to actual length (avoid copy if already exact size)
+fn trim_buf(buf : FixedArray[Byte], len : Int) -> FixedArray[Byte] {
+  if len < buf.length() {
+    slc(buf, 0, e=len)
+  } else {
+    buf
   }
-  m
 }

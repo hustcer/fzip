@@ -581,5 +581,5 @@ pub fn deflate_sync(
   opts? : DeflateOptions = DeflateOptions::default(),
 ) -> FixedArray[Byte] {
   let (buf, len) = dopt(data, opts, 0, 0, None)
-  slc(buf, 0, e=len)
+  trim_buf(buf, len)
 }
