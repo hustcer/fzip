@@ -443,8 +443,8 @@ test "deflate with dictionary" {
   let decompressed = inflate_sync(compressed, opts={
     out: None,
     dictionary: Some(dict),
-    max_output_size: 104857600,
-    max_input_size: 1073741824,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
   })
   assert_eq(decompressed.length(), 5)
   for i in 0..<5 {

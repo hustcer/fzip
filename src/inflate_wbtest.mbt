@@ -137,8 +137,8 @@ test "inflt/offset/basic" {
     InflateState::new(2),
     None,
     None,
-    1073741824,
-    1073741824,
+    default_max_input_size,
+    default_max_input_size,
     dat_off=prefix,
     dat_end=prefix + cl,
   )
@@ -166,8 +166,8 @@ test "inflt/offset/with_output_buf" {
     InflateState::new(2),
     Some(out),
     None,
-    1073741824,
-    1073741824,
+    default_max_input_size,
+    default_max_input_size,
     dat_off=prefix,
     dat_end=prefix + cl,
   )
@@ -238,8 +238,8 @@ test "inflt/tuple_return/no_buf" {
     InflateState::new(2),
     None,
     None,
-    1073741824,
-    1073741824,
+    default_max_input_size,
+    default_max_input_size,
   )
   assert_eq(len, 300)
   // buf may be larger than len (over-allocated)
@@ -263,8 +263,8 @@ test "inflt/tuple_return/exact_buf" {
     InflateState::new(2),
     Some(out),
     None,
-    1073741824,
-    1073741824,
+    default_max_input_size,
+    default_max_input_size,
   )
   assert_eq(len, 256)
   assert_eq(buf.length(), 256)
@@ -287,8 +287,8 @@ test "inflt/tuple_return/oversized_buf" {
     InflateState::new(2),
     Some(out),
     None,
-    1073741824,
-    1073741824,
+    default_max_input_size,
+    default_max_input_size,
   )
   assert_eq(len, 100)
   assert_eq(buf.length(), 500)
@@ -326,7 +326,7 @@ test "inflate - custom max_output_size limit" {
     out: None,
     dictionary: None,
     max_output_size: 500,
-    max_input_size: 1073741824,
+    max_input_size: default_max_input_size,
   })
   assert_true(result is Err(_))
 }
@@ -344,7 +344,7 @@ test "inflate - custom max_input_size limit" {
   let result = try? inflate_sync(compressed, opts={
     out: None,
     dictionary: None,
-    max_output_size: 104857600,
+    max_output_size: default_max_output_size,
     max_input_size: 100,
   })
   assert_true(result is Err(_))
