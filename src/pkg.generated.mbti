@@ -10,6 +10,10 @@ pub fn crc32(FixedArray[Byte]) -> UInt
 
 pub fn decompress_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
+pub let default_max_input_size : Int
+
+pub let default_max_output_size : Int
+
 pub fn deflate_sync(FixedArray[Byte], opts? : DeflateOptions) -> FixedArray[Byte]
 
 pub fn gunzip_sync(FixedArray[Byte], opts? : GunzipOptions) -> FixedArray[Byte] raise FzipError
@@ -80,6 +84,7 @@ pub(all) enum FzipErrorCode {
   StreamFinishing
   InvalidZipData
   UnknownCompressionMethod
+  InvalidChecksum
 }
 pub impl Eq for FzipErrorCode
 pub impl Show for FzipErrorCode
@@ -87,6 +92,8 @@ pub impl Show for FzipErrorCode
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
+  max_output_size : Int
+  max_input_size : Int
 }
 pub fn GunzipOptions::default() -> Self
 pub impl Show for GunzipOptions
@@ -118,6 +125,8 @@ pub fn GzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 pub(all) struct InflateOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
+  max_output_size : Int
+  max_input_size : Int
 }
 pub fn InflateOptions::default() -> Self
 pub impl Show for InflateOptions
@@ -140,6 +149,8 @@ pub impl Show for UnzipFileInfo
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
+  max_output_size : Int
+  max_input_size : Int
 }
 pub fn UnzlibOptions::default() -> Self
 pub impl Show for UnzlibOptions

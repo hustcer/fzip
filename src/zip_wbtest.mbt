@@ -131,4 +131,3 @@ test "zip - normal compression ratio accepted" {
   assert_eq(result.length(), 1)
   assert_eq(result[0].1.length(), 1000)
 }
-
