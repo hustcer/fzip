@@ -11,7 +11,7 @@ fzip is a high-performance compression library for MoonBit, ported from the Java
 ```bash
 moon check              # Type check (fast, run after every edit)
 moon build              # Full build
-moon test               # Run all tests (44 tests)
+moon test               # Run all tests (130+ tests)
 moon test -v            # Verbose with test names
 moon test deflate_wbtest.mbt --filter "deflate*"  # Run specific tests
 moon fmt                # Format all code
@@ -63,8 +63,8 @@ compressed → inflt() [block decoder] → raw data
 | `src/string.mbt` | UTF-8 ↔ String conversion (`str_to_u8`, `str_from_u8`) with latin1 mode |
 | `src/stream.mbt` | Streaming wrappers: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream`, `ZlibStream`, `UnzlibStream`, `DecompressStream` |
 | `src/fzip.mbt` | Convenience API: `compress_sync()` (= gzip), `decompress_sync()` (auto-detect) |
-| `src/error.mbt` | `FzipErrorCode` enum (15 codes), `FzipError` suberror, `fzip_err()` helper |
-| `src/types.mbt` | Option structs with `::default()` methods |
+| `src/error.mbt` | `FzipErrorCode` enum (16 codes), `FzipError` suberror, `fzip_err()` helper |
+| `src/types.mbt` | Option structs with `::default()` methods; includes `verify_checksum` for optional checksum verification |
 
 ### Key Internal Patterns
 
