@@ -41,7 +41,7 @@ b: __setup
 bench:
     moon bench -p benchmarks
 
-# Bench JSON: 运行性能基准测试并输出 JSON 格式结果
+# Bench JSON: Run performance benchmarks and output JSON format results
 bench-json output='':
     #!/usr/bin/env nu
 
@@ -49,14 +49,14 @@ bench-json output='':
     let args = if ($out | is-not-empty) { [--save $out] } else { [] }
     ^moon bench -p benchmarks o+e>| nu --stdin bench/parse-bench.nu ...$args
 
-# Bench RPT: 运行性能基准测试并生成报告
+# Bench RPT: Run performance benchmarks and generate a report
 bench-rpt:
     #!/usr/bin/env nu
     moon bench -p benchmarks o+e>| nu --stdin bench/parse-bench.nu -s src/benchmarks/bench.json
     nu src/benchmarks/gen-report.nu o> src/benchmarks/bench.md
     oxfmt src/benchmarks/bench.md src/benchmarks/bench.json
 
-# 运行测试
+# Run tests
 test:
     moon test --target all
 
