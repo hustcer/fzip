@@ -88,3 +88,14 @@ test "gzip with filename" {
   let decompressed = gunzip_sync(compressed)
   assert_eq(decompressed.length(), 3)
 }
+
+///|
+test "gunzip - invalid CRC-32 checksum" {
+  let data : FixedArray[Byte] = FixedArray::make(100, b'A')
+  let compressed = gzip_sync(data)
+  // Corrupt the CRC-32 (last 8 bytes contain CRC-32 and size)
+  let corrupted = slc(compressed, 0, e=compressed.length())
+  corrupted[corrupted.length() - 8] = b'\xFF'
+  let result = try? gunzip_sync(corrupted)
+  assert_true(result is Err(_))
+}
