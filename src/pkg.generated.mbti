@@ -22,6 +22,8 @@ pub fn gzip_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
 
 pub fn inflate_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
+pub let max_filename_length : Int
+
 pub fn str_from_u8(FixedArray[Byte], latin1? : Bool, offset? : Int, len? : Int) -> String raise FzipError
 
 pub fn str_to_u8(String, latin1? : Bool) -> FixedArray[Byte]
@@ -31,6 +33,14 @@ pub fn unzip_list(FixedArray[Byte]) -> Array[UnzipFileInfo] raise FzipError
 pub fn unzip_sync(FixedArray[Byte]) -> Array[(String, FixedArray[Byte])] raise FzipError
 
 pub fn unzlib_sync(FixedArray[Byte], opts? : UnzlibOptions) -> FixedArray[Byte] raise FzipError
+
+pub let zip64_eocd_locator_signature : UInt
+
+pub let zip_cd_signature : UInt
+
+pub let zip_eocd_signature : UInt
+
+pub let zip_local_signature : UInt
 
 pub fn zip_sync(Array[(String, FixedArray[Byte])], opts? : ZipEntryOptions) -> FixedArray[Byte]
 

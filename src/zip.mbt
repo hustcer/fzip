@@ -45,8 +45,8 @@ fn zh(
   z : Bool,
 ) -> (Int, Int, Int, String, Int, Int) raise FzipError {
   let fnl = b2(d, b + 28)
-  // Validate filename length (max 4096 bytes is reasonable)
-  if fnl > 4096 {
+  // Validate filename length (max `max_filename_length` bytes is reasonable)
+  if fnl > max_filename_length {
     raise fzip_err(InvalidZipData, msg="zip filename too long")
   }
   // Check bounds before reading filename
@@ -143,9 +143,9 @@ fn wzh(
   let mut b = b
   // signature
   if ce >= 0 {
-    wbytes(d, b, 0x02014B50)
+    wbytes(d, b, zip_cd_signature.reinterpret_as_int())
   } else {
-    wbytes(d, b, 0x04034B50)
+    wbytes(d, b, zip_local_signature.reinterpret_as_int())
   }
   b += 4
   if ce >= 0 {
@@ -221,7 +221,7 @@ fn wzh(
 ///|
 /// Write ZIP end of central directory record
 fn wzf(o : FixedArray[Byte], b : Int, c : Int, d : Int, e : Int) -> Unit {
-  wbytes(o, b, 0x06054B50)
+  wbytes(o, b, zip_eocd_signature.reinterpret_as_int())
   // skip disk numbers (4 bytes = 0)
   wbytes(o, b + 8, c) // entries on this disk
   wbytes(o, b + 10, c) // total entries
@@ -342,7 +342,7 @@ pub fn unzip_sync(
   let files : Array[(String, FixedArray[Byte])] = []
   // Find end of central directory
   let mut e = data.length() - 22
-  while e >= 0 && b4(data, e) != 0x06054B50U {
+  while e >= 0 && b4(data, e) != zip_eocd_signature {
     e -= 1
     if data.length() - e > 65558 {
       raise fzip_err(InvalidZipData)
@@ -418,7 +418,7 @@ pub fn unzip_list(
   }
   let infos : Array[UnzipFileInfo] = []
   let mut e = data.length() - 22
-  while e >= 0 && b4(data, e) != 0x06054B50U {
+  while e >= 0 && b4(data, e) != zip_eocd_signature {
     e -= 1
     if data.length() - e > 65558 {
       raise fzip_err(InvalidZipData)
