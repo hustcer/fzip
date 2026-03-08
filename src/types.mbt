@@ -14,11 +14,12 @@ pub fn DeflateOptions::default() -> DeflateOptions {
 pub(all) struct InflateOptions {
   out : FixedArray[Byte]? // pre-allocated output buffer
   dictionary : FixedArray[Byte]? // decompression dictionary
+  max_output_size : Int // maximum uncompressed size (default 100MB)
 } derive(Show)
 
 ///|
 pub fn InflateOptions::default() -> InflateOptions {
-  { out: None, dictionary: None }
+  { out: None, dictionary: None, max_output_size: 104857600 } // 100MB
 }
 
 ///|
@@ -39,11 +40,12 @@ pub fn GzipOptions::default() -> GzipOptions {
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
+  max_output_size : Int // maximum uncompressed size (default 100MB)
 } derive(Show)
 
 ///|
 pub fn GunzipOptions::default() -> GunzipOptions {
-  { out: None, dictionary: None }
+  { out: None, dictionary: None, max_output_size: 104857600 } // 100MB
 }
 
 ///|
@@ -62,11 +64,12 @@ pub fn ZlibOptions::default() -> ZlibOptions {
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
+  max_output_size : Int // maximum uncompressed size (default 100MB)
 } derive(Show)
 
 ///|
 pub fn UnzlibOptions::default() -> UnzlibOptions {
-  { out: None, dictionary: None }
+  { out: None, dictionary: None, max_output_size: 104857600 } // 100MB
 }
 
 ///|

@@ -32,7 +32,7 @@ fn is_unsafe_path(path : String) -> Bool {
 
 ///|
 /// Skip local ZIP file header, return offset past header+name+extra
-fn slzh(d : FixedArray[Byte], b : Int) -> Int {
+fn slzh(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
   b + 30 + b2(d, b + 26) + b2(d, b + 28)
 }
 
