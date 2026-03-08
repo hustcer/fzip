@@ -46,3 +46,45 @@ test "gzip level 0" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "gzip level 9" {
+  let data : FixedArray[Byte] = [1, 2, 3, 4, 5]
+  let compressed = gzip_sync(data, opts={
+    level: 9,
+    mem: 0,
+    dictionary: None,
+    mtime: 0,
+    filename: "",
+  })
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), 5)
+}
+
+///|
+test "gzip with mtime" {
+  let data : FixedArray[Byte] = [1, 2, 3]
+  let compressed = gzip_sync(data, opts={
+    level: 6,
+    mem: 0,
+    dictionary: None,
+    mtime: 1234567890,
+    filename: "",
+  })
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), 3)
+}
+
+///|
+test "gzip with filename" {
+  let data : FixedArray[Byte] = [1, 2, 3]
+  let compressed = gzip_sync(data, opts={
+    level: 6,
+    mem: 0,
+    dictionary: None,
+    mtime: 0,
+    filename: "test.bin",
+  })
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), 3)
+}

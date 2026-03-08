@@ -430,3 +430,22 @@ test "deflate - extremely small data" {
   let decompressed = inflate_sync(compressed)
   assert_eq(decompressed.length(), 20)
 }
+
+///|
+test "deflate with dictionary" {
+  let dict : FixedArray[Byte] = [1, 2, 3, 4, 5]
+  let data : FixedArray[Byte] = [3, 4, 5, 6, 7]
+  let compressed = deflate_sync(data, opts={
+    level: 6,
+    mem: 0,
+    dictionary: Some(dict),
+  })
+  let decompressed = inflate_sync(compressed, opts={
+    out: None,
+    dictionary: Some(dict),
+  })
+  assert_eq(decompressed.length(), 5)
+  for i in 0..<5 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
