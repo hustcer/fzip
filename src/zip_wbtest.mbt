@@ -120,3 +120,15 @@ test "zip - empty file" {
   assert_eq(result[0].0, "empty.txt")
   assert_eq(result[0].1.length(), 0)
 }
+
+///|
+test "zip - normal compression ratio accepted" {
+  // Test that normal compression ratios (< 1000:1) work fine
+  let data = FixedArray::make(1000, b'A')
+  let files : Array[(String, FixedArray[Byte])] = [("test.bin", data)]
+  let zipped = zip_sync(files)
+  let result = unzip_sync(zipped)
+  assert_eq(result.length(), 1)
+  assert_eq(result[0].1.length(), 1000)
+}
+

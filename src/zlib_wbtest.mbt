@@ -38,3 +38,14 @@ test "zlib level 0" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "unzlib - invalid Adler-32 checksum" {
+  let data : FixedArray[Byte] = FixedArray::make(100, b'B')
+  let compressed = zlib_sync(data)
+  // Corrupt the Adler-32 (last 4 bytes)
+  let corrupted = slc(compressed, 0, e=compressed.length())
+  corrupted[corrupted.length() - 1] = b'\xFF'
+  let result = try? unzlib_sync(corrupted)
+  assert_true(result is Err(_))
+}
