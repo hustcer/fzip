@@ -48,6 +48,7 @@ pub(all) struct GunzipOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int // maximum uncompressed size (default 100MB)
   max_input_size : Int // maximum compressed input size (default 1GB)
+  verify_checksum : Bool // verify CRC-32 checksum (default true)
 } derive(Show)
 
 ///|
@@ -57,6 +58,7 @@ pub fn GunzipOptions::default() -> GunzipOptions {
     dictionary: None,
     max_output_size: default_max_output_size,
     max_input_size: default_max_input_size,
+    verify_checksum: true,
   }
 }
 
@@ -78,6 +80,7 @@ pub(all) struct UnzlibOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int // maximum uncompressed size (default 100MB)
   max_input_size : Int // maximum compressed input size (default 1GB)
+  verify_checksum : Bool // verify Adler-32 checksum (default true)
 } derive(Show)
 
 ///|
@@ -87,6 +90,7 @@ pub fn UnzlibOptions::default() -> UnzlibOptions {
     dictionary: None,
     max_output_size: default_max_output_size,
     max_input_size: default_max_input_size,
+    verify_checksum: true,
   }
 }
 

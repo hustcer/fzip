@@ -48,6 +48,49 @@ test "gzip level 0" {
 }
 
 ///|
+test "gunzip with verify_checksum=false skips validation" {
+  let data : FixedArray[Byte] = [b'\x48', b'\x65', b'\x6C', b'\x6C', b'\x6F']
+  let compressed = gzip_sync(data)
+  // Corrupt the CRC-32 checksum (last 8 bytes: 4 for CRC, 4 for size)
+  let corrupted = slc(compressed, 0)
+  corrupted[corrupted.length() - 8] = b'\xFF'
+  corrupted[corrupted.length() - 7] = b'\xFF'
+  // With verify_checksum=false, should not raise error
+  let result = gunzip_sync(corrupted, opts={
+    out: None,
+    dictionary: None,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+    verify_checksum: false,
+  })
+  assert_eq(result.length(), data.length())
+}
+
+///|
+test "gunzip with verify_checksum=true detects corruption" {
+  let data : FixedArray[Byte] = [b'\x48', b'\x65', b'\x6C', b'\x6C', b'\x6F']
+  let compressed = gzip_sync(data)
+  // Corrupt the CRC-32 checksum
+  let corrupted = slc(compressed, 0)
+  corrupted[corrupted.length() - 8] = b'\xFF'
+  corrupted[corrupted.length() - 7] = b'\xFF'
+  // With verify_checksum=true (default), should raise InvalidChecksum error
+  let result = try {
+    let _ = gunzip_sync(corrupted, opts={
+      out: None,
+      dictionary: None,
+      max_output_size: default_max_output_size,
+      max_input_size: default_max_input_size,
+      verify_checksum: true,
+    })
+    None
+  } catch {
+    FzipError(code~, ..) => Some(code)
+  }
+  assert_eq(result, Some(InvalidChecksum))
+}
+
+///|
 test "gzip level 9" {
   let data : FixedArray[Byte] = [1, 2, 3, 4, 5]
   let compressed = gzip_sync(data, opts={
