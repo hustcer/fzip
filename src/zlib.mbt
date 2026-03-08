@@ -109,8 +109,7 @@ pub fn unzlib_sync(
   // Verify Adler-32 checksum
   let expected_adler = b4(data, end)
   let a = AdlerState::new()
-  let actual_data = slc(buf, 0, e=len)
-  a.push(actual_data)
+  a.push_range(buf, 0, len)
   let actual_adler = a.digest()
   if actual_adler != expected_adler {
     raise fzip_err(InvalidChecksum, msg="zlib Adler-32 mismatch")

@@ -62,3 +62,25 @@ test "adler32 - incremental matches one-shot" {
   let one_shot = adler32(data)
   assert_eq(incremental, one_shot)
 }
+
+///|
+test "crc32 - push_range matches push" {
+  let data : FixedArray[Byte] = [
+    b'\x31', b'\x32', b'\x33', b'\x34', b'\x35', b'\x36', b'\x37', b'\x38', b'\x39',
+  ]
+  let st1 = CRC32State::new()
+  st1.push_range(data, 0, 9)
+  let st2 = CRC32State::new()
+  st2.push(data)
+  assert_eq(st1.digest(), st2.digest())
+}
+
+///|
+test "adler32 - push_range matches push" {
+  let data : FixedArray[Byte] = [b'\x48', b'\x65', b'\x6C', b'\x6C', b'\x6F']
+  let st1 = AdlerState::new()
+  st1.push_range(data, 0, 5)
+  let st2 = AdlerState::new()
+  st2.push(data)
+  assert_eq(st1.digest(), st2.digest())
+}

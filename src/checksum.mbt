@@ -45,6 +45,23 @@ fn CRC32State::push(self : CRC32State, data : FixedArray[Byte]) -> Unit {
 }
 
 ///|
+/// Feed partial data into the CRC-32 state (offset and length)
+fn CRC32State::push_range(
+  self : CRC32State,
+  data : FixedArray[Byte],
+  offset : Int,
+  len : Int,
+) -> Unit {
+  let mut cr = self.c
+  let end = offset + len
+  for i in offset..<end {
+    cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+  }
+  self.c = cr
+}
+
+///|
 /// Get the final CRC-32 value
 fn CRC32State::digest(self : CRC32State) -> UInt {
   self.c ^ 0xFFFFFFFFU
@@ -93,6 +110,32 @@ fn AdlerState::push(self : AdlerState, data : FixedArray[Byte]) -> Unit {
   let mut i = 0
   while i < l {
     let e = if i + 2655 < l { i + 2655 } else { l }
+    while i < e {
+      n = n + data[i].to_uint()
+      m = m + n
+      i += 1
+    }
+    n = (n & 65535U) + 15U * (n >> 16)
+    m = (m & 65535U) + 15U * (m >> 16)
+  }
+  self.a = n
+  self.b = m
+}
+
+///|
+/// Feed partial data into the Adler-32 state (offset and length)
+fn AdlerState::push_range(
+  self : AdlerState,
+  data : FixedArray[Byte],
+  offset : Int,
+  len : Int,
+) -> Unit {
+  let mut n = self.a
+  let mut m = self.b
+  let end = offset + len
+  let mut i = offset
+  while i < end {
+    let e = if i + 2655 < end { i + 2655 } else { end }
     while i < e {
       n = n + data[i].to_uint()
       m = m + n
