@@ -71,6 +71,13 @@ fn inflt(
       if btype == 0 {
         // stored block
         let s = shft(pos) + 4
+        // Check if we have enough bytes for the stored block header (4 bytes)
+        if s > dat_end {
+          if no_st != 0 {
+            raise fzip_err(UnexpectedEOF)
+          }
+          break
+        }
         let l = dat[s - 4].to_int() | (dat[s - 3].to_int() << 8)
         let t = s + l
         if t > dat_end {

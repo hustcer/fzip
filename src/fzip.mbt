@@ -13,7 +13,7 @@ pub fn decompress_sync(
   data : FixedArray[Byte],
   opts? : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
-  if data.length() < 2 {
+  if data.length() < 3 {
     return inflate_sync(data, opts~)
   }
   // Check for GZIP magic
