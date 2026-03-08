@@ -23,6 +23,8 @@ fn inflt(
   st : InflateState,
   buf : FixedArray[Byte]?,
   dict : FixedArray[Byte]?,
+  max_input_size : Int,
+  max_output_size : Int,
   dat_off? : Int = 0,
   dat_end? : Int = dat.length(),
 ) -> (FixedArray[Byte], Int) raise FzipError {
@@ -43,11 +45,17 @@ fn inflt(
   let mut buf = match buf {
     Some(b) => b
     None => {
+      // Check input size against configured limit
+      if sl > max_input_size {
+        raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
+      }
       // Prevent integer overflow: check if sl * 3 would overflow
-      // Max safe value: 2^30 (about 357MB input -> 1GB output)
-      let max_input = 357913941 // (2^30) / 3
-      if sl > max_input {
-        raise fzip_err(InvalidZipData, msg="input too large")
+      let max_safe = max_output_size / 3
+      if sl > max_safe {
+        raise fzip_err(
+          InvalidZipData,
+          msg="input too large for safe allocation",
+        )
       }
       let initial_size = sl * 3
       FixedArray::make(initial_size, b'\x00')
@@ -105,7 +113,7 @@ fn inflt(
           break
         }
         if resize {
-          buf = ensure_buf(buf, bt + l)
+          buf = ensure_buf(buf, bt + l, max_output_size)
         }
         dat.blit_to(buf, len=l, src_offset=s, dst_offset=bt)
         st.bt = {
@@ -189,7 +197,7 @@ fn inflt(
     }
     // decode symbols
     if resize {
-      buf = ensure_buf(buf, bt + grow)
+      buf = ensure_buf(buf, bt + grow, max_output_size)
     }
     let lms = (1 << lbt) - 1
     let dms = (1 << dbt) - 1
@@ -254,7 +262,7 @@ fn inflt(
           break
         }
         if resize {
-          buf = ensure_buf(buf, bt + grow)
+          buf = ensure_buf(buf, bt + grow, max_output_size)
         }
         let end = bt + add
         // dictionary reference
@@ -305,16 +313,19 @@ fn inflt(
 fn ensure_buf(
   buf : FixedArray[Byte],
   need : Int,
+  max_size : Int,
 ) -> FixedArray[Byte] raise FzipError {
   let bl = buf.length()
   if need > bl {
-    // Hard limit: 1GB to prevent zip bombs
-    let max_size = 1073741824 // 1GB
+    // Check against configured maximum output size
     if need > max_size || need < 0 {
-      raise fzip_err(InvalidZipData, msg="uncompressed size exceeds 1GB limit")
+      raise fzip_err(
+        InvalidZipData,
+        msg="uncompressed size exceeds max_output_size",
+      )
     }
     // Check for integer overflow in doubling calculation
-    let new_size = if bl > 0 && bl < 536870912 && bl * 2 > need {
+    let new_size = if bl > 0 && bl < max_size / 2 && bl * 2 > need {
       bl * 2
     } else {
       need
@@ -333,6 +344,13 @@ pub fn inflate_sync(
   data : FixedArray[Byte],
   opts? : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
-  let (buf, len) = inflt(data, InflateState::new(2), opts.out, opts.dictionary)
+  let (buf, len) = inflt(
+    data,
+    InflateState::new(2),
+    opts.out,
+    opts.dictionary,
+    opts.max_input_size,
+    opts.max_output_size,
+  )
   trim_buf(buf, len)
 }

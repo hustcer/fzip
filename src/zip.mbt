@@ -376,6 +376,8 @@ pub fn unzip_sync(
         InflateState::new(2),
         Some(out),
         None,
+        1073741824,
+        1073741824,
         dat_off=b_off,
         dat_end=b_off + sc,
       )

@@ -114,6 +114,8 @@ pub fn gunzip_sync(
     InflateState::new(2),
     Some(out),
     opts.dictionary,
+    opts.max_input_size,
+    opts.max_output_size,
     dat_off=st,
     dat_end=data.length() - 8,
   )

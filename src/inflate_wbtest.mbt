@@ -137,6 +137,8 @@ test "inflt/offset/basic" {
     InflateState::new(2),
     None,
     None,
+    1073741824,
+    1073741824,
     dat_off=prefix,
     dat_end=prefix + cl,
   )
@@ -164,6 +166,8 @@ test "inflt/offset/with_output_buf" {
     InflateState::new(2),
     Some(out),
     None,
+    1073741824,
+    1073741824,
     dat_off=prefix,
     dat_end=prefix + cl,
   )
@@ -229,7 +233,14 @@ test "inflt/tuple_return/no_buf" {
     data[i] = (i % 64).to_byte()
   }
   let compressed = deflate_sync(data)
-  let (buf, len) = inflt(compressed, InflateState::new(2), None, None)
+  let (buf, len) = inflt(
+    compressed,
+    InflateState::new(2),
+    None,
+    None,
+    1073741824,
+    1073741824,
+  )
   assert_eq(len, 300)
   // buf may be larger than len (over-allocated)
   assert_true(buf.length() >= len)
@@ -247,7 +258,14 @@ test "inflt/tuple_return/exact_buf" {
   }
   let compressed = deflate_sync(data)
   let out = FixedArray::make(256, b'\x00')
-  let (buf, len) = inflt(compressed, InflateState::new(2), Some(out), None)
+  let (buf, len) = inflt(
+    compressed,
+    InflateState::new(2),
+    Some(out),
+    None,
+    1073741824,
+    1073741824,
+  )
   assert_eq(len, 256)
   assert_eq(buf.length(), 256)
   for i in 0..<256 {
@@ -264,7 +282,14 @@ test "inflt/tuple_return/oversized_buf" {
   }
   let compressed = deflate_sync(data)
   let out = FixedArray::make(500, b'\x00')
-  let (buf, len) = inflt(compressed, InflateState::new(2), Some(out), None)
+  let (buf, len) = inflt(
+    compressed,
+    InflateState::new(2),
+    Some(out),
+    None,
+    1073741824,
+    1073741824,
+  )
   assert_eq(len, 100)
   assert_eq(buf.length(), 500)
   for i in 0..<100 {
