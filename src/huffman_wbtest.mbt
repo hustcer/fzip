@@ -52,3 +52,63 @@ test "rev - bit reversal table" {
   // rev[1] should be 16384 (1 reversed in 15 bits)
   inspect(rev[1], content="16384")
 }
+
+///|
+test "huffman array pool reuse" {
+  let initial_pool_len = h_tree_s_pool.length()
+  let freq1 : FixedArray[Int] = FixedArray::make(4, 0)
+  freq1[0] = 5
+  freq1[1] = 3
+  freq1[2] = 1
+  freq1[3] = 1
+  let _ = h_tree(freq1, 15)
+  let pool_len_1 = h_tree_s_pool.length()
+  assert_true(pool_len_1 > initial_pool_len || pool_len_1 == initial_pool_len)
+
+  let freq2 : FixedArray[Int] = FixedArray::make(5, 0)
+  freq2[0] = 10
+  freq2[1] = 2
+  freq2[2] = 2
+  freq2[3] = 1
+  freq2[4] = 1
+  let _ = h_tree(freq2, 15)
+  let pool_len_2 = h_tree_s_pool.length()
+  // Pool length should remain stable as arrays are reused
+  assert_true(pool_len_2 == pool_len_1)
+}
+
+///|
+test "huffman pool correctness - multiple trees" {
+  // Verify that pool reuse produces correct code lengths
+  let freq1 : FixedArray[Int] = FixedArray::make(6, 0)
+  freq1[0] = 10
+  freq1[1] = 5
+  freq1[2] = 3
+  freq1[3] = 2
+  freq1[4] = 1
+  freq1[5] = 1
+  let (codes1, max_bits1) = h_tree(freq1, 15)
+  assert_true(max_bits1 > 0 && max_bits1 <= 15)
+  assert_eq(codes1.length(), 6)
+
+  let freq2 : FixedArray[Int] = FixedArray::make(8, 0)
+  freq2[0] = 20
+  freq2[1] = 15
+  freq2[2] = 10
+  freq2[3] = 8
+  freq2[4] = 5
+  freq2[5] = 3
+  freq2[6] = 2
+  freq2[7] = 1
+  let (codes2, max_bits2) = h_tree(freq2, 15)
+  assert_true(max_bits2 > 0 && max_bits2 <= 15)
+  assert_eq(codes2.length(), 8)
+
+  // Verify first tree result is still valid by rebuilding
+  let (codes1_again, max_bits1_again) = h_tree(freq1, 15)
+  assert_eq(max_bits1, max_bits1_again)
+  assert_eq(codes1.length(), codes1_again.length())
+  for i in 0..<codes1.length() {
+    assert_eq(codes1[i], codes1_again[i])
+  }
+}
