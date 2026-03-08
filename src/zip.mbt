@@ -1,4 +1,36 @@
 ///|
+/// Check if a ZIP entry path is unsafe (path traversal or absolute path)
+fn is_unsafe_path(path : String) -> Bool {
+  // Reject absolute paths
+  if path.length() > 0 && (path[0] == '/' || path[0] == '\\') {
+    return true
+  }
+  // Reject Windows absolute paths like "C:\..."
+  if path.length() >= 3 &&
+    ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+    path[1] == ':' &&
+    (path[2] == '/' || path[2] == '\\') {
+    return true
+  }
+  // Check for path traversal components ("../", "..\")
+  let l = path.length()
+  let mut i = 0
+  while i < l {
+    // Check if we are at the start of a path component
+    let at_start = i == 0 ||
+      (i > 0 && (path[i - 1] == '/' || path[i - 1] == '\\'))
+    if at_start && i + 1 < l && path[i] == '.' && path[i + 1] == '.' {
+      // ".." at end of string, or followed by separator
+      if i + 2 >= l || path[i + 2] == '/' || path[i + 2] == '\\' {
+        return true
+      }
+    }
+    i += 1
+  }
+  false
+}
+
+///|
 /// Skip local ZIP file header, return offset past header+name+extra
 fn slzh(d : FixedArray[Byte], b : Int) -> Int {
   b + 30 + b2(d, b + 26) + b2(d, b + 28)
@@ -31,10 +63,20 @@ fn zh(
 
 ///|
 /// Read ZIP64 extra field
-fn z64e(d : FixedArray[Byte], b : Int) -> (Int, Int, Int) {
+fn z64e(d : FixedArray[Byte], b : Int) -> (Int, Int, Int) raise FzipError {
   let mut b = b
-  while b2(d, b) != 1 {
-    b += 4 + b2(d, b + 2)
+  while b + 4 <= d.length() && b2(d, b) != 1 {
+    let field_len = b2(d, b + 2)
+    if b + 4 + field_len > d.length() {
+      raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
+    }
+    b += 4 + field_len
+  }
+  if b + 28 > d.length() {
+    raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
+  }
+  if b2(d, b) != 1 {
+    raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
   }
   (b8(d, b + 12).to_int(), b8(d, b + 4).to_int(), b8(d, b + 20).to_int())
 }
@@ -286,6 +328,9 @@ pub fn zip_sync(
 pub fn unzip_sync(
   data : FixedArray[Byte],
 ) -> Array[(String, FixedArray[Byte])] raise FzipError {
+  if data.length() < 22 {
+    raise fzip_err(InvalidZipData, msg="data too short for zip archive")
+  }
   let files : Array[(String, FixedArray[Byte])] = []
   // Find end of central directory
   let mut e = data.length() - 22
@@ -314,6 +359,12 @@ pub fn unzip_sync(
   }
   for _i in 0..<c {
     let (comp, sc, su, fn_str, no, off) = zh(data, o, z)
+    if is_unsafe_path(fn_str) {
+      raise fzip_err(
+        InvalidZipData,
+        msg="zip entry contains unsafe path: " + fn_str,
+      )
+    }
     let b_off = slzh(data, off)
     o = no
     if comp == 0 {
@@ -344,6 +395,9 @@ pub fn unzip_sync(
 pub fn unzip_list(
   data : FixedArray[Byte],
 ) -> Array[UnzipFileInfo] raise FzipError {
+  if data.length() < 22 {
+    raise fzip_err(InvalidZipData, msg="data too short for zip archive")
+  }
   let infos : Array[UnzipFileInfo] = []
   let mut e = data.length() - 22
   while e >= 0 && b4(data, e) != 0x06054B50U {

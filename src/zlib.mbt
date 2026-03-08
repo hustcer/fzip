@@ -34,6 +34,9 @@ fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
 ///|
 /// Parse Zlib header and return data start offset
 fn zls(d : FixedArray[Byte], has_dict : Bool) -> Int raise FzipError {
+  if d.length() < 2 {
+    raise fzip_err(InvalidHeader, msg="invalid zlib data")
+  }
   if (d[0].to_int() & 15) != 8 ||
     d[0].to_int() >> 4 > 7 ||
     ((d[0].to_int() << 8) | d[1].to_int()) % 31 != 0 {
@@ -90,6 +93,9 @@ pub fn unzlib_sync(
   }
   let st = zls(data, has_dict)
   let end = data.length() - 4
+  if end < st {
+    raise fzip_err(InvalidHeader, msg="invalid zlib data")
+  }
   let (buf, len) = inflt(
     data,
     InflateState::new(2),
