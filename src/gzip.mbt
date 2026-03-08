@@ -92,7 +92,7 @@ pub fn gzip_sync(
   gzh(d, opts)
   wbytes(d, len - 8, c.digest().reinterpret_as_int())
   wbytes(d, len - 4, l)
-  slc(d, 0, e=len)
+  trim_buf(d, len)
 }
 
 ///|

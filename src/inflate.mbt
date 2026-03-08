@@ -303,9 +303,5 @@ pub fn inflate_sync(
   opts? : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   let (buf, len) = inflt(data, InflateState::new(2), opts.out, opts.dictionary)
-  if len < buf.length() {
-    slc(buf, 0, e=len)
-  } else {
-    buf
-  }
+  trim_buf(buf, len)
 }
