@@ -18,13 +18,21 @@ pub fn decompress_sync(
   }
   // Check for GZIP magic
   if data[0] == b'\x1F' && data[1] == b'\x8B' && data[2] == b'\x08' {
-    return gunzip_sync(data, opts={ out: opts.out, dictionary: opts.dictionary })
+    return gunzip_sync(data, opts={
+      out: opts.out,
+      dictionary: opts.dictionary,
+      max_output_size: opts.max_output_size,
+    })
   }
   // Check for Zlib header
   if (data[0].to_int() & 15) == 8 &&
     data[0].to_int() >> 4 <= 7 &&
     ((data[0].to_int() << 8) | data[1].to_int()) % 31 == 0 {
-    return unzlib_sync(data, opts={ out: opts.out, dictionary: opts.dictionary })
+    return unzlib_sync(data, opts={
+      out: opts.out,
+      dictionary: opts.dictionary,
+      max_output_size: opts.max_output_size,
+    })
   }
   // Fall back to raw DEFLATE
   inflate_sync(data, opts~)

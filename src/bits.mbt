@@ -50,13 +50,19 @@ fn wbits16(d : FixedArray[Byte], p : Int, v : Int) -> Unit {
 
 ///|
 /// Read 2 bytes (little-endian) from data at offset b
-fn b2(d : FixedArray[Byte], b : Int) -> Int {
+fn b2(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
+  if b + 1 >= d.length() {
+    raise fzip_err(UnexpectedEOF, msg="not enough bytes for b2")
+  }
   d[b].to_int() | (d[b + 1].to_int() << 8)
 }
 
 ///|
 /// Read 4 bytes (little-endian unsigned) from data at offset b
-fn b4(d : FixedArray[Byte], b : Int) -> UInt {
+fn b4(d : FixedArray[Byte], b : Int) -> UInt raise FzipError {
+  if b + 3 >= d.length() {
+    raise fzip_err(UnexpectedEOF, msg="not enough bytes for b4")
+  }
   (d[b].to_int() |
   (d[b + 1].to_int() << 8) |
   (d[b + 2].to_int() << 16) |
@@ -65,7 +71,10 @@ fn b4(d : FixedArray[Byte], b : Int) -> UInt {
 
 ///|
 /// Read 8 bytes (little-endian) from data at offset b
-fn b8(d : FixedArray[Byte], b : Int) -> Int64 {
+fn b8(d : FixedArray[Byte], b : Int) -> Int64 raise FzipError {
+  if b + 7 >= d.length() {
+    raise fzip_err(UnexpectedEOF, msg="not enough bytes for b8")
+  }
   b4(d, b).to_int64() + b4(d, b + 4).to_int64() * 4294967296L
 }
 

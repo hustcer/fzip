@@ -42,11 +42,29 @@ fn inflt(
   let no_st = st.i
   let mut buf = match buf {
     Some(b) => b
-    None => FixedArray::make(sl * 3, b'\x00')
+    None => {
+      // Prevent integer overflow: check if sl * 3 would overflow
+      // Max safe value: 2^30 (about 357MB input -> 1GB output)
+      let max_input = 357913941 // (2^30) / 3
+      if sl > max_input {
+        raise fzip_err(InvalidZipData, msg="input too large")
+      }
+      let initial_size = sl * 3
+      FixedArray::make(initial_size, b'\x00')
+    }
   }
   // Scale buffer growth headroom based on input size to avoid
   // over-allocation for small data (was hardcoded 131072 = 128KB)
-  let grow = if sl * 3 < 131072 { sl * 3 + 512 } else { 131072 }
+  let grow = if sl < 43690 { // 131072 / 3
+    let safe_grow = sl * 3
+    if safe_grow < 131072 {
+      safe_grow + 512
+    } else {
+      131072
+    }
+  } else {
+    131072
+  }
   let tbts = dat_end * 8
   let mut final_ = st.final_
   let mut pos = st.pos + dat_off * 8
@@ -284,10 +302,23 @@ fn inflt(
 
 ///|
 /// Ensure buffer has at least `need` capacity
-fn ensure_buf(buf : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
+fn ensure_buf(
+  buf : FixedArray[Byte],
+  need : Int,
+) -> FixedArray[Byte] raise FzipError {
   let bl = buf.length()
   if need > bl {
-    let new_size = if bl * 2 > need { bl * 2 } else { need }
+    // Hard limit: 1GB to prevent zip bombs
+    let max_size = 1073741824 // 1GB
+    if need > max_size || need < 0 {
+      raise fzip_err(InvalidZipData, msg="uncompressed size exceeds 1GB limit")
+    }
+    // Check for integer overflow in doubling calculation
+    let new_size = if bl > 0 && bl < 536870912 && bl * 2 > need {
+      bl * 2
+    } else {
+      need
+    }
     let nbuf = FixedArray::make(new_size, b'\x00')
     buf.blit_to(nbuf, len=bl, src_offset=0, dst_offset=0)
     nbuf
