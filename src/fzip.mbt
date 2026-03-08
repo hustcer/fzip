@@ -22,6 +22,7 @@ pub fn decompress_sync(
       out: opts.out,
       dictionary: opts.dictionary,
       max_output_size: opts.max_output_size,
+      max_input_size: opts.max_input_size,
     })
   }
   // Check for Zlib header
@@ -32,6 +33,7 @@ pub fn decompress_sync(
       out: opts.out,
       dictionary: opts.dictionary,
       max_output_size: opts.max_output_size,
+      max_input_size: opts.max_input_size,
     })
   }
   // Fall back to raw DEFLATE

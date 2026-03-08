@@ -444,6 +444,7 @@ test "deflate with dictionary" {
     out: None,
     dictionary: Some(dict),
     max_output_size: 104857600,
+    max_input_size: 1073741824,
   })
   assert_eq(decompressed.length(), 5)
   for i in 0..<5 {

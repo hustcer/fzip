@@ -101,6 +101,8 @@ pub fn unzlib_sync(
     InflateState::new(2),
     opts.out,
     opts.dictionary,
+    opts.max_input_size,
+    opts.max_output_size,
     dat_off=st,
     dat_end=end,
   )
