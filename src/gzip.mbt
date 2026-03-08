@@ -109,7 +109,7 @@ pub fn gunzip_sync(
     Some(o) => o
     None => FixedArray::make(gzl(data), b'\x00')
   }
-  let (buf, _len) = inflt(
+  let (buf, len) = inflt(
     data,
     InflateState::new(2),
     Some(out),
@@ -119,5 +119,14 @@ pub fn gunzip_sync(
     dat_off=st,
     dat_end=data.length() - 8,
   )
+  // Verify CRC-32 checksum
+  let expected_crc = b4(data, data.length() - 8)
+  let c = CRC32State::new()
+  let actual_data = slc(buf, 0, e=len)
+  c.push(actual_data)
+  let actual_crc = c.digest()
+  if actual_crc != expected_crc {
+    raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+  }
   buf
 }

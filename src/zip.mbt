@@ -45,6 +45,14 @@ fn zh(
   z : Bool,
 ) -> (Int, Int, Int, String, Int, Int) raise FzipError {
   let fnl = b2(d, b + 28)
+  // Validate filename length (max 4096 bytes is reasonable)
+  if fnl > 4096 {
+    raise fzip_err(InvalidZipData, msg="zip filename too long")
+  }
+  // Check bounds before reading filename
+  if b + 46 + fnl > d.length() {
+    raise fzip_err(InvalidZipData, msg="zip filename exceeds data bounds")
+  }
   let is_utf8 = (b2(d, b + 8) & 2048) != 0
   let fn_str = str_from_u8(d, latin1=not(is_utf8), offset=b + 46, len=fnl)
   let es = b + 46 + fnl
@@ -370,6 +378,14 @@ pub fn unzip_sync(
     if comp == 0 {
       files.push((fn_str, slc(data, b_off, e=b_off + sc)))
     } else if comp == 8 {
+      // Check compression ratio to detect potential zip bombs
+      // Reject if uncompressed size > 1000x compressed size
+      if sc > 0 && su / sc > 1000 {
+        raise fzip_err(
+          InvalidZipData,
+          msg="zip compression ratio too high (potential zip bomb)",
+        )
+      }
       let out = FixedArray::make(su, b'\x00')
       let (buf, _len) = inflt(
         data,
