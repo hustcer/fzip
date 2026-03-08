@@ -94,6 +94,7 @@ pub(all) struct GunzipOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int
   max_input_size : Int
+  verify_checksum : Bool
 }
 pub fn GunzipOptions::default() -> Self
 pub impl Show for GunzipOptions
@@ -151,6 +152,7 @@ pub(all) struct UnzlibOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int
   max_input_size : Int
+  verify_checksum : Bool
 }
 pub fn UnzlibOptions::default() -> Self
 pub impl Show for UnzlibOptions

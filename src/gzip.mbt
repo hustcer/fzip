@@ -119,13 +119,15 @@ pub fn gunzip_sync(
     dat_off=st,
     dat_end=data.length() - 8,
   )
-  // Verify CRC-32 checksum
-  let expected_crc = b4(data, data.length() - 8)
-  let c = CRC32State::new()
-  c.push_range(buf, 0, len)
-  let actual_crc = c.digest()
-  if actual_crc != expected_crc {
-    raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+  // Verify CRC-32 checksum (optional for performance)
+  if opts.verify_checksum {
+    let expected_crc = b4(data, data.length() - 8)
+    let c = CRC32State::new()
+    c.push_range(buf, 0, len)
+    let actual_crc = c.digest()
+    if actual_crc != expected_crc {
+      raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+    }
   }
   buf
 }
