@@ -212,6 +212,21 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
 }
 
 ///|
+let dflt_head_pool : Array[FixedArray[Int]] = []
+
+///|
+let dflt_prev_pool : Array[FixedArray[Int]] = []
+
+///|
+let dflt_syms_pool : Array[FixedArray[Int]] = []
+
+///|
+let dflt_lf_pool : Array[FixedArray[Int]] = []
+
+///|
+let dflt_df_pool : Array[FixedArray[Int]] = []
+
+///|
 /// Core DEFLATE compression function
 fn dflt(
   dat : FixedArray[Byte],
@@ -239,19 +254,40 @@ fn dflt(
     let n = opt >> 13
     let c = opt & 8191
     let msk = (1 << plvl) - 1
-    // Adaptive window size for small data
-    let window_size = if s < 4096 { 4096 } else { 32768 }
+    let window_size = 32768
+    let my_prev_from_pool = st.prev is None
     let prev = match st.prev {
       Some(p) => p
-      None => FixedArray::make(window_size, 0)
+      None =>
+        match dflt_prev_pool.pop() {
+          Some(p) =>
+            if p.length() >= window_size {
+              p
+            } else {
+              FixedArray::make(window_size, 0)
+            }
+          None => FixedArray::make(window_size, 0)
+        }
     }
+    let my_head_from_pool = st.head is None
     let head = match st.head {
       Some(h) => h
-      None => FixedArray::make(msk + 1, 0)
+      None =>
+        match dflt_head_pool.pop() {
+          Some(h) =>
+            if h.length() >= msk + 1 {
+              for j in 0..<=msk {
+                h[j] = 0
+              }
+              h
+            } else {
+              FixedArray::make(msk + 1, 0)
+            }
+          None => FixedArray::make(msk + 1, 0)
+        }
     }
     let bs1 = (plvl + 2) / 3
     let bs2 = 2 * bs1
-    // Optimized buffer allocation (方案 5)
     let syms_size = if s < 512 {
       512
     } else if s < 4096 {
@@ -261,9 +297,34 @@ fn dflt(
     } else {
       25000
     }
-    let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
-    let lf : FixedArray[Int] = FixedArray::make(288, 0)
-    let df : FixedArray[Int] = FixedArray::make(32, 0)
+    // Optimized buffer allocation
+    let syms = match dflt_syms_pool.pop() {
+      Some(s) =>
+        if s.length() >= syms_size {
+          s
+        } else {
+          FixedArray::make(syms_size, 0)
+        }
+      None => FixedArray::make(syms_size, 0)
+    }
+    let lf = match dflt_lf_pool.pop() {
+      Some(a) => {
+        for j in 0..<288 {
+          a[j] = 0
+        }
+        a
+      }
+      None => FixedArray::make(288, 0)
+    }
+    let df = match dflt_df_pool.pop() {
+      Some(a) => {
+        for j in 0..<32 {
+          a[j] = 0
+        }
+        a
+      }
+      None => FixedArray::make(32, 0)
+    }
     let mut lc = 0
     let mut eb = 0
     let mut i = if st.i != 0 { st.i } else { 0 }
@@ -434,7 +495,17 @@ fn dflt(
       st.prev = Some(prev)
       st.i = j
       st.w = wi
+    } else {
+      if my_head_from_pool {
+        dflt_head_pool.push(head)
+      }
+      if my_prev_from_pool {
+        dflt_prev_pool.push(prev)
+      }
     }
+    dflt_syms_pool.push(syms)
+    dflt_lf_pool.push(lf)
+    dflt_df_pool.push(df)
   } else {
     let mut i2 = if st.w != 0 { st.w } else { 0 }
     while i2 < s + lst {

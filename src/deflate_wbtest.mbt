@@ -362,3 +362,50 @@ test "fast incompressible detection - threshold 512" {
     assert_eq(decompressed.length(), size)
   }
 }
+
+///|
+test "deflate array pool reuse" {
+  let initial_pool_len = dflt_head_pool.length()
+  let data1 = FixedArray::make(100, b'\x42')
+  let _ = deflate_sync(data1)
+  let pool_len_1 = dflt_head_pool.length()
+  assert_true(pool_len_1 > initial_pool_len || pool_len_1 == initial_pool_len)
+
+  let data2 = FixedArray::make(200, b'\x43')
+  let _ = deflate_sync(data2)
+  let pool_len_2 = dflt_head_pool.length()
+  // Since it reuses arrays, length should be stable
+  assert_true(pool_len_2 == pool_len_1)
+}
+
+///|
+test "deflate pool correctness - multiple compressions" {
+  // Verify that pool reuse doesn't cause data corruption
+  let data1 = FixedArray::make(500, b'\x41')
+  let compressed1 = deflate_sync(data1)
+  let decompressed1 = inflate_sync(compressed1)
+  assert_eq(decompressed1.length(), 500)
+  for i in 0..<500 {
+    assert_eq(decompressed1[i], b'\x41')
+  }
+
+  let data2 = FixedArray::make(300, b'\x42')
+  let compressed2 = deflate_sync(data2)
+  let decompressed2 = inflate_sync(compressed2)
+  assert_eq(decompressed2.length(), 300)
+  for i in 0..<300 {
+    assert_eq(decompressed2[i], b'\x42')
+  }
+
+  // Third compression with different pattern
+  let data3 : FixedArray[Byte] = FixedArray::make(400, b'\x00')
+  for i in 0..<400 {
+    data3[i] = (i % 256).to_byte()
+  }
+  let compressed3 = deflate_sync(data3)
+  let decompressed3 = inflate_sync(compressed3)
+  assert_eq(decompressed3.length(), 400)
+  for i in 0..<400 {
+    assert_eq(decompressed3[i], (i % 256).to_byte())
+  }
+}
