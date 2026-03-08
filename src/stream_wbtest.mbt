@@ -43,3 +43,35 @@ test "GunzipStream - basic usage" {
   stream.push(compressed, final_=true)
   assert_true(output.length() > 0)
 }
+
+///|
+test "ZlibStream - basic usage" {
+  let stream = ZlibStream::new()
+  let output : Array[FixedArray[Byte]] = []
+  stream.ondata = Some(FlateStreamHandler((data, _) => output.push(data)))
+  let data : FixedArray[Byte] = [1, 2, 3]
+  stream.push(data, final_=true)
+  assert_true(output.length() > 0)
+}
+
+///|
+test "UnzlibStream - basic usage" {
+  let data : FixedArray[Byte] = [1, 2, 3]
+  let compressed = zlib_sync(data)
+  let stream = UnzlibStream::new()
+  let output : Array[FixedArray[Byte]] = []
+  stream.ondata = Some(FlateStreamHandler((data, _) => output.push(data)))
+  stream.push(compressed, final_=true)
+  assert_true(output.length() > 0)
+}
+
+///|
+test "DecompressStream - basic usage" {
+  let data : FixedArray[Byte] = [1, 2, 3]
+  let compressed = gzip_sync(data)
+  let stream = DecompressStream::new()
+  let output : Array[FixedArray[Byte]] = []
+  stream.ondata = Some(FlateStreamHandler((data, _) => output.push(data)))
+  stream.push(compressed, final_=true)
+  assert_true(output.length() > 0)
+}
