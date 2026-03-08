@@ -52,6 +52,13 @@ let compressed = @fzip.gzip_sync(data, opts={
 
 // Decompress
 let original = @fzip.gunzip_sync(compressed)
+// With size limits (default: 100MB output, 1GB input)
+let original = @fzip.gunzip_sync(compressed, opts={
+  out: None,
+  dictionary: None,
+  max_output_size: 104857600,  // 100MB
+  max_input_size: 1073741824,  // 1GB
+})
 ```
 
 ### Zlib
@@ -139,12 +146,33 @@ let bytes = @fzip.str_to_u8("Hello", latin1=true)
 let text = @fzip.str_from_u8(bytes, latin1=true)
 ```
 
+## Security Features
+
+fzip includes built-in protections against common compression attacks:
+
+- **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes prevent zip bombs
+- **Checksum verification**: CRC-32 (GZIP) and Adler-32 (Zlib) checksums are verified to detect corrupted data
+- **Compression ratio check**: ZIP files with compression ratios > 1000:1 are rejected
+- **Path traversal protection**: ZIP entries with unsafe paths (../, absolute paths) are rejected
+- **Filename length validation**: ZIP filenames are limited to 4096 bytes
+
+Configure size limits per operation:
+
+```moonbit
+let original = @fzip.inflate_sync(compressed, opts={
+  out: None,
+  dictionary: None,
+  max_output_size: 10485760,   // 10MB
+  max_input_size: 104857600,   // 100MB
+})
+```
+
 ## Development
 
 ```bash
 moon check              # Type check
 moon build              # Full build
-moon test               # Run tests (75 tests)
+moon test               # Run tests (128 tests)
 moon test -v            # Verbose output
 moon fmt                # Format code
 moon bench              # Run benchmarks
