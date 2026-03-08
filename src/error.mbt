@@ -15,6 +15,7 @@ pub(all) enum FzipErrorCode {
   StreamFinishing // 12
   InvalidZipData // 13
   UnknownCompressionMethod // 14
+  InvalidChecksum // 15
 } derive(Eq, Show)
 
 ///|
@@ -22,7 +23,7 @@ let error_messages : Array[String] = [
   "unexpected EOF", "invalid block type", "invalid length/literal", "invalid distance",
   "stream finished", "no stream handler", "invalid header", "no callback", "invalid UTF-8 data",
   "extra field too long", "date not in range 1980-2099", "filename too long", "stream finishing",
-  "invalid zip data", "unknown compression method",
+  "invalid zip data", "unknown compression method", "invalid checksum",
 ]
 
 ///|
@@ -48,6 +49,7 @@ fn fzip_error_code_to_int(code : FzipErrorCode) -> Int {
     StreamFinishing => 12
     InvalidZipData => 13
     UnknownCompressionMethod => 14
+    InvalidChecksum => 15
   }
 }
 
