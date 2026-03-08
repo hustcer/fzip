@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "timestamp": "2026-03-08T11:14:14+0800",
+    "timestamp": "2026-03-08T11:20:14+0800",
     "moon_version": "moon 0.1.20260209 (b129ae2 2026-02-09)",
     "target": "wasm-gc",
     "os": "Darwin arm64",
@@ -9,580 +9,580 @@
   "benchmarks": [
     {
       "name": "deflate/compress/zeros_1k/fzip",
-      "mean_us": 6.83,
-      "std_us": 0.03,
-      "min_us": 6.79,
-      "max_us": 6.88,
+      "mean_us": 6.9,
+      "std_us": 0.05,
+      "min_us": 6.84,
+      "max_us": 6.97,
       "unit": "µs",
       "iterations": 10,
-      "runs": 14539
+      "runs": 14215
     },
     {
       "name": "deflate/compress/zeros_1k/moonzip",
-      "mean_us": 100.95,
-      "std_us": 5.32,
-      "min_us": 95.75,
-      "max_us": 113.61,
+      "mean_us": 116.51,
+      "std_us": 4.13,
+      "min_us": 112.63,
+      "max_us": 126.18,
       "unit": "µs",
       "iterations": 10,
-      "runs": 960
+      "runs": 924
     },
     {
       "name": "deflate/compress/zeros_1k/zipc",
-      "mean_us": 10.67,
-      "std_us": 0.24,
-      "min_us": 10.45,
-      "max_us": 11.1,
+      "mean_us": 10.83,
+      "std_us": 0.22,
+      "min_us": 10.61,
+      "max_us": 11.26,
       "unit": "µs",
       "iterations": 10,
-      "runs": 9498
+      "runs": 9235
     },
     {
       "name": "deflate/compress/zeros_100k/fzip",
-      "mean_us": 450.57,
-      "std_us": 4.3,
-      "min_us": 446.58,
-      "max_us": 462.01,
+      "mean_us": 455.96,
+      "std_us": 6.27,
+      "min_us": 452.01,
+      "max_us": 473.27,
       "unit": "µs",
       "iterations": 10,
-      "runs": 223
+      "runs": 222
     },
     {
       "name": "deflate/compress/zeros_100k/moonzip",
-      "mean_us": 434.26,
-      "std_us": 2.99,
-      "min_us": 428.23,
-      "max_us": 436.84,
+      "mean_us": 448.68,
+      "std_us": 3.6,
+      "min_us": 443.09,
+      "max_us": 454.07,
       "unit": "µs",
       "iterations": 10,
-      "runs": 229
+      "runs": 224
     },
     {
       "name": "deflate/compress/zeros_100k/zipc",
-      "mean_us": 1050.0,
-      "std_us": 3240.0,
-      "min_us": 1040.0,
-      "max_us": 1050.0,
+      "mean_us": 1080.0,
+      "std_us": 51600.0,
+      "min_us": 1060.0,
+      "max_us": 1230.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 95
+      "runs": 94
     },
     {
       "name": "deflate/compress/seq_1k/fzip",
-      "mean_us": 14.36,
-      "std_us": 0.12,
-      "min_us": 14.26,
-      "max_us": 14.59,
+      "mean_us": 14.49,
+      "std_us": 0.11,
+      "min_us": 14.38,
+      "max_us": 14.7,
       "unit": "µs",
       "iterations": 10,
-      "runs": 7011
+      "runs": 6839
     },
     {
       "name": "deflate/compress/seq_1k/moonzip",
-      "mean_us": 111.91,
-      "std_us": 3.5,
-      "min_us": 108.01,
-      "max_us": 116.22,
+      "mean_us": 125.81,
+      "std_us": 3.49,
+      "min_us": 120.62,
+      "max_us": 130.98,
       "unit": "µs",
       "iterations": 10,
-      "runs": 843
+      "runs": 833
     },
     {
       "name": "deflate/compress/seq_1k/zipc",
-      "mean_us": 10.53,
+      "mean_us": 10.66,
       "std_us": 0.04,
-      "min_us": 10.47,
-      "max_us": 10.59,
+      "min_us": 10.59,
+      "max_us": 10.71,
       "unit": "µs",
       "iterations": 10,
-      "runs": 9495
+      "runs": 9334
     },
     {
       "name": "deflate/compress/seq_100k/fzip",
-      "mean_us": 460.71,
-      "std_us": 1.09,
-      "min_us": 459.19,
-      "max_us": 462.58,
+      "mean_us": 467.17,
+      "std_us": 2.68,
+      "min_us": 464.56,
+      "max_us": 474.1,
       "unit": "µs",
       "iterations": 10,
-      "runs": 207
+      "runs": 215
     },
     {
       "name": "deflate/compress/seq_100k/moonzip",
-      "mean_us": 454.81,
-      "std_us": 15.48,
-      "min_us": 441.85,
-      "max_us": 490.59,
+      "mean_us": 474.53,
+      "std_us": 18.47,
+      "min_us": 454.59,
+      "max_us": 514.46,
       "unit": "µs",
       "iterations": 10,
-      "runs": 220
+      "runs": 215
     },
     {
       "name": "deflate/compress/seq_100k/zipc",
-      "mean_us": 1060.0,
-      "std_us": 25410.0,
-      "min_us": 1040.0,
-      "max_us": 1120.0,
+      "mean_us": 1070.0,
+      "std_us": 8900.0,
+      "min_us": 1060.0,
+      "max_us": 1080.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 95
+      "runs": 93
     },
     {
       "name": "deflate/compress/random_1k/fzip",
-      "mean_us": 33.84,
-      "std_us": 0.35,
-      "min_us": 33.56,
-      "max_us": 34.75,
+      "mean_us": 34.0,
+      "std_us": 0.17,
+      "min_us": 33.75,
+      "max_us": 34.26,
       "unit": "µs",
       "iterations": 10,
-      "runs": 2940
+      "runs": 2935
     },
     {
       "name": "deflate/compress/random_1k/moonzip",
-      "mean_us": 183.75,
-      "std_us": 2.46,
-      "min_us": 181.52,
-      "max_us": 189.22,
+      "mean_us": 204.76,
+      "std_us": 4.67,
+      "min_us": 199.65,
+      "max_us": 215.47,
       "unit": "µs",
       "iterations": 10,
-      "runs": 534
+      "runs": 494
     },
     {
       "name": "deflate/compress/random_1k/zipc",
-      "mean_us": 10.54,
-      "std_us": 0.09,
-      "min_us": 10.47,
-      "max_us": 10.78,
+      "mean_us": 10.7,
+      "std_us": 0.1,
+      "min_us": 10.59,
+      "max_us": 10.9,
       "unit": "µs",
       "iterations": 10,
-      "runs": 9519
+      "runs": 9380
     },
     {
       "name": "deflate/compress/random_100k/fzip",
-      "mean_us": 97.82,
-      "std_us": 0.54,
-      "min_us": 97.03,
-      "max_us": 98.4,
+      "mean_us": 99.62,
+      "std_us": 0.72,
+      "min_us": 98.68,
+      "max_us": 100.45,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1013
+      "runs": 1000
     },
     {
       "name": "deflate/compress/random_100k/moonzip",
-      "mean_us": 42610.0,
-      "std_us": 499670.0,
-      "min_us": 42190.0,
-      "max_us": 43950.0,
+      "mean_us": 43250.0,
+      "std_us": 436550.0,
+      "min_us": 42930.0,
+      "max_us": 44320.0,
       "unit": "µs",
       "iterations": 10,
       "runs": 3
     },
     {
       "name": "deflate/compress/random_100k/zipc",
-      "mean_us": 1090.0,
-      "std_us": 71550.0,
-      "min_us": 1040.0,
-      "max_us": 1280.0,
+      "mean_us": 1060.0,
+      "std_us": 6600.0,
+      "min_us": 1050.0,
+      "max_us": 1070.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 96
+      "runs": 94
     },
     {
       "name": "deflate/decompress/1k/fzip",
-      "mean_us": 3.1,
-      "std_us": 0.03,
-      "min_us": 3.06,
-      "max_us": 3.15,
+      "mean_us": 3.14,
+      "std_us": 0.04,
+      "min_us": 3.1,
+      "max_us": 3.2,
       "unit": "µs",
       "iterations": 10,
-      "runs": 30316
+      "runs": 30136
     },
     {
       "name": "deflate/decompress/1k/moonzip",
-      "mean_us": 4.46,
+      "mean_us": 4.53,
       "std_us": 0.02,
-      "min_us": 4.43,
-      "max_us": 4.48,
+      "min_us": 4.5,
+      "max_us": 4.56,
       "unit": "µs",
       "iterations": 10,
-      "runs": 22571
+      "runs": 22063
     },
     {
       "name": "deflate/decompress/1k/zipc",
-      "mean_us": 0.77,
+      "mean_us": 0.78,
       "std_us": 0.0,
-      "min_us": 0.77,
-      "max_us": 0.77,
+      "min_us": 0.78,
+      "max_us": 0.78,
       "unit": "µs",
       "iterations": 10,
       "runs": 100000
     },
     {
       "name": "deflate/decompress/100k/fzip",
-      "mean_us": 116.71,
-      "std_us": 1.1,
-      "min_us": 115.71,
-      "max_us": 118.74,
+      "mean_us": 121.61,
+      "std_us": 3.06,
+      "min_us": 118.85,
+      "max_us": 127.07,
       "unit": "µs",
       "iterations": 10,
-      "runs": 829
+      "runs": 793
     },
     {
       "name": "deflate/decompress/100k/moonzip",
-      "mean_us": 309.11,
-      "std_us": 2.5,
-      "min_us": 307.09,
-      "max_us": 315.78,
+      "mean_us": 315.82,
+      "std_us": 3.45,
+      "min_us": 312.19,
+      "max_us": 321.66,
       "unit": "µs",
       "iterations": 10,
-      "runs": 326
+      "runs": 320
     },
     {
       "name": "deflate/decompress/100k/zipc",
-      "mean_us": 117.21,
-      "std_us": 0.22,
-      "min_us": 116.7,
-      "max_us": 117.5,
+      "mean_us": 118.72,
+      "std_us": 0.53,
+      "min_us": 117.89,
+      "max_us": 119.47,
       "unit": "µs",
       "iterations": 10,
-      "runs": 854
+      "runs": 840
     },
     {
       "name": "gzip/compress/1k/fzip",
-      "mean_us": 17.93,
-      "std_us": 0.11,
-      "min_us": 17.84,
-      "max_us": 18.24,
+      "mean_us": 18.23,
+      "std_us": 0.24,
+      "min_us": 18.03,
+      "max_us": 18.8,
       "unit": "µs",
       "iterations": 10,
-      "runs": 5580
+      "runs": 5516
     },
     {
       "name": "gzip/compress/1k/moonzip",
-      "mean_us": 115.32,
-      "std_us": 3.15,
-      "min_us": 112.9,
-      "max_us": 122.12,
+      "mean_us": 136.21,
+      "std_us": 14.05,
+      "min_us": 125.48,
+      "max_us": 164.72,
       "unit": "µs",
       "iterations": 10,
-      "runs": 869
+      "runs": 792
     },
     {
       "name": "gzip/compress/1k/zipc",
-      "mean_us": 15.81,
-      "std_us": 0.31,
-      "min_us": 15.54,
+      "mean_us": 15.99,
+      "std_us": 0.23,
+      "min_us": 15.76,
       "max_us": 16.38,
       "unit": "µs",
       "iterations": 10,
-      "runs": 6397
+      "runs": 5711
     },
     {
       "name": "gzip/compress/100k/fzip",
-      "mean_us": 823.92,
-      "std_us": 5.75,
-      "min_us": 821.42,
-      "max_us": 840.24,
+      "mean_us": 833.19,
+      "std_us": 10.47,
+      "min_us": 825.33,
+      "max_us": 860.26,
       "unit": "µs",
       "iterations": 10,
-      "runs": 124
+      "runs": 120
     },
     {
       "name": "gzip/compress/100k/moonzip",
-      "mean_us": 816.43,
-      "std_us": 5.14,
-      "min_us": 811.14,
-      "max_us": 825.79,
+      "mean_us": 831.2,
+      "std_us": 12.33,
+      "min_us": 812.71,
+      "max_us": 846.22,
       "unit": "µs",
       "iterations": 10,
-      "runs": 124
+      "runs": 121
     },
     {
       "name": "gzip/compress/100k/zipc",
-      "mean_us": 1550.0,
-      "std_us": 9410.0,
-      "min_us": 1540.0,
-      "max_us": 1560.0,
+      "mean_us": 1580.0,
+      "std_us": 18720.0,
+      "min_us": 1560.0,
+      "max_us": 1620.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 65
+      "runs": 64
     },
     {
       "name": "gzip/decompress/1k/fzip",
-      "mean_us": 2.82,
-      "std_us": 0.01,
-      "min_us": 2.8,
-      "max_us": 2.84,
+      "mean_us": 2.89,
+      "std_us": 0.05,
+      "min_us": 2.84,
+      "max_us": 3.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 34249
+      "runs": 34429
     },
     {
       "name": "gzip/decompress/1k/moonzip",
-      "mean_us": 8.22,
-      "std_us": 0.03,
-      "min_us": 8.17,
-      "max_us": 8.29,
+      "mean_us": 8.43,
+      "std_us": 0.09,
+      "min_us": 8.34,
+      "max_us": 8.59,
       "unit": "µs",
       "iterations": 10,
-      "runs": 12123
+      "runs": 11879
     },
     {
       "name": "gzip/decompress/1k/zipc",
-      "mean_us": 4.82,
-      "std_us": 0.06,
-      "min_us": 4.78,
-      "max_us": 4.96,
+      "mean_us": 4.94,
+      "std_us": 0.08,
+      "min_us": 4.88,
+      "max_us": 5.14,
       "unit": "µs",
       "iterations": 10,
-      "runs": 20930
+      "runs": 20382
     },
     {
       "name": "gzip/decompress/100k/fzip",
-      "mean_us": 89.51,
-      "std_us": 1.02,
-      "min_us": 89.07,
-      "max_us": 92.4,
+      "mean_us": 90.62,
+      "std_us": 0.56,
+      "min_us": 89.84,
+      "max_us": 91.68,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1118
+      "runs": 1091
     },
     {
       "name": "gzip/decompress/100k/moonzip",
-      "mean_us": 661.65,
-      "std_us": 1.17,
-      "min_us": 660.14,
-      "max_us": 663.58,
+      "mean_us": 680.58,
+      "std_us": 2.77,
+      "min_us": 676.44,
+      "max_us": 684.47,
       "unit": "µs",
       "iterations": 10,
-      "runs": 149
+      "runs": 144
     },
     {
       "name": "gzip/decompress/100k/zipc",
-      "mean_us": 481.23,
-      "std_us": 0.52,
-      "min_us": 480.53,
-      "max_us": 481.96,
+      "mean_us": 491.32,
+      "std_us": 1.55,
+      "min_us": 489.63,
+      "max_us": 493.67,
       "unit": "µs",
       "iterations": 10,
-      "runs": 208
+      "runs": 203
     },
     {
       "name": "zlib/compress/1k/fzip",
-      "mean_us": 14.9,
-      "std_us": 0.02,
-      "min_us": 14.87,
-      "max_us": 14.94,
+      "mean_us": 15.14,
+      "std_us": 0.06,
+      "min_us": 15.03,
+      "max_us": 15.23,
       "unit": "µs",
       "iterations": 10,
-      "runs": 6692
+      "runs": 6580
     },
     {
       "name": "zlib/compress/1k/moonzip",
-      "mean_us": 115.27,
-      "std_us": 3.85,
-      "min_us": 112.45,
-      "max_us": 125.11,
+      "mean_us": 131.0,
+      "std_us": 3.58,
+      "min_us": 126.82,
+      "max_us": 136.4,
       "unit": "µs",
       "iterations": 10,
-      "runs": 886
+      "runs": 790
     },
     {
       "name": "zlib/compress/1k/zipc",
-      "mean_us": 20.56,
-      "std_us": 0.03,
-      "min_us": 20.52,
-      "max_us": 20.63,
+      "mean_us": 20.98,
+      "std_us": 0.08,
+      "min_us": 20.85,
+      "max_us": 21.11,
       "unit": "µs",
       "iterations": 10,
-      "runs": 4857
+      "runs": 4757
     },
     {
       "name": "zlib/compress/100k/fzip",
-      "mean_us": 524.94,
-      "std_us": 4.72,
-      "min_us": 522.49,
-      "max_us": 538.25,
+      "mean_us": 532.19,
+      "std_us": 6.46,
+      "min_us": 527.63,
+      "max_us": 549.52,
       "unit": "µs",
       "iterations": 10,
-      "runs": 192
+      "runs": 190
     },
     {
       "name": "zlib/compress/100k/moonzip",
-      "mean_us": 509.64,
-      "std_us": 6.5,
-      "min_us": 505.1,
-      "max_us": 526.5,
+      "mean_us": 531.71,
+      "std_us": 12.72,
+      "min_us": 522.76,
+      "max_us": 563.73,
       "unit": "µs",
       "iterations": 10,
-      "runs": 196
+      "runs": 189
     },
     {
       "name": "zlib/compress/100k/zipc",
-      "mean_us": 2120.0,
-      "std_us": 37990.0,
-      "min_us": 2060.0,
-      "max_us": 2160.0,
+      "mean_us": 2140.0,
+      "std_us": 37960.0,
+      "min_us": 2100.0,
+      "max_us": 2190.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 49
+      "runs": 48
     },
     {
       "name": "zlib/decompress/1k/fzip",
-      "mean_us": 3.11,
-      "std_us": 0.0,
-      "min_us": 3.11,
-      "max_us": 3.11,
+      "mean_us": 3.16,
+      "std_us": 0.01,
+      "min_us": 3.15,
+      "max_us": 3.18,
       "unit": "µs",
       "iterations": 10,
-      "runs": 32277
+      "runs": 31800
     },
     {
       "name": "zlib/decompress/1k/moonzip",
-      "mean_us": 5.32,
-      "std_us": 0.02,
-      "min_us": 5.29,
-      "max_us": 5.34,
+      "mean_us": 5.55,
+      "std_us": 0.32,
+      "min_us": 5.38,
+      "max_us": 6.44,
       "unit": "µs",
       "iterations": 10,
-      "runs": 18832
+      "runs": 18493
     },
     {
       "name": "zlib/decompress/1k/zipc",
-      "mean_us": 9.91,
-      "std_us": 0.01,
-      "min_us": 9.89,
-      "max_us": 9.93,
+      "mean_us": 10.23,
+      "std_us": 0.15,
+      "min_us": 10.1,
+      "max_us": 10.49,
       "unit": "µs",
       "iterations": 10,
-      "runs": 10048
+      "runs": 9839
     },
     {
       "name": "zlib/decompress/100k/fzip",
-      "mean_us": 117.32,
-      "std_us": 1.75,
-      "min_us": 116.13,
-      "max_us": 121.12,
+      "mean_us": 121.19,
+      "std_us": 1.26,
+      "min_us": 119.96,
+      "max_us": 124.26,
       "unit": "µs",
       "iterations": 10,
-      "runs": 850
+      "runs": 822
     },
     {
       "name": "zlib/decompress/100k/moonzip",
-      "mean_us": 369.84,
-      "std_us": 0.65,
-      "min_us": 368.76,
-      "max_us": 370.61,
+      "mean_us": 378.18,
+      "std_us": 1.54,
+      "min_us": 375.8,
+      "max_us": 380.2,
       "unit": "µs",
       "iterations": 10,
-      "runs": 271
+      "runs": 265
     },
     {
       "name": "zlib/decompress/100k/zipc",
-      "mean_us": 1870.0,
-      "std_us": 1850.0,
-      "min_us": 1860.0,
-      "max_us": 1870.0,
+      "mean_us": 1900.0,
+      "std_us": 18670.0,
+      "min_us": 1890.0,
+      "max_us": 1950.0,
       "unit": "µs",
       "iterations": 10,
-      "runs": 54
+      "runs": 53
     },
     {
       "name": "zip/compress/fzip",
-      "mean_us": 81.27,
-      "std_us": 0.09,
-      "min_us": 81.12,
-      "max_us": 81.45,
+      "mean_us": 82.4,
+      "std_us": 0.49,
+      "min_us": 82.14,
+      "max_us": 83.75,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1232
+      "runs": 1223
     },
     {
       "name": "zip/compress/moonzip",
-      "mean_us": 612.03,
-      "std_us": 27.4,
-      "min_us": 584.34,
-      "max_us": 659.47,
+      "mean_us": 649.52,
+      "std_us": 34.9,
+      "min_us": 623.51,
+      "max_us": 733.4,
       "unit": "µs",
       "iterations": 10,
-      "runs": 170
+      "runs": 164
     },
     {
       "name": "zip/decompress/fzip",
-      "mean_us": 4.44,
-      "std_us": 0.02,
-      "min_us": 4.42,
-      "max_us": 4.49,
+      "mean_us": 4.51,
+      "std_us": 0.08,
+      "min_us": 4.43,
+      "max_us": 4.67,
       "unit": "µs",
       "iterations": 10,
-      "runs": 22726
+      "runs": 22297
     },
     {
       "name": "zip/decompress/moonzip",
-      "mean_us": 39.21,
-      "std_us": 0.03,
-      "min_us": 39.18,
-      "max_us": 39.27,
+      "mean_us": 39.54,
+      "std_us": 0.19,
+      "min_us": 39.23,
+      "max_us": 39.81,
       "unit": "µs",
       "iterations": 10,
-      "runs": 2548
+      "runs": 2519
     },
     {
       "name": "crc32/1k/fzip",
-      "mean_us": 3.51,
-      "std_us": 0.0,
-      "min_us": 3.5,
-      "max_us": 3.51,
+      "mean_us": 3.56,
+      "std_us": 0.02,
+      "min_us": 3.54,
+      "max_us": 3.58,
       "unit": "µs",
       "iterations": 10,
-      "runs": 28520
+      "runs": 28099
     },
     {
       "name": "crc32/1k/moonzip",
-      "mean_us": 3.52,
-      "std_us": 0.03,
-      "min_us": 3.5,
+      "mean_us": 3.57,
+      "std_us": 0.01,
+      "min_us": 3.55,
       "max_us": 3.59,
       "unit": "µs",
       "iterations": 10,
-      "runs": 28249
+      "runs": 27088
     },
     {
       "name": "crc32/1k/zipc",
-      "mean_us": 3.57,
-      "std_us": 0.0,
-      "min_us": 3.56,
-      "max_us": 3.57,
+      "mean_us": 3.91,
+      "std_us": 0.88,
+      "min_us": 3.62,
+      "max_us": 6.41,
       "unit": "µs",
       "iterations": 10,
-      "runs": 28008
+      "runs": 27745
     },
     {
       "name": "crc32/100k/fzip",
-      "mean_us": 363.44,
-      "std_us": 19.75,
-      "min_us": 353.95,
-      "max_us": 415.55,
+      "mean_us": 364.49,
+      "std_us": 6.47,
+      "min_us": 358.88,
+      "max_us": 378.49,
       "unit": "µs",
       "iterations": 10,
-      "runs": 282
+      "runs": 278
     },
     {
       "name": "crc32/100k/moonzip",
-      "mean_us": 355.19,
-      "std_us": 1.81,
-      "min_us": 354.15,
-      "max_us": 360.1,
+      "mean_us": 365.15,
+      "std_us": 7.21,
+      "min_us": 358.79,
+      "max_us": 378.56,
       "unit": "µs",
       "iterations": 10,
-      "runs": 283
+      "runs": 278
     },
     {
       "name": "crc32/100k/zipc",
-      "mean_us": 360.98,
-      "std_us": 3.59,
-      "min_us": 358.05,
-      "max_us": 368.79,
+      "mean_us": 363.82,
+      "std_us": 1.69,
+      "min_us": 361.81,
+      "max_us": 367.54,
       "unit": "µs",
       "iterations": 10,
       "runs": 269
@@ -599,93 +599,93 @@
     },
     {
       "name": "adler32/1k/moonzip",
-      "mean_us": 0.62,
+      "mean_us": 0.63,
       "std_us": 0.01,
-      "min_us": 0.62,
-      "max_us": 0.63,
+      "min_us": 0.63,
+      "max_us": 0.64,
       "unit": "µs",
       "iterations": 10,
       "runs": 100000
     },
     {
       "name": "adler32/1k/zipc",
-      "mean_us": 8.67,
-      "std_us": 0.06,
-      "min_us": 8.62,
-      "max_us": 8.81,
+      "mean_us": 8.69,
+      "std_us": 0.02,
+      "min_us": 8.67,
+      "max_us": 8.75,
       "unit": "µs",
       "iterations": 10,
-      "runs": 11559
+      "runs": 11451
     },
     {
       "name": "adler32/100k/fzip",
-      "mean_us": 61.18,
-      "std_us": 0.6,
-      "min_us": 60.33,
-      "max_us": 62.05,
+      "mean_us": 61.65,
+      "std_us": 0.25,
+      "min_us": 61.5,
+      "max_us": 62.29,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1641
+      "runs": 1620
     },
     {
       "name": "adler32/100k/moonzip",
-      "mean_us": 60.85,
-      "std_us": 0.5,
-      "min_us": 60.11,
-      "max_us": 61.43,
+      "mean_us": 61.49,
+      "std_us": 0.2,
+      "min_us": 61.26,
+      "max_us": 61.79,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1636
+      "runs": 1109
     },
     {
       "name": "adler32/100k/zipc",
-      "mean_us": 872.22,
-      "std_us": 2.54,
-      "min_us": 869.79,
-      "max_us": 876.73,
+      "mean_us": 878.16,
+      "std_us": 9.35,
+      "min_us": 872.11,
+      "max_us": 904.06,
       "unit": "µs",
       "iterations": 10,
       "runs": 115
     },
     {
       "name": "decompress/auto_detect/1k/fzip",
-      "mean_us": 2.85,
+      "mean_us": 2.86,
       "std_us": 0.01,
-      "min_us": 2.83,
-      "max_us": 2.86,
+      "min_us": 2.85,
+      "max_us": 2.87,
       "unit": "µs",
       "iterations": 10,
-      "runs": 35021
+      "runs": 34933
     },
     {
       "name": "decompress/auto_detect/1k/moonzip",
-      "mean_us": 8.55,
-      "std_us": 0.28,
-      "min_us": 8.3,
-      "max_us": 9.08,
+      "mean_us": 8.58,
+      "std_us": 0.26,
+      "min_us": 8.35,
+      "max_us": 9.2,
       "unit": "µs",
       "iterations": 10,
-      "runs": 11820
+      "runs": 12035
     },
     {
       "name": "decompress/auto_detect/100k/fzip",
-      "mean_us": 89.25,
-      "std_us": 0.21,
-      "min_us": 88.95,
-      "max_us": 89.52,
+      "mean_us": 89.88,
+      "std_us": 0.13,
+      "min_us": 89.63,
+      "max_us": 90.04,
       "unit": "µs",
       "iterations": 10,
-      "runs": 1119
+      "runs": 1110
     },
     {
       "name": "decompress/auto_detect/100k/moonzip",
-      "mean_us": 672.75,
-      "std_us": 1.47,
-      "min_us": 670.72,
-      "max_us": 674.93,
+      "mean_us": 676.03,
+      "std_us": 1.49,
+      "min_us": 674.52,
+      "max_us": 678.7,
       "unit": "µs",
       "iterations": 10,
-      "runs": 150
+      "runs": 148
     }
   ]
 }

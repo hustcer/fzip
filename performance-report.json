@@ -1,0 +1,228 @@
+{
+  "summary": {
+    "total_tests": 24,
+    "improved": 15,
+    "degraded": 9,
+    "avg_improvement_pct": 0.54,
+    "max_improvement_pct": 5.48,
+    "min_improvement_pct": -3.02
+  },
+  "details": [
+    {
+      "name": "deflate/compress/seq_1k/fzip",
+      "before_us": 15.33,
+      "after_us": 14.49,
+      "speedup": 1.0579710144927537,
+      "improvement_pct": 5.479452054794519,
+      "before_runs": 6521,
+      "after_runs": 6839
+    },
+    {
+      "name": "zlib/compress/1k/fzip",
+      "before_us": 15.98,
+      "after_us": 15.14,
+      "speedup": 1.0554821664464993,
+      "improvement_pct": 5.2565707133917385,
+      "before_runs": 6237,
+      "after_runs": 6580
+    },
+    {
+      "name": "gzip/compress/1k/fzip",
+      "before_us": 18.97,
+      "after_us": 18.23,
+      "speedup": 1.04059243006034,
+      "improvement_pct": 3.900896151818653,
+      "before_runs": 5243,
+      "after_runs": 5516
+    },
+    {
+      "name": "deflate/decompress/1k/fzip",
+      "before_us": 3.23,
+      "after_us": 3.14,
+      "speedup": 1.0286624203821655,
+      "improvement_pct": 2.786377708978324,
+      "before_runs": 31611,
+      "after_runs": 30136
+    },
+    {
+      "name": "zlib/compress/100k/fzip",
+      "before_us": 540.69,
+      "after_us": 532.19,
+      "speedup": 1.0159717394163739,
+      "improvement_pct": 1.572065323937931,
+      "before_runs": 174,
+      "after_runs": 190
+    },
+    {
+      "name": "adler32/1k/fzip",
+      "before_us": 0.64,
+      "after_us": 0.63,
+      "speedup": 1.0158730158730158,
+      "improvement_pct": 1.5625000000000013,
+      "before_runs": 100000,
+      "after_runs": 100000
+    },
+    {
+      "name": "gzip/compress/100k/fzip",
+      "before_us": 839.85,
+      "after_us": 833.19,
+      "speedup": 1.007993374860476,
+      "improvement_pct": 0.792998749776742,
+      "before_runs": 119,
+      "after_runs": 120
+    },
+    {
+      "name": "deflate/compress/seq_100k/fzip",
+      "before_us": 470.09,
+      "after_us": 467.17,
+      "speedup": 1.0062504013528264,
+      "improvement_pct": 0.6211576506626304,
+      "before_runs": 211,
+      "after_runs": 215
+    },
+    {
+      "name": "crc32/1k/fzip",
+      "before_us": 3.58,
+      "after_us": 3.56,
+      "speedup": 1.0056179775280898,
+      "improvement_pct": 0.5586592178770954,
+      "before_runs": 27907,
+      "after_runs": 28099
+    },
+    {
+      "name": "decompress/auto_detect/1k/fzip",
+      "before_us": 2.87,
+      "after_us": 2.86,
+      "speedup": 1.0034965034965035,
+      "improvement_pct": 0.34843205574913694,
+      "before_runs": 34785,
+      "after_runs": 34933
+    },
+    {
+      "name": "adler32/100k/fzip",
+      "before_us": 61.84,
+      "after_us": 61.65,
+      "speedup": 1.0030819140308191,
+      "improvement_pct": 0.30724450194049935,
+      "before_runs": 1622,
+      "after_runs": 1620
+    },
+    {
+      "name": "deflate/compress/random_1k/fzip",
+      "before_us": 34.1,
+      "after_us": 34.0,
+      "speedup": 1.0029411764705882,
+      "improvement_pct": 0.29325513196481356,
+      "before_runs": 2812,
+      "after_runs": 2935
+    },
+    {
+      "name": "decompress/auto_detect/100k/fzip",
+      "before_us": 90.14,
+      "after_us": 89.88,
+      "speedup": 1.0028927458834,
+      "improvement_pct": 0.28844020412691934,
+      "before_runs": 1114,
+      "after_runs": 1110
+    },
+    {
+      "name": "zip/compress/fzip",
+      "before_us": 82.56,
+      "after_us": 82.4,
+      "speedup": 1.0019417475728154,
+      "improvement_pct": 0.19379844961239895,
+      "before_runs": 1212,
+      "after_runs": 1223
+    },
+    {
+      "name": "deflate/compress/zeros_100k/fzip",
+      "before_us": 456.4,
+      "after_us": 455.96,
+      "speedup": 1.0009649969295553,
+      "improvement_pct": 0.09640666082383825,
+      "before_runs": 221,
+      "after_runs": 222
+    },
+    {
+      "name": "deflate/compress/random_100k/fzip",
+      "before_us": 99.26,
+      "after_us": 99.62,
+      "speedup": 0.9963862678177073,
+      "improvement_pct": -0.3626838605682041,
+      "before_runs": 1011,
+      "after_runs": 1000
+    },
+    {
+      "name": "gzip/decompress/100k/fzip",
+      "before_us": 89.85,
+      "after_us": 90.62,
+      "speedup": 0.9915029794747295,
+      "improvement_pct": -0.8569838619922208,
+      "before_runs": 1110,
+      "after_runs": 1091
+    },
+    {
+      "name": "zip/decompress/fzip",
+      "before_us": 4.47,
+      "after_us": 4.51,
+      "speedup": 0.991130820399113,
+      "improvement_pct": -0.8948545861297548,
+      "before_runs": 22364,
+      "after_runs": 22297
+    },
+    {
+      "name": "zlib/decompress/1k/fzip",
+      "before_us": 3.13,
+      "after_us": 3.16,
+      "speedup": 0.990506329113924,
+      "improvement_pct": -0.9584664536741293,
+      "before_runs": 31677,
+      "after_runs": 31800
+    },
+    {
+      "name": "gzip/decompress/1k/fzip",
+      "before_us": 2.86,
+      "after_us": 2.89,
+      "speedup": 0.9896193771626297,
+      "improvement_pct": -1.0489510489510576,
+      "before_runs": 34164,
+      "after_runs": 34429
+    },
+    {
+      "name": "crc32/100k/fzip",
+      "before_us": 360.52,
+      "after_us": 364.49,
+      "speedup": 0.989108068808472,
+      "improvement_pct": -1.1011871740818893,
+      "before_runs": 277,
+      "after_runs": 278
+    },
+    {
+      "name": "zlib/decompress/100k/fzip",
+      "before_us": 119.64,
+      "after_us": 121.19,
+      "speedup": 0.9872101658552687,
+      "improvement_pct": -1.295553326646604,
+      "before_runs": 848,
+      "after_runs": 822
+    },
+    {
+      "name": "deflate/compress/zeros_1k/fzip",
+      "before_us": 6.79,
+      "after_us": 6.9,
+      "speedup": 0.9840579710144927,
+      "improvement_pct": -1.6200294550810062,
+      "before_runs": 14799,
+      "after_runs": 14215
+    },
+    {
+      "name": "deflate/decompress/100k/fzip",
+      "before_us": 118.05,
+      "after_us": 121.61,
+      "speedup": 0.9707260916043088,
+      "improvement_pct": -3.015671325709447,
+      "before_runs": 850,
+      "after_runs": 793
+    }
+  ]
+}
