@@ -51,7 +51,7 @@ println(text) // "Hello, MoonBit!"
 
 This library is fully functional and actively maintained. Detailed documentation for APIs can be explored via `moon ide doc` or in the codebase.
 
-### ✅ Working Features
+### Working Features
 
 - **DEFLATE compression/decompression** - Full deflate algorithm implementation
 - **GZIP format support** - Deflate with GZIP headers, timestamps, metadata, and CRC-32 checksums
@@ -64,7 +64,7 @@ This library is fully functional and actively maintained. Detailed documentation
 - **Auto-detection** - Smart decompression that automatically recognizes formats
 - **Comprehensive tests** - 130+ passing tests spanning basic encoding, edge cases, and security
 
-### 📋 API Compatibility
+### API Compatibility
 
 The API is directly inspired by the original `fflate` library structure but adapted for robust MoonBit semantics:
 

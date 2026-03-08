@@ -16,43 +16,43 @@ _inc_plugin := if os_family() == 'windows' { 'nu_plugin_inc.exe' } else { 'nu_pl
 
 alias t := test
 
-# 默认显示所有可用命令
+# Show all available commands by default
 default:
     @just --list --list-prefix "··· "
 
-# 更新 Moonbit 依赖
+# Update Moonbit dependencies
 i: __setup
     moon update
 
-# Moonbit 代码全量格式化
+# Format all Moonbit code
 fmt: __setup
     moon info
     moon fmt
 
-# 代码全量扫描检查
+# Run comprehensive code check
 lint:
     moon check --target all
 
-# Build: 以生产模式构建应用
+# Build: Build the application in production mode
 b: __setup
     moon build --target all
 
-# Bench: 运行性能基准测试
+# Bench: Run performance benchmarks
 bench:
     moon bench -p benchmarks
 
-# 运行测试
+# Run tests
 test:
     moon test --target all
 
-# 清理构建目录
+# Clean build directories
 clean:
     #!/usr/bin/env nu
 
     moon clean
     print $'(ansi pb)Directories have been cleaned !(ansi reset)'
 
-# 扫描代码中的拼写错误, 需要本机安装 `typos-cli`, 使用：`just typos` or `just typos raw`
+# Scan code for spelling errors, requires `typos-cli` installed locally. Usage: `just typos` or `just typos raw`
 typos output=('table'):
     #!/usr/bin/env nu
 
@@ -77,7 +77,7 @@ typos output=('table'):
         }
       | move author --before correction
 
-# 检查过期依赖: `just outdated` 检查所有 Node 依赖, `just outdated mbt` 检查 MoonBit 依赖
+# Check outdated dependencies: `just outdated` checks Node dependencies, `just outdated mbt` checks MoonBit dependencies
 outdated:
     #!/usr/bin/env nu
 
@@ -97,9 +97,8 @@ __setup:
     print $'Current moon Version: (ansi g)($version)(ansi reset)'
     print $'(ansi p)------------------------------------->(ansi reset)(char nl)'
 
-# 从 Nu v0.61.0 开始插件只需注册一次即可
+# Plugins only need to be registered once
 _register_plugins:
     #!/usr/bin/env nu
     let incExists = not (scope commands | where name == 'inc' | is-empty)
     if not $incExists { plugin add {{ join(NU_DIR, _inc_plugin) }} }
-
