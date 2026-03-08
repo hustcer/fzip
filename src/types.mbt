@@ -23,9 +23,9 @@ pub fn InflateOptions::default() -> InflateOptions {
   {
     out: None,
     dictionary: None,
-    max_output_size: 104857600,
-    max_input_size: 1073741824,
-  } // 100MB output, 1GB input
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+  }
 }
 
 ///|
@@ -55,8 +55,8 @@ pub fn GunzipOptions::default() -> GunzipOptions {
   {
     out: None,
     dictionary: None,
-    max_output_size: 104857600,
-    max_input_size: 1073741824,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
   }
 }
 
@@ -85,8 +85,8 @@ pub fn UnzlibOptions::default() -> UnzlibOptions {
   {
     out: None,
     dictionary: None,
-    max_output_size: 104857600,
-    max_input_size: 1073741824,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
   }
 }
 
