@@ -16,8 +16,21 @@ let crct : FixedArray[UInt] = {
 /// Compute CRC-32 checksum of data
 pub fn crc32(data : FixedArray[Byte]) -> UInt {
   let mut c = 0xFFFFFFFFU
-  for i in 0..<data.length() {
+  let mut i = 0
+  let l = data.length()
+  while i + 3 < l {
     c = crct[((c ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+    c = crct[((c ^ data[i + 1].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (c >> 8)
+    c = crct[((c ^ data[i + 2].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (c >> 8)
+    c = crct[((c ^ data[i + 3].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (c >> 8)
+    i += 4
+  }
+  while i < l {
+    c = crct[((c ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+    i += 1
   }
   c ^ 0xFFFFFFFFU
 }
@@ -37,9 +50,23 @@ fn CRC32State::new() -> CRC32State {
 /// Feed data into the CRC-32 state
 fn CRC32State::push(self : CRC32State, data : FixedArray[Byte]) -> Unit {
   let mut cr = self.c
-  for i in 0..<data.length() {
+  let mut i = 0
+  let l = data.length()
+  while i + 3 < l {
     cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
       (cr >> 8)
+    cr = crct[((cr ^ data[i + 1].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    cr = crct[((cr ^ data[i + 2].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    cr = crct[((cr ^ data[i + 3].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    i += 4
+  }
+  while i < l {
+    cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    i += 1
   }
   self.c = cr
 }
@@ -54,9 +81,22 @@ fn CRC32State::push_range(
 ) -> Unit {
   let mut cr = self.c
   let end = offset + len
-  for i in offset..<end {
+  let mut i = offset
+  while i + 3 < end {
     cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
       (cr >> 8)
+    cr = crct[((cr ^ data[i + 1].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    cr = crct[((cr ^ data[i + 2].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    cr = crct[((cr ^ data[i + 3].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    i += 4
+  }
+  while i < end {
+    cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (cr >> 8)
+    i += 1
   }
   self.c = cr
 }
