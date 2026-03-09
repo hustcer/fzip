@@ -76,6 +76,70 @@ test "crc32 - push_range matches push" {
 }
 
 ///|
+test "crc32 unroll - exactly 4 bytes" {
+  // Exactly 4 bytes: one iteration of unrolled loop, no remainder
+  let data : FixedArray[Byte] = [b'\xDE', b'\xAD', b'\xBE', b'\xEF']
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "crc32 unroll - 7 bytes (4 + 3 remainder)" {
+  // 7 bytes: one unrolled iteration + 3 byte-by-byte
+  let data : FixedArray[Byte] = [
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07',
+  ]
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  // push_range must also match
+  let st2 = CRC32State::new()
+  st2.push_range(data, 0, 7)
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "crc32 unroll - 16 bytes (exact multiple of 4)" {
+  // 16 bytes: 4 iterations of unrolled loop, no remainder
+  let data = FixedArray::make(16, b'\x00')
+  for i in 0..<16 {
+    data[i] = (i * 17 % 256).to_byte()
+  }
+  let one_shot = crc32(data)
+  // Incremental in 2 chunks must also match
+  let st = CRC32State::new()
+  st.push(slc(data, 0, e=8))
+  st.push(slc(data, 8))
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "crc32 unroll - 100KB consistency" {
+  // 100KB: heavily exercises the unrolled loop
+  let size = 100000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 13579
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 256).to_byte()
+  }
+  let one_shot = crc32(data)
+  assert_true(one_shot != 0U)
+  // Verify incremental with push_range in 4KB chunks matches
+  let st = CRC32State::new()
+  let mut offset = 0
+  while offset < size {
+    let chunk = if offset + 4096 < size { 4096 } else { size - offset }
+    st.push_range(data, offset, chunk)
+    offset += chunk
+  }
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
 test "adler32 - push_range matches push" {
   let data : FixedArray[Byte] = [b'\x48', b'\x65', b'\x6C', b'\x6C', b'\x6F']
   let st1 = AdlerState::new()
