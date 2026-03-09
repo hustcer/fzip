@@ -366,3 +366,132 @@ test "inflate - large limits allow decompression" {
     assert_eq(decompressed[i], b'C')
   }
 }
+
+///|
+/// Test bit buffer with stored block (BTYPE=0) - verifies byte-alignment
+/// and bit buffer reset logic when switching from compressed to stored blocks
+test "inflt/bitbuf/stored_block" {
+  // level=0 forces stored blocks, testing the bit buffer reset path
+  let data = FixedArray::make(200, b'\x00')
+  for i in 0..<200 {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data, opts={
+    level: 0,
+    mem: 0,
+    dictionary: None,
+  })
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 200)
+  for i in 0..<200 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test bit buffer with fixed Huffman (BTYPE=1) - the most common fast path
+/// where lbt=9, dbt=5 and the fill-peek-consume loop runs tightest
+test "inflt/bitbuf/fixed_huffman" {
+  // Small data with moderate repetition triggers fixed Huffman encoding
+  let data = FixedArray::make(64, b'\x00')
+  for i in 0..<64 {
+    data[i] = (i % 16).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 64)
+  for i in 0..<64 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test bit buffer with dynamic Huffman (BTYPE=2) - exercises the 14-bit
+/// header read (HLIT+HDIST+HCLEN) and code length tree parsing
+test "inflt/bitbuf/dynamic_huffman" {
+  // Larger data with varied byte distribution triggers dynamic Huffman
+  let data = FixedArray::make(4096, b'\x00')
+  for i in 0..<4096 {
+    data[i] = ((i * 7 + 13) % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test bit buffer with heavy back-references (RLE-like data)
+/// Exercises extra length bits and distance bits fill paths
+test "inflt/bitbuf/long_backrefs" {
+  // Repeating 4-byte pattern creates long back-references
+  let data = FixedArray::make(2048, b'\x00')
+  for i in 0..<2048 {
+    data[i] = [b'\xDE', b'\xAD', b'\xBE', b'\xEF'][i % 4]
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 2048)
+  for i in 0..<2048 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test bit buffer with non-byte-aligned initial position via gzip
+/// (gzip header is 10 bytes, so dat_off=10 → init_pos is byte-aligned,
+/// but this verifies the offset calculation path)
+test "inflt/bitbuf/gzip_offset_init" {
+  let data = FixedArray::make(512, b'\x00')
+  for i in 0..<512 {
+    data[i] = (i % 200).to_byte()
+  }
+  let gz = gzip_sync(data)
+  let result = gunzip_sync(gz)
+  assert_eq(result.length(), 512)
+  for i in 0..<512 {
+    assert_eq(result[i], data[i])
+  }
+}
+
+///|
+/// Test bit buffer handles all-same-byte data (extreme RLE)
+/// This maximizes back-reference usage and tests the distance=1 hot path
+test "inflt/bitbuf/rle_single_byte" {
+  let data = FixedArray::make(8192, b'\x42')
+  let compressed = deflate_sync(data)
+  // Extreme RLE should compress very well
+  assert_true(compressed.length() < 100)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 8192)
+  for i in 0..<8192 {
+    assert_eq(decompressed[i], b'\x42')
+  }
+}
+
+///|
+/// Test bit buffer with mixed content: text-like + binary + repetition
+/// Exercises varied symbol distributions in the Huffman decode loop
+test "inflt/bitbuf/mixed_content" {
+  let data = FixedArray::make(3000, b'\x00')
+  // First 1000: ASCII text-like
+  for i in 0..<1000 {
+    data[i] = (65 + i % 26).to_byte() // A-Z repeating
+  }
+  // Next 1000: binary pattern
+  for i in 1000..<2000 {
+    data[i] = ((i * 31 + 17) % 256).to_byte()
+  }
+  // Last 1000: highly repetitive
+  for i in 2000..<3000 {
+    data[i] = (i % 4).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 3000)
+  for i in 0..<3000 {
+    assert_eq(decompressed[i], data[i])
+  }
+}

@@ -1,4 +1,23 @@
 ///|
+/// Read bits from data starting at bit position p, masked with m (test-only)
+fn bits(d : FixedArray[Byte], p : Int, m : Int) -> Int {
+  let o = p / 8
+  let v = d[o].to_int() |
+    (if o + 1 < d.length() { d[o + 1].to_int() << 8 } else { 0 })
+  (v >> (p & 7)) & m
+}
+
+///|
+/// Read 16+ bits from data starting at bit position p (test-only)
+fn bits16(d : FixedArray[Byte], p : Int) -> Int {
+  let o = p / 8
+  let v = d[o].to_int() |
+    (if o + 1 < d.length() { d[o + 1].to_int() << 8 } else { 0 }) |
+    (if o + 2 < d.length() { d[o + 2].to_int() << 16 } else { 0 })
+  v >> (p & 7)
+}
+
+///|
 test "bits - read bits from byte array" {
   let d : FixedArray[Byte] = [b'\xAB', b'\xCD', b'\xEF', b'\x00']
   inspect(bits(d, 0, 0xFF), content="171") // 0xAB

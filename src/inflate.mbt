@@ -17,7 +17,11 @@ fn InflateState::new(i : Int) -> InflateState {
 }
 
 ///|
-/// Core DEFLATE decompression
+/// Core DEFLATE decompression with 32-bit bit buffer.
+/// Instead of calling bits()/bits16() per read (each doing p/8 division +
+/// 2-3 array accesses + boundary checks), we maintain a bit accumulator
+/// (bbuf/bcnt) and refill from dat[bpos] only when needed. This reduces
+/// array accesses from ~8-12 to ~3-4 per decoded symbol.
 fn inflt(
   dat : FixedArray[Byte],
   st : InflateState,
@@ -75,7 +79,17 @@ fn inflt(
   }
   let tbts = dat_end * 8
   let mut final_ = st.final_
-  let mut pos = st.pos + dat_off * 8
+  // Initialize 32-bit bit buffer from saved state position
+  let init_pos = st.pos + dat_off * 8
+  let mut bpos = init_pos >> 3 // next byte to load from dat
+  let mut bbuf = 0 // accumulated bits (lowest bits = next to consume)
+  let mut bcnt = 0 // number of valid bits in bbuf
+  let boff = init_pos & 7
+  if boff > 0 && bpos < dat_end {
+    bbuf = dat[bpos].to_int() >> boff
+    bcnt = 8 - boff
+    bpos += 1
+  }
   let mut bt = st.bt
   let mut lm = st.lm
   let mut dm = st.dm
@@ -89,14 +103,22 @@ fn inflt(
       if final_ != 0 {
         break
       }
-      // read BFINAL
-      final_ = bits(dat, pos, 1)
-      // read block type
-      let btype = bits(dat, pos + 1, 3)
-      pos += 3
+      // read BFINAL (1 bit) + BTYPE (2 bits) = 3 bits total
+      while bcnt < 3 && bpos < dat_end {
+        bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+        bpos += 1
+        bcnt += 8
+      }
+      final_ = bbuf & 1
+      let btype = (bbuf >> 1) & 3
+      bbuf = bbuf >> 3
+      bcnt -= 3
       if btype == 0 {
-        // stored block
-        let s = shft(pos) + 4
+        // Stored block: align to byte boundary, reset bit buffer
+        let cur_pos = bpos * 8 - bcnt
+        let s = shft(cur_pos) + 4
+        bbuf = 0
+        bcnt = 0
         // Check if we have enough bytes for the stored block header (4 bytes)
         if s > dat_end {
           if no_st != 0 {
@@ -121,8 +143,8 @@ fn inflt(
           bt
         }
         st.pos = {
-          pos = t * 8
-          pos
+          bpos = t
+          bpos * 8
         }
         st.final_ = final_
         continue
@@ -132,25 +154,47 @@ fn inflt(
         lbt = 9
         dbt = 5
       } else if btype == 2 {
-        let h_lit = bits(dat, pos, 31) + 257
-        let hc_len = bits(dat, pos + 10, 15) + 4
-        let tl = h_lit + bits(dat, pos + 5, 31) + 1
-        pos += 14
+        // Dynamic Huffman: read 14-bit header (HLIT + HDIST + HCLEN)
+        while bcnt < 14 && bpos < dat_end {
+          bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+          bpos += 1
+          bcnt += 8
+        }
+        let h_lit = (bbuf & 31) + 257
+        let tl = h_lit + ((bbuf >> 5) & 31) + 1
+        let hc_len = ((bbuf >> 10) & 15) + 4
+        bbuf = bbuf >> 14
+        bcnt -= 14
         // length+distance tree
         let ldt : FixedArray[Byte] = FixedArray::make(tl, b'\x00')
         // code length tree
         let clt_arr : FixedArray[Byte] = FixedArray::make(19, b'\x00')
+        // Read code length code lengths (3 bits each)
         for i in 0..<hc_len {
-          clt_arr[clim[i].to_int()] = bits(dat, pos + i * 3, 7).to_byte()
+          while bcnt < 3 && bpos < dat_end {
+            bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+            bpos += 1
+            bcnt += 8
+          }
+          clt_arr[clim[i].to_int()] = (bbuf & 7).to_byte()
+          bbuf = bbuf >> 3
+          bcnt -= 3
         }
-        pos += hc_len * 3
         let clb = max_val(clt_arr)
         let clbmsk = (1 << clb) - 1
         let clm = h_map(clt_arr, clb, 1)
+        // Decode the combined length+distance code length tree
         let mut i = 0
         while i < tl {
-          let r = clm[bits(dat, pos, clbmsk)]
-          pos += r & 15
+          while bcnt < clb && bpos < dat_end {
+            bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+            bpos += 1
+            bcnt += 8
+          }
+          let r = clm[bbuf & clbmsk]
+          let rbits = r & 15
+          bbuf = bbuf >> rbits
+          bcnt -= rbits
           let s = r >> 4
           if s < 16 {
             ldt[i] = s.to_byte()
@@ -159,15 +203,33 @@ fn inflt(
             let mut c = 0
             let mut n = 0
             if s == 16 {
-              n = 3 + bits(dat, pos, 3)
-              pos += 2
+              while bcnt < 2 && bpos < dat_end {
+                bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+                bpos += 1
+                bcnt += 8
+              }
+              n = 3 + (bbuf & 3)
+              bbuf = bbuf >> 2
+              bcnt -= 2
               c = ldt[i - 1].to_int()
             } else if s == 17 {
-              n = 3 + bits(dat, pos, 7)
-              pos += 3
+              while bcnt < 3 && bpos < dat_end {
+                bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+                bpos += 1
+                bcnt += 8
+              }
+              n = 3 + (bbuf & 7)
+              bbuf = bbuf >> 3
+              bcnt -= 3
             } else if s == 18 {
-              n = 11 + bits(dat, pos, 127)
-              pos += 7
+              while bcnt < 7 && bpos < dat_end {
+                bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+                bpos += 1
+                bcnt += 8
+              }
+              n = 11 + (bbuf & 127)
+              bbuf = bbuf >> 7
+              bcnt -= 7
             }
             while n > 0 {
               ldt[i] = c.to_byte()
@@ -188,20 +250,20 @@ fn inflt(
       } else {
         raise fzip_err(InvalidBlockType)
       }
-      if pos > tbts {
+      if bpos * 8 - bcnt > tbts {
         if no_st != 0 {
           raise fzip_err(UnexpectedEOF)
         }
         break
       }
     }
-    // decode symbols
+    // decode symbols using bit buffer
     if resize {
       buf = ensure_buf(buf, bt + grow, max_output_size)
     }
     let lms = (1 << lbt) - 1
     let dms = (1 << dbt) - 1
-    let mut lpos = pos
+    let mut lpos = bpos * 8 - bcnt
     let lm_arr = match lm {
       Some(a) => a
       None => FixedArray::make(0, 0) // should not happen
@@ -212,11 +274,19 @@ fn inflt(
     }
     let mut break_outer = false
     while true {
-      lpos = pos
-      let c = lm_arr[bits16(dat, pos) & lms]
+      lpos = bpos * 8 - bcnt
+      // Fill and lookup length/literal Huffman code
+      while bcnt < lbt && bpos < dat_end {
+        bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+        bpos += 1
+        bcnt += 8
+      }
+      let c = lm_arr[bbuf & lms]
       let sym = c >> 4
-      pos += c & 15
-      if pos > tbts {
+      let cbits = c & 15
+      bbuf = bbuf >> cbits
+      bcnt -= cbits
+      if bpos * 8 - bcnt > tbts {
         if no_st != 0 {
           raise fzip_err(UnexpectedEOF)
         }
@@ -230,7 +300,7 @@ fn inflt(
         buf[bt] = sym.to_byte()
         bt += 1
       } else if sym == 256 {
-        lpos = pos
+        lpos = bpos * 8 - bcnt
         lm = None
         break
       } else {
@@ -238,23 +308,44 @@ fn inflt(
         if sym > 264 {
           let idx = sym - 257
           let b = fleb[idx].to_int()
-          add = bits(dat, pos, (1 << b) - 1) + fl[idx]
-          pos += b
+          // Fill for extra length bits
+          while bcnt < b && bpos < dat_end {
+            bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+            bpos += 1
+            bcnt += 8
+          }
+          add = (bbuf & ((1 << b) - 1)) + fl[idx]
+          bbuf = bbuf >> b
+          bcnt -= b
         }
-        // distance
-        let d = dm_arr[bits16(dat, pos) & dms]
+        // distance Huffman lookup
+        while bcnt < dbt && bpos < dat_end {
+          bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+          bpos += 1
+          bcnt += 8
+        }
+        let d = dm_arr[bbuf & dms]
         let dsym = d >> 4
         if d == 0 {
           raise fzip_err(InvalidDistance)
         }
-        pos += d & 15
+        let dbits = d & 15
+        bbuf = bbuf >> dbits
+        bcnt -= dbits
         let mut dt_val = fd[dsym]
         if dsym > 3 {
           let b = fdeb[dsym].to_int()
-          dt_val += bits16(dat, pos) & ((1 << b) - 1)
-          pos += b
+          // Fill for extra distance bits
+          while bcnt < b && bpos < dat_end {
+            bbuf = bbuf | (dat[bpos].to_int() << bcnt)
+            bpos += 1
+            bcnt += 8
+          }
+          dt_val += bbuf & ((1 << b) - 1)
+          bbuf = bbuf >> b
+          bcnt -= b
         }
-        if pos > tbts {
+        if bpos * 8 - bcnt > tbts {
           if no_st != 0 {
             raise fzip_err(UnexpectedEOF)
           }
