@@ -133,6 +133,64 @@ test "gzip with filename" {
 }
 
 ///|
+test "checksum fusion - gzip multi-block with verify_checksum" {
+  // 100K data spans multiple DEFLATE blocks; CRC-32 is fused into both
+  // compression (dflt) and decompression (inflt)
+  let size = 100000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 64).to_byte()
+  }
+  let compressed = gzip_sync(data)
+  // gunzip with verify_checksum=true (default) validates fused CRC
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "checksum fusion - gzip incompressible data with verify_checksum" {
+  // Random data triggers stored-block path; CRC must still be correct
+  let size = 2000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 42
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed >> 16).to_byte()
+  }
+  let compressed = gzip_sync(data)
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "checksum fusion - gzip level 0 with verify_checksum" {
+  // Level 0 exercises the stored-block CRC path in dflt() directly
+  let size = 500
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = gzip_sync(data, opts={
+    level: 0,
+    mem: 0,
+    dictionary: None,
+    mtime: 0,
+    filename: "",
+  })
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
 test "gunzip - invalid CRC-32 checksum" {
   let data : FixedArray[Byte] = FixedArray::make(100, b'A')
   let compressed = gzip_sync(data)

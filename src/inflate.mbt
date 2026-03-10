@@ -31,6 +31,8 @@ fn inflt(
   max_output_size : Int,
   dat_off? : Int = 0,
   dat_end? : Int = dat.length(),
+  crc_state? : CRC32State? = None,
+  adler_state? : AdlerState? = None,
 ) -> (FixedArray[Byte], Int) raise FzipError {
   let sl = dat_end - dat_off
   // Check input size against configured limit (before any processing)
@@ -91,6 +93,7 @@ fn inflt(
     bpos += 1
   }
   let mut bt = st.bt
+  let mut cksum_bt = bt
   let mut lm = st.lm
   let mut dm = st.dm
   let mut lbt = st.lbt
@@ -138,10 +141,19 @@ fn inflt(
           buf = ensure_buf(buf, bt + l, max_output_size)
         }
         dat.blit_to(buf, len=l, src_offset=s, dst_offset=bt)
+        match crc_state {
+          Some(cs) => cs.push_range(buf, bt, l)
+          None => ()
+        }
+        match adler_state {
+          Some(a_s) => a_s.push_range(buf, bt, l)
+          None => ()
+        }
         st.bt = {
           bt += l
           bt
         }
+        cksum_bt = bt
         st.pos = {
           bpos = t
           bpos * 8
@@ -300,6 +312,17 @@ fn inflt(
         buf[bt] = sym.to_byte()
         bt += 1
       } else if sym == 256 {
+        if bt > cksum_bt {
+          match crc_state {
+            Some(cs) => cs.push_range(buf, cksum_bt, bt - cksum_bt)
+            None => ()
+          }
+          match adler_state {
+            Some(a_s) => a_s.push_range(buf, cksum_bt, bt - cksum_bt)
+            None => ()
+          }
+          cksum_bt = bt
+        }
         lpos = bpos * 8 - bcnt
         lm = None
         break
@@ -417,6 +440,16 @@ fn inflt(
     }
     if final_ != 0 {
       continue_loop = false
+    }
+  }
+  if bt > cksum_bt {
+    match crc_state {
+      Some(cs) => cs.push_range(buf, cksum_bt, bt - cksum_bt)
+      None => ()
+    }
+    match adler_state {
+      Some(a_s) => a_s.push_range(buf, cksum_bt, bt - cksum_bt)
+      None => ()
     }
   }
   (buf, bt)

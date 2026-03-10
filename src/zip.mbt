@@ -255,6 +255,7 @@ pub fn zip_sync(
     let f = str_to_u8(fn_str)
     let s = f.length()
     let exl = exfl(opts.extra)
+    let crc_c = CRC32State::new()
     let (d, c_len) = if compression != 0 {
       dopt(
         file,
@@ -262,11 +263,13 @@ pub fn zip_sync(
         0,
         0,
         None,
+        crc_state=Some(crc_c),
       )
     } else {
+      crc_c.push(file)
       (file, file.length())
     }
-    let crc_v = crc32(file)
+    let crc_v = crc_c.digest()
     let is_utf8 = s != fn_str.length()
     entries.push(
       (f, file, d, is_utf8, crc_v.reinterpret_as_int(), file.length(), c_len, o),

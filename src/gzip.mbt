@@ -81,13 +81,13 @@ pub fn gzip_sync(
 ) -> FixedArray[Byte] {
   let c = CRC32State::new()
   let l = data.length()
-  c.push(data)
   let (d, len) = dopt(
     data,
     { level: opts.level, mem: opts.mem, dictionary: opts.dictionary },
     gzhl(opts),
     8,
     None,
+    crc_state=Some(c),
   )
   gzh(d, opts)
   wbytes(d, len - 8, c.digest().reinterpret_as_int())
@@ -109,7 +109,12 @@ pub fn gunzip_sync(
     Some(o) => o
     None => FixedArray::make(gzl(data), b'\x00')
   }
-  let (buf, len) = inflt(
+  let crc_st : CRC32State? = if opts.verify_checksum {
+    Some(CRC32State::new())
+  } else {
+    None
+  }
+  let (buf, _len) = inflt(
     data,
     InflateState::new(2),
     Some(out),
@@ -118,16 +123,16 @@ pub fn gunzip_sync(
     opts.max_output_size,
     dat_off=st,
     dat_end=data.length() - 8,
+    crc_state=crc_st,
   )
-  // Verify CRC-32 checksum (optional for performance)
-  if opts.verify_checksum {
-    let expected_crc = b4(data, data.length() - 8)
-    let c = CRC32State::new()
-    c.push_range(buf, 0, len)
-    let actual_crc = c.digest()
-    if actual_crc != expected_crc {
-      raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+  match crc_st {
+    Some(cs) => {
+      let expected_crc = b4(data, data.length() - 8)
+      if cs.digest() != expected_crc {
+        raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+      }
     }
+    None => ()
   }
   buf
 }
