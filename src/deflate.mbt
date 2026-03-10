@@ -276,6 +276,18 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
 }
 
 ///|
+/// Ensure output buffer has enough capacity, growing if needed
+fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
+  if need <= o.length() {
+    return o
+  }
+  let new_size = if o.length() * 2 > need { o.length() * 2 } else { need }
+  let n = FixedArray::make(new_size, b'\x00')
+  o.blit_to(n, len=o.length(), src_offset=0, dst_offset=0)
+  n
+}
+
+///|
 let dflt_head_pool : Array[FixedArray[Int]] = []
 
 ///|
@@ -301,8 +313,12 @@ fn dflt(
   st : DeflateState,
 ) -> (FixedArray[Byte], Int) {
   let s = if st.z != 0 { st.z } else { dat.length() }
-  let o_size = pre + s + 5 * (1 + (s + 6999) / 7000) + post
-  let o = FixedArray::make(o_size, b'\x00')
+  let o_size = if lvl > 0 && s > 512 {
+    pre + (s >> 1) + 5 * (1 + (s + 6999) / 7000) + post + 128
+  } else {
+    pre + s + 5 * (1 + (s + 6999) / 7000) + post
+  }
+  let mut o = FixedArray::make(o_size, b'\x00')
   let w_start = pre
   let lst = st.l
   let mut pos = st.r & 7
@@ -415,19 +431,9 @@ fn dflt(
       if wi <= i {
         let rem = s - i
         if (lc > 7000 || li > 24576) && (rem > 423 || lst == 0) {
-          pos = wblk(
-              dat,
-              o,
-              0,
-              syms,
-              lf,
-              df,
-              eb,
-              li,
-              bs,
-              i - bs,
-              pos + w_start * 8,
-            ) -
+          let bl = i - bs
+          o = ensure_out(o, pre + shft(pos) + bl + 8 + post)
+          pos = wblk(dat, o, 0, syms, lf, df, eb, li, bs, bl, pos + w_start * 8) -
             w_start * 8
           li = 0
           lc = 0
@@ -582,7 +588,9 @@ fn dflt(
       lf[dat[j].to_int()] += 1
       j += 1
     }
-    pos = wblk(dat, o, lst, syms, lf, df, eb, li, bs, j - bs, pos + w_start * 8) -
+    let bl = j - bs
+    o = ensure_out(o, pre + shft(pos) + bl + 8 + post)
+    pos = wblk(dat, o, lst, syms, lf, df, eb, li, bs, bl, pos + w_start * 8) -
       w_start * 8
     if lst == 0 {
       st.r = (pos & 7) | (o[w_start + pos / 8].to_int() << 3)
