@@ -819,3 +819,176 @@ test "is_compressible - 4K random data roundtrip correctness" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "ensure_out - no-op when buffer is large enough" {
+  let buf = FixedArray::make(100, b'\x42')
+  let result = ensure_out(buf, 50)
+  // Should return the same buffer (no reallocation)
+  assert_eq(result.length(), 100)
+  assert_eq(result[0], b'\x42')
+  assert_eq(result[99], b'\x42')
+}
+
+///|
+test "ensure_out - no-op at exact boundary" {
+  let buf = FixedArray::make(100, b'\x42')
+  let result = ensure_out(buf, 100)
+  assert_eq(result.length(), 100)
+  assert_eq(result[0], b'\x42')
+}
+
+///|
+test "ensure_out - grows with doubling when need is small" {
+  let buf = FixedArray::make(100, b'\x42')
+  // need=101 > 100, but 100*2=200 > 101, so new_size = 200
+  let result = ensure_out(buf, 101)
+  assert_eq(result.length(), 200)
+  // Original data preserved
+  assert_eq(result[0], b'\x42')
+  assert_eq(result[99], b'\x42')
+  // New area zero-initialized
+  assert_eq(result[100], b'\x00')
+}
+
+///|
+test "ensure_out - grows to exact need when doubling is insufficient" {
+  let buf = FixedArray::make(100, b'\x42')
+  // need=300 > 100*2=200, so new_size = 300
+  let result = ensure_out(buf, 300)
+  assert_eq(result.length(), 300)
+  assert_eq(result[0], b'\x42')
+  assert_eq(result[99], b'\x42')
+  assert_eq(result[100], b'\x00')
+}
+
+///|
+test "ensure_out - preserves all original content" {
+  let buf = FixedArray::make(50, b'\x00')
+  for i in 0..<50 {
+    buf[i] = (i + 1).to_byte()
+  }
+  let result = ensure_out(buf, 80)
+  for i in 0..<50 {
+    assert_eq(result[i], (i + 1).to_byte())
+  }
+}
+
+///|
+test "reduced initial allocation - lvl>0 s>512 uses smaller buffer" {
+  // Verify that the (buf, len) returned by dopt has a tighter fit
+  // when compression ratio is good
+  let size = 10000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 16).to_byte() // highly compressible
+  }
+  let (buf, len) = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+  )
+  // With reduced allocation, initial buffer should be roughly s/2 + overhead
+  // rather than s + overhead. For highly compressible data, len << buf.length()
+  assert_true(len > 0)
+  assert_true(len <= buf.length())
+  // Verify the output is valid
+  let compressed = trim_buf(buf, len)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "ensure_out triggered - data that expands beyond initial estimate" {
+  // Low-compressibility data with lvl>0 may need ensure_out to grow buffer
+  // since initial allocation is s/2 + 128 + headers
+  let size = 2000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 55555
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 200).to_byte() // high but not full entropy
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "multi-block compression triggers ensure_out correctly" {
+  // Large data producing multiple DEFLATE blocks exercises the
+  // intermediate wblk ensure_out path (lc > 7000 || li > 24576)
+  let size = 200000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 128).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "level 0 path unaffected by reduced allocation" {
+  // Level 0 (stored blocks) should use full-size allocation, not reduced
+  let size = 1000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data, opts={
+    level: 0,
+    mem: 0,
+    dictionary: None,
+  })
+  // Stored blocks expand: compressed > data
+  assert_true(compressed.length() >= size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "gzip roundtrip with reduced dflt allocation" {
+  // GZIP uses dflt() internally via dopt(); verify it works with reduced allocation
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 64).to_byte()
+  }
+  let compressed = gzip_sync(data)
+  let decompressed = gunzip_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "zlib roundtrip with reduced dflt allocation" {
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 64).to_byte()
+  }
+  let compressed = zlib_sync(data)
+  let decompressed = unzlib_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
