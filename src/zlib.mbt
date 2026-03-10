@@ -64,7 +64,6 @@ pub fn zlib_sync(
   opts? : ZlibOptions = ZlibOptions::default(),
 ) -> FixedArray[Byte] {
   let a = AdlerState::new()
-  a.push(data)
   let pre = match opts.dictionary {
     Some(_) => 6
     None => 2
@@ -75,6 +74,7 @@ pub fn zlib_sync(
     pre,
     4,
     None,
+    adler_state=Some(a),
   )
   zlh(d, opts)
   wbytes(d, len - 4, a.digest().reinterpret_as_int())
@@ -96,6 +96,11 @@ pub fn unzlib_sync(
   if end < st {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")
   }
+  let adler_st : AdlerState? = if opts.verify_checksum {
+    Some(AdlerState::new())
+  } else {
+    None
+  }
   let (buf, len) = inflt(
     data,
     InflateState::new(2),
@@ -105,16 +110,16 @@ pub fn unzlib_sync(
     opts.max_output_size,
     dat_off=st,
     dat_end=end,
+    adler_state=adler_st,
   )
-  // Verify Adler-32 checksum (optional for performance)
-  if opts.verify_checksum {
-    let expected_adler = b4(data, end)
-    let a = AdlerState::new()
-    a.push_range(buf, 0, len)
-    let actual_adler = a.digest()
-    if actual_adler != expected_adler {
-      raise fzip_err(InvalidChecksum, msg="zlib Adler-32 mismatch")
+  match adler_st {
+    Some(a_s) => {
+      let expected_adler = b4(data, end)
+      if a_s.digest() != expected_adler {
+        raise fzip_err(InvalidChecksum, msg="zlib Adler-32 mismatch")
+      }
     }
+    None => ()
   }
   trim_buf(buf, len)
 }

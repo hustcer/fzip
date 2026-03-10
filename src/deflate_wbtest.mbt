@@ -979,6 +979,151 @@ test "gzip roundtrip with reduced dflt allocation" {
 }
 
 ///|
+test "checksum fusion - dopt fused CRC matches separate crc32" {
+  let size = 5000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 128).to_byte()
+  }
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  let fused_crc = crc_st.digest()
+  let separate_crc = crc32(data)
+  assert_eq(fused_crc, separate_crc)
+}
+
+///|
+test "checksum fusion - dopt fused Adler matches separate adler32" {
+  let size = 5000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 128).to_byte()
+  }
+  let adler_st = AdlerState::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    adler_state=Some(adler_st),
+  )
+  let fused_adler = adler_st.digest()
+  let separate_adler = adler32(data)
+  assert_eq(fused_adler, separate_adler)
+}
+
+///|
+test "checksum fusion - multi-block fused CRC" {
+  // Large data triggers multiple DEFLATE blocks (lc > 7000 || li > 24576),
+  // exercising incremental CRC updates at block flush boundaries
+  let size = 200000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 64).to_byte()
+  }
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  assert_eq(crc_st.digest(), crc32(data))
+}
+
+///|
+test "checksum fusion - incompressible data fused CRC" {
+  // Random data triggers is_compressible() → false → stored blocks,
+  // exercising the level-0 fallback checksum path in dflt()
+  let size = 2000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 42
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed >> 16).to_byte()
+  }
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  assert_eq(crc_st.digest(), crc32(data))
+}
+
+///|
+test "checksum fusion - level 0 stored blocks fused CRC" {
+  // Explicit level=0 bypasses LZ77, exercises the stored-block checksum path
+  let size = 1000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 256).to_byte()
+  }
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 0, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  assert_eq(crc_st.digest(), crc32(data))
+}
+
+///|
+test "checksum fusion - dictionary excluded from fused CRC" {
+  // With dictionary, checksum must cover only the user data, not dict prefix
+  let dict : FixedArray[Byte] = FixedArray::make(100, b'\x00')
+  for i in 0..<100 {
+    dict[i] = (i * 3).to_byte()
+  }
+  let data : FixedArray[Byte] = FixedArray::make(500, b'\x00')
+  for i in 0..<500 {
+    data[i] = (i % 50).to_byte()
+  }
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: Some(dict) },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  // Fused CRC should match CRC of user data only (not dict+data)
+  assert_eq(crc_st.digest(), crc32(data))
+}
+
+///|
+test "checksum fusion - empty data fused CRC" {
+  let data : FixedArray[Byte] = FixedArray::make(0, b'\x00')
+  let crc_st = CRC32State::new()
+  let _ = dopt(
+    data,
+    { level: 6, mem: 0, dictionary: None },
+    0,
+    0,
+    None,
+    crc_state=Some(crc_st),
+  )
+  assert_eq(crc_st.digest(), crc32(data))
+}
+
+///|
 test "zlib roundtrip with reduced dflt allocation" {
   let size = 50000
   let data = FixedArray::make(size, b'\x00')

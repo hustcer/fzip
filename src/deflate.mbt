@@ -311,6 +311,8 @@ fn dflt(
   pre : Int,
   post : Int,
   st : DeflateState,
+  crc_state? : CRC32State? = None,
+  adler_state? : AdlerState? = None,
 ) -> (FixedArray[Byte], Int) {
   let s = if st.z != 0 { st.z } else { dat.length() }
   let o_size = if lvl > 0 && s > 512 {
@@ -325,7 +327,7 @@ fn dflt(
   if lvl > 0 {
     // Fast incompressible data detection (方案 1)
     if not(is_compressible(dat, 0, s)) {
-      return dflt(dat, 0, plvl, pre, post, st)
+      return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)
     }
     if pos != 0 {
       o[w_start] = (st.r >> 3).to_byte()
@@ -417,6 +419,7 @@ fn dflt(
     // Dynamic search tracking (方案 2)
     let mut successful_matches = 0
     let mut total_searches = 0
+    let mut cksum_i = wi
     while i + 2 < s {
       let hv = (
           dat[i].to_int() ^
@@ -444,6 +447,17 @@ fn dflt(
           }
           for j in 0..<30 {
             df[j] = 0
+          }
+          if i > cksum_i {
+            match crc_state {
+              Some(cs) => cs.push_range(dat, cksum_i, i - cksum_i)
+              None => ()
+            }
+            match adler_state {
+              Some(a_s) => a_s.push_range(dat, cksum_i, i - cksum_i)
+              None => ()
+            }
+            cksum_i = i
           }
         }
         let mut l = 2
@@ -592,6 +606,16 @@ fn dflt(
     o = ensure_out(o, pre + shft(pos) + bl + 8 + post)
     pos = wblk(dat, o, lst, syms, lf, df, eb, li, bs, bl, pos + w_start * 8) -
       w_start * 8
+    if s > cksum_i {
+      match crc_state {
+        Some(cs) => cs.push_range(dat, cksum_i, s - cksum_i)
+        None => ()
+      }
+      match adler_state {
+        Some(a_s) => a_s.push_range(dat, cksum_i, s - cksum_i)
+        None => ()
+      }
+    }
     if lst == 0 {
       st.r = (pos & 7) | (o[w_start + pos / 8].to_int() << 3)
       pos -= 7
@@ -611,6 +635,17 @@ fn dflt(
     dflt_lf_pool.push(lf)
     dflt_df_pool.push(df)
   } else {
+    let cksum_off = if st.w != 0 { st.w } else { 0 }
+    if s > cksum_off {
+      match crc_state {
+        Some(cs) => cs.push_range(dat, cksum_off, s - cksum_off)
+        None => ()
+      }
+      match adler_state {
+        Some(a_s) => a_s.push_range(dat, cksum_off, s - cksum_off)
+        None => ()
+      }
+    }
     let mut i2 = if st.w != 0 { st.w } else { 0 }
     while i2 < s + lst {
       let mut e = i2 + 65535
@@ -634,6 +669,8 @@ fn dopt(
   pre : Int,
   post : Int,
   st : DeflateState?,
+  crc_state? : CRC32State? = None,
+  adler_state? : AdlerState? = None,
 ) -> (FixedArray[Byte], Int) {
   let (dat, st) = match st {
     Some(s) => (dat, s)
@@ -675,7 +712,7 @@ fn dopt(
   } else {
     20
   }
-  dflt(dat, level, mem, pre, post, st)
+  dflt(dat, level, mem, pre, post, st, crc_state~, adler_state~)
 }
 
 ///|
