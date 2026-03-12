@@ -421,6 +421,13 @@ fn dflt(
             ch -= 1
             if dat[i + l] == dat[i + l - dif] {
               let mut nl = 0
+              while nl + 3 < ml &&
+                    dat[i + nl] == dat[i + nl - dif] &&
+                    dat[i + nl + 1] == dat[i + nl - dif + 1] &&
+                    dat[i + nl + 2] == dat[i + nl - dif + 2] &&
+                    dat[i + nl + 3] == dat[i + nl - dif + 3] {
+                nl += 4
+              }
               while nl < ml && dat[i + nl] == dat[i + nl - dif] {
                 nl += 1
               }

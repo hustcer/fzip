@@ -490,6 +490,109 @@ test "adaptive chain depth - repetitive data triggers high chain depth" {
 }
 
 ///|
+test "match loop unrolling - long identical runs" {
+  // Long runs of identical bytes produce max-length matches (258),
+  // heavily exercising the 4-byte unrolled match loop
+  let size = 10000
+  let data = FixedArray::make(size, b'\xAA')
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size / 10)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "match loop unrolling - 4-byte repeating pattern" {
+  // Repeating 4-byte units produce match lengths that are exact multiples of 4,
+  // so the unrolled loop handles them entirely without byte-by-byte fallback
+  let size = 8000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    let phase = i % 4
+    data[i] = if phase == 0 {
+      b'\x10'
+    } else if phase == 1 {
+      b'\x20'
+    } else if phase == 2 {
+      b'\x30'
+    } else {
+      b'\x40'
+    }
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "match loop unrolling - 5-byte repeating pattern" {
+  // 5-byte units produce match lengths not divisible by 4 (5, 10, 15...),
+  // testing the transition from unrolled loop to byte-by-byte remainder
+  let size = 8000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 5 + 1).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "match loop unrolling - 3-byte repeating pattern" {
+  // 3-byte match lengths: too short for 4-byte unrolled loop,
+  // ensuring the byte-by-byte fallback handles short matches correctly
+  let size = 6000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 3 + 0x61).to_byte() // 'a', 'b', 'c' repeating
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "match loop unrolling - mixed match lengths" {
+  // Alternating between long matches (repetitive) and short matches (varied),
+  // exercises both the unrolled loop and the byte-by-byte fallback
+  let size = 10000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 42
+  for i in 0..<size {
+    if i % 500 < 400 {
+      // Long repetitive region: triggers long matches via unrolled loop
+      data[i] = (i % 7).to_byte()
+    } else {
+      // Short varied region: triggers short or no matches
+      seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+      data[i] = (seed % 256).to_byte()
+    }
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
 test "adaptive chain depth - mixed data exercises medium chain depth" {
   // Data mixing compressible and random regions triggers medium success rate,
   // exercising the success_100 < total_searches * 20 branch (chain depth = 8)
