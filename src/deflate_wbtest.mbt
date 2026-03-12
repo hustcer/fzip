@@ -451,3 +451,65 @@ test "deflate with dictionary" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "adaptive chain depth - high entropy triggers low chain depth" {
+  // Large random data triggers >100 hash searches with low success rate,
+  // exercising the success_100 < total_searches * 5 branch (chain depth = 4)
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 77777
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "adaptive chain depth - repetitive data triggers high chain depth" {
+  // Highly repetitive data has high match success rate,
+  // exercising the base_chain branch (success_100 >= total_searches * 20)
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 16).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size / 2)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "adaptive chain depth - mixed data exercises medium chain depth" {
+  // Data mixing compressible and random regions triggers medium success rate,
+  // exercising the success_100 < total_searches * 20 branch (chain depth = 8)
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 33333
+  for i in 0..<size {
+    if i % 200 < 100 {
+      // Compressible region: repetitive pattern
+      data[i] = (i % 8).to_byte()
+    } else {
+      // Random region
+      seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+      data[i] = (seed % 256).to_byte()
+    }
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}

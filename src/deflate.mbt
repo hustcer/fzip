@@ -399,10 +399,10 @@ fn dflt(
           let max_chain = if total_searches < 100 {
             base_chain
           } else {
-            let success_rate = successful_matches * 100 / total_searches
-            if success_rate < 5 {
+            let success_100 = successful_matches * 100
+            if success_100 < total_searches * 5 {
               4
-            } else if success_rate < 20 {
+            } else if success_100 < total_searches * 20 {
               8
             } else {
               base_chain
