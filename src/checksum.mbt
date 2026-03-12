@@ -76,6 +76,33 @@ pub fn adler32(data : FixedArray[Byte]) -> UInt {
   let mut i = 0
   while i < l {
     let e = if i + 2655 < l { i + 2655 } else { l }
+    while i + 7 < e {
+      let b0 = data[i].to_uint()
+      let b1 = data[i + 1].to_uint()
+      let b2 = data[i + 2].to_uint()
+      let b3 = data[i + 3].to_uint()
+      let b4 = data[i + 4].to_uint()
+      let b5 = data[i + 5].to_uint()
+      let b6 = data[i + 6].to_uint()
+      let b7 = data[i + 7].to_uint()
+      a = a + b0
+      b = b + a
+      a = a + b1
+      b = b + a
+      a = a + b2
+      b = b + a
+      a = a + b3
+      b = b + a
+      a = a + b4
+      b = b + a
+      a = a + b5
+      b = b + a
+      a = a + b6
+      b = b + a
+      a = a + b7
+      b = b + a
+      i += 8
+    }
     while i < e {
       a = a + data[i].to_uint()
       b = b + a
@@ -110,6 +137,33 @@ fn AdlerState::push(self : AdlerState, data : FixedArray[Byte]) -> Unit {
   let mut i = 0
   while i < l {
     let e = if i + 2655 < l { i + 2655 } else { l }
+    while i + 7 < e {
+      let b0 = data[i].to_uint()
+      let b1 = data[i + 1].to_uint()
+      let b2 = data[i + 2].to_uint()
+      let b3 = data[i + 3].to_uint()
+      let b4 = data[i + 4].to_uint()
+      let b5 = data[i + 5].to_uint()
+      let b6 = data[i + 6].to_uint()
+      let b7 = data[i + 7].to_uint()
+      n = n + b0
+      m = m + n
+      n = n + b1
+      m = m + n
+      n = n + b2
+      m = m + n
+      n = n + b3
+      m = m + n
+      n = n + b4
+      m = m + n
+      n = n + b5
+      m = m + n
+      n = n + b6
+      m = m + n
+      n = n + b7
+      m = m + n
+      i += 8
+    }
     while i < e {
       n = n + data[i].to_uint()
       m = m + n
@@ -136,6 +190,33 @@ fn AdlerState::push_range(
   let mut i = offset
   while i < end {
     let e = if i + 2655 < end { i + 2655 } else { end }
+    while i + 7 < e {
+      let b0 = data[i].to_uint()
+      let b1 = data[i + 1].to_uint()
+      let b2 = data[i + 2].to_uint()
+      let b3 = data[i + 3].to_uint()
+      let b4 = data[i + 4].to_uint()
+      let b5 = data[i + 5].to_uint()
+      let b6 = data[i + 6].to_uint()
+      let b7 = data[i + 7].to_uint()
+      n = n + b0
+      m = m + n
+      n = n + b1
+      m = m + n
+      n = n + b2
+      m = m + n
+      n = n + b3
+      m = m + n
+      n = n + b4
+      m = m + n
+      n = n + b5
+      m = m + n
+      n = n + b6
+      m = m + n
+      n = n + b7
+      m = m + n
+      i += 8
+    }
     while i < e {
       n = n + data[i].to_uint()
       m = m + n
