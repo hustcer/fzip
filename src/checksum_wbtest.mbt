@@ -84,3 +84,92 @@ test "adler32 - push_range matches push" {
   st2.push(data)
   assert_eq(st1.digest(), st2.digest())
 }
+
+///|
+test "adler32 unroll - exactly 8 bytes" {
+  // Exactly 8 bytes: one iteration of unrolled loop, no remainder
+  let data : FixedArray[Byte] = [
+    b'\x10', b'\x20', b'\x30', b'\x40', b'\x50', b'\x60', b'\x70', b'\x80',
+  ]
+  let one_shot = adler32(data)
+  let st = AdlerState::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "adler32 unroll - 13 bytes (8 + 5 remainder)" {
+  // 13 bytes: one unrolled iteration + 5 byte-by-byte remainder
+  let data = FixedArray::make(13, b'\x00')
+  for i in 0..<13 {
+    data[i] = ((i + 1) * 11 % 256).to_byte()
+  }
+  let one_shot = adler32(data)
+  let st = AdlerState::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  // Also verify push_range consistency
+  let st2 = AdlerState::new()
+  st2.push_range(data, 0, 13)
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "adler32 unroll - 32 bytes (exact multiple of 8)" {
+  // 32 bytes: 4 iterations of unrolled loop, no remainder
+  let data = FixedArray::make(32, b'\x00')
+  for i in 0..<32 {
+    data[i] = (i * 7 % 256).to_byte()
+  }
+  let one_shot = adler32(data)
+  // Verify incremental in 2 chunks also matches
+  let st = AdlerState::new()
+  st.push(slc(data, 0, e=16))
+  st.push(slc(data, 16))
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "adler32 unroll - large data crossing chunk boundary" {
+  // 5000 bytes: exceeds the 2655-byte inner chunk boundary,
+  // exercises both the unrolled loop and modular reduction
+  let size = 5000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 251).to_byte() // use prime modulus for varied data
+  }
+  let one_shot = adler32(data)
+  // Incremental in 3 unequal chunks must match
+  let st = AdlerState::new()
+  st.push(slc(data, 0, e=1000))
+  st.push(slc(data, 1000, e=3500))
+  st.push(slc(data, 3500))
+  assert_eq(st.digest(), one_shot)
+  // push_range must also match
+  let st2 = AdlerState::new()
+  st2.push_range(data, 0, size)
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "adler32 unroll - 100KB data consistency" {
+  // 100KB: heavily exercises unrolled loop across many chunk boundaries
+  let size = 100000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 98765
+  for i in 0..<size {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 256).to_byte()
+  }
+  let one_shot = adler32(data)
+  assert_true(one_shot != 0U)
+  // Verify incremental matches
+  let st = AdlerState::new()
+  let mut offset = 0
+  while offset < size {
+    let chunk = if offset + 4096 < size { 4096 } else { size - offset }
+    st.push_range(data, offset, chunk)
+    offset += chunk
+  }
+  assert_eq(st.digest(), one_shot)
+}
