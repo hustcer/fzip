@@ -28,7 +28,7 @@ Or add this to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/fzip": "0.2.1"
+    "hustcer/fzip": "0.3.0"
   }
 }
 ```
