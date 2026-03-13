@@ -616,3 +616,95 @@ test "adaptive chain depth - mixed data exercises medium chain depth" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "lazy hash skip - long matches skip hash insertion" {
+  // Data with long repetitive regions (match length > 16) triggers lazy hash skip.
+  let size = 20000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i / 100 % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size / 2)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "lazy hash skip - very long identical runs" {
+  // Worst case: entire buffer is one byte repeated, all matches max length (258).
+  let size = 30000
+  let data = FixedArray::make(size, b'\x55')
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size / 10)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "lazy hash skip - alternating compressible and random regions" {
+  // Mixed data: 100 bytes compressible, 100 bytes random.
+  // Exercises lazy skip in compressible regions and normal matching in random.
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 44444
+  for i in 0..<size {
+    if i % 200 < 100 {
+      data[i] = (i % 8).to_byte()
+    } else {
+      seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+      data[i] = (seed % 256).to_byte()
+    }
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "lazy hash skip - short matches below threshold not skipped" {
+  // Short matches (< 16 bytes) should not trigger skip.
+  let size = 10000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 10 + 0x30).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "lazy hash skip - near end of data guard" {
+  // Long matches near the end, rem > 500 guard prevents skipping.
+  let size = 2000
+  let data = FixedArray::make(size, b'\x00')
+  let mut seed = 12345
+  for i in 0..<1500 {
+    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (seed % 64).to_byte()
+  }
+  for i in 1500..<size {
+    data[i] = (i % 4).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
