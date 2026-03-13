@@ -89,9 +89,18 @@ fn wblk(
     lcfreq[lcdt[i] & 31] += 1
   }
   let (lct, mlcb) = h_tree(lcfreq, 7)
+  let lct_len = lct.length()
   let mut nlcc = 19
-  while nlcc > 4 && lct[clim[nlcc - 1].to_int()].to_int() == 0 {
-    nlcc -= 1
+  while nlcc > 4 {
+    let ci = clim[nlcc - 1].to_int()
+    if ci < lct_len && lct[ci].to_int() == 0 {
+      nlcc -= 1
+    } else if ci >= lct_len {
+      // Code index beyond lct is effectively zero-length
+      nlcc -= 1
+    } else {
+      break
+    }
   }
   let flen = (bl + 5) << 3
   let ftlen = clen(lf, flt) + clen(df, fdt) + eb
@@ -120,7 +129,8 @@ fn wblk(
     wbits(out, p + 10, nlcc - 4)
     p += 14
     for i in 0..<nlcc {
-      wbits(out, p + 3 * i, lct[clim[i].to_int()].to_int())
+      let ci = clim[i].to_int()
+      wbits(out, p + 3 * i, if ci < lct_len { lct[ci].to_int() } else { 0 })
     }
     p += 3 * nlcc
     let lcts : Array[FixedArray[Int]] = [lclt, lcdt]
@@ -128,8 +138,8 @@ fn wblk(
       let clct = lcts[it]
       for i in 0..<clct.length() {
         let len = clct[i] & 31
-        wbits(out, p, llm[len])
-        p += lct[len].to_int()
+        wbits(out, p, if len < llm.length() { llm[len] } else { 0 })
+        p += if len < lct_len { lct[len].to_int() } else { 0 }
         if len > 15 {
           wbits(out, p, (clct[i] >> 5) & 127)
           p += clct[i] >> 12
@@ -477,6 +487,9 @@ fn dflt(
           df[din] += 1
           wi = i + l
           lc += 1
+          if l > 16 && rem > 500 {
+            i += l - 1
+          }
         } else {
           syms[li] = dat[i].to_int()
           li += 1
