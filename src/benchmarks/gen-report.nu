@@ -1,10 +1,18 @@
 #!/usr/bin/env nu
 
-# Generate benchmark report from bench.json
+# Generate benchmark report from bench.json and sizes.json
 
 def main [] {
     let data = open ($env.FILE_PWD)/bench.json
     let meta = $data.metadata
+
+    # Load size data if available
+    let sizes_path = ($env.FILE_PWD) | path join 'sizes.json'
+    let sizes = if ($sizes_path | path exists) {
+        open $sizes_path
+    } else {
+        []
+    }
 
     # Header
     print $"# fzip Benchmark Report\n"
@@ -18,19 +26,19 @@ def main [] {
     let benches = $data.benchmarks
 
     # DEFLATE Compress
-    gen_deflate_compress $benches
+    gen_deflate_compress $benches $sizes
 
     # DEFLATE Decompress
     gen_deflate_decompress $benches
 
     # GZIP
-    gen_gzip $benches
+    gen_gzip $benches $sizes
 
     # Zlib
-    gen_zlib $benches
+    gen_zlib $benches $sizes
 
     # ZIP
-    gen_zip $benches
+    gen_zip $benches $sizes
 
     # Checksum
     gen_checksum $benches
@@ -39,15 +47,32 @@ def main [] {
     gen_auto_detect $benches
 }
 
+# Format compression ratio as percentage string
+def fmt_ratio [name: string, sizes: list]: nothing -> string {
+    let entry = $sizes | where name == $name
+    if ($entry | is-empty) {
+        '-'
+    } else {
+        let e = $entry | get 0
+        let ratio = $e.compressed / $e.original * 100.0
+        let rounded = $ratio | math round -p 1
+        if $rounded >= 100.0 {
+            $'($rounded)% ⚠️'
+        } else {
+            $'($rounded)%'
+        }
+    }
+}
+
 # Generate DEFLATE compress table
-def gen_deflate_compress [benches: list] {
+def gen_deflate_compress [benches: list, sizes: list] {
     print "## DEFLATE Compress\n"
 
     let patterns = [zeros seq random]
-    let sizes = ['1k' '100k']
+    let size_labels = ['1k' '100k']
 
     let rows = $patterns | each {|pattern|
-        $sizes | each {|size|
+        $size_labels | each {|size|
             let prefix = $'deflate/compress/($pattern)_($size)/'
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
@@ -61,13 +86,16 @@ def gen_deflate_compress [benches: list] {
                 moonzip: (fmt_time $moonzip),
                 zipc: (fmt_time $zipc),
                 Winner: $stats.winner,
-                'Max-Min Ratio': $'($stats.ratio)x'
+                'Max-Min Ratio': $'($stats.ratio)x',
+                'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
+                'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
+                'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
             }
         }
     } | flatten
 
     print ($rows | to md)
-    print ""
+    print "\n> **⚠️ Note**:\n> - `zipc`  **does not perform real compression** (just stores) for data ≥1000 bytes, so its 100K speed metrics are not comparable. Ratio ≈100%.\n> - `fzip` switches to store mode (level 0) upon detecting uncompressible data (e.g., random 100K), skipping LZ77 search, resulting in extremely high speed but no compression effect.\n> - Compression Ratio = Compressed Size / Original Size, smaller is better.\n"
 }
 
 # Generate DEFLATE decompress table
@@ -96,7 +124,7 @@ def gen_deflate_decompress [benches: list] {
 }
 
 # Generate GZIP table
-def gen_gzip [benches: list] {
+def gen_gzip [benches: list, sizes: list] {
     print "## GZIP\n"
 
     let rows = [compress decompress] | each {|op|
@@ -107,14 +135,32 @@ def gen_gzip [benches: list] {
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            {
-                Operation: $op,
-                Size: ($size | str upcase),
-                fzip: (fmt_time $fzip),
-                moonzip: (fmt_time $moonzip),
-                zipc: (fmt_time $zipc),
-                Winner: $stats.winner,
-                'Max-Min Ratio': $'($stats.ratio)x'
+            if $op == 'compress' {
+                {
+                    Operation: $op,
+                    Size: ($size | str upcase),
+                    fzip: (fmt_time $fzip),
+                    moonzip: (fmt_time $moonzip),
+                    zipc: (fmt_time $zipc),
+                    Winner: $stats.winner,
+                    'Max-Min Ratio': $'($stats.ratio)x',
+                    'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
+                    'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
+                    'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
+                }
+            } else {
+                {
+                    Operation: $op,
+                    Size: ($size | str upcase),
+                    fzip: (fmt_time $fzip),
+                    moonzip: (fmt_time $moonzip),
+                    zipc: (fmt_time $zipc),
+                    Winner: $stats.winner,
+                    'Max-Min Ratio': $'($stats.ratio)x',
+                    'fzip Ratio': '-',
+                    'moonzip Ratio': '-',
+                    'zipc Ratio': '-',
+                }
             }
         }
     } | flatten
@@ -124,7 +170,7 @@ def gen_gzip [benches: list] {
 }
 
 # Generate Zlib table
-def gen_zlib [benches: list] {
+def gen_zlib [benches: list, sizes: list] {
     print "## Zlib\n"
 
     let rows = [compress decompress] | each {|op|
@@ -135,14 +181,32 @@ def gen_zlib [benches: list] {
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
 
-            {
-                Operation: $op,
-                Size: ($size | str upcase),
-                fzip: (fmt_time $fzip),
-                moonzip: (fmt_time $moonzip),
-                zipc: (fmt_time $zipc),
-                Winner: $stats.winner,
-                'Max-Min Ratio': $'($stats.ratio)x'
+            if $op == 'compress' {
+                {
+                    Operation: $op,
+                    Size: ($size | str upcase),
+                    fzip: (fmt_time $fzip),
+                    moonzip: (fmt_time $moonzip),
+                    zipc: (fmt_time $zipc),
+                    Winner: $stats.winner,
+                    'Max-Min Ratio': $'($stats.ratio)x',
+                    'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
+                    'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
+                    'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
+                }
+            } else {
+                {
+                    Operation: $op,
+                    Size: ($size | str upcase),
+                    fzip: (fmt_time $fzip),
+                    moonzip: (fmt_time $moonzip),
+                    zipc: (fmt_time $zipc),
+                    Winner: $stats.winner,
+                    'Max-Min Ratio': $'($stats.ratio)x',
+                    'fzip Ratio': '-',
+                    'moonzip Ratio': '-',
+                    'zipc Ratio': '-',
+                }
             }
         }
     } | flatten
@@ -152,7 +216,7 @@ def gen_zlib [benches: list] {
 }
 
 # Generate ZIP table
-def gen_zip [benches: list] {
+def gen_zip [benches: list, sizes: list] {
     print "## ZIP\n"
 
     let rows = [compress decompress] | each {|op|
@@ -161,12 +225,26 @@ def gen_zip [benches: list] {
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip}
 
-        {
-            Operation: $op,
-            fzip: (fmt_time $fzip),
-            moonzip: (fmt_time $moonzip),
-            Winner: $stats.winner,
-            'Max-Min Ratio': $'($stats.ratio)x'
+        if $op == 'compress' {
+            {
+                Operation: $op,
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x',
+                'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
+                'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
+            }
+        } else {
+            {
+                Operation: $op,
+                fzip: (fmt_time $fzip),
+                moonzip: (fmt_time $moonzip),
+                Winner: $stats.winner,
+                'Max-Min Ratio': $'($stats.ratio)x',
+                'fzip Ratio': '-',
+                'moonzip Ratio': '-',
+            }
         }
     }
 

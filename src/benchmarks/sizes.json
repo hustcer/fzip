@@ -1,0 +1,162 @@
+[
+  {
+    "name": "deflate/compress/zeros_1k/fzip",
+    "compressed": 12.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/zeros_1k/moonzip",
+    "compressed": 10.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/zeros_1k/zipc",
+    "compressed": 1029.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/zeros_100k/fzip",
+    "compressed": 462.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/zeros_100k/moonzip",
+    "compressed": 115.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/zeros_100k/zipc",
+    "compressed": 102410.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/seq_1k/fzip",
+    "compressed": 280.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/seq_1k/moonzip",
+    "compressed": 279.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/seq_1k/zipc",
+    "compressed": 1029.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/seq_100k/fzip",
+    "compressed": 1127.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/seq_100k/moonzip",
+    "compressed": 717.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/seq_100k/zipc",
+    "compressed": 102410.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/random_1k/fzip",
+    "compressed": 1029.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/random_1k/moonzip",
+    "compressed": 1077.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/random_1k/zipc",
+    "compressed": 1029.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/random_100k/fzip",
+    "compressed": 102410.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/random_100k/moonzip",
+    "compressed": 102476.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/random_100k/zipc",
+    "compressed": 102410.0,
+    "original": 102400.0
+  },
+  {
+    "name": "gzip/compress/1k/fzip",
+    "compressed": 298.0,
+    "original": 1024.0
+  },
+  {
+    "name": "gzip/compress/1k/moonzip",
+    "compressed": 297.0,
+    "original": 1024.0
+  },
+  {
+    "name": "gzip/compress/1k/zipc",
+    "compressed": 1047.0,
+    "original": 1024.0
+  },
+  {
+    "name": "gzip/compress/100k/fzip",
+    "compressed": 1145.0,
+    "original": 102400.0
+  },
+  {
+    "name": "gzip/compress/100k/moonzip",
+    "compressed": 735.0,
+    "original": 102400.0
+  },
+  {
+    "name": "gzip/compress/100k/zipc",
+    "compressed": 102428.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zlib/compress/1k/fzip",
+    "compressed": 286.0,
+    "original": 1024.0
+  },
+  {
+    "name": "zlib/compress/1k/moonzip",
+    "compressed": 285.0,
+    "original": 1024.0
+  },
+  {
+    "name": "zlib/compress/1k/zipc",
+    "compressed": 1035.0,
+    "original": 1024.0
+  },
+  {
+    "name": "zlib/compress/100k/fzip",
+    "compressed": 1133.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zlib/compress/100k/moonzip",
+    "compressed": 723.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zlib/compress/100k/zipc",
+    "compressed": 102416.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zip/compress/fzip",
+    "compressed": 2642.0,
+    "original": 3584.0
+  },
+  {
+    "name": "zip/compress/moonzip",
+    "compressed": 2680.0,
+    "original": 3584.0
+  }
+]

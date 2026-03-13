@@ -53,8 +53,9 @@ bench-json output='':
 bench-rpt:
     #!/usr/bin/env nu
     moon bench -p benchmarks o+e>| nu --stdin bench/parse-bench.nu -s src/benchmarks/bench.json
+    moon test src/benchmarks/size_test.mbt --target wasm-gc -v o+e>| nu --stdin bench/parse-sizes.nu -s src/benchmarks/sizes.json
     nu src/benchmarks/gen-report.nu o> src/benchmarks/bench.md
-    oxfmt src/benchmarks/bench.md src/benchmarks/bench.json
+    oxfmt src/benchmarks/bench.md src/benchmarks/bench.json src/benchmarks/sizes.json
 
 # Run tests
 test:
