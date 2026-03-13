@@ -455,7 +455,7 @@ test "deflate with dictionary" {
 ///|
 test "adaptive chain depth - high entropy triggers low chain depth" {
   // Large random data triggers >100 hash searches with low success rate,
-  // exercising the success_100 < total_searches * 5 branch (chain depth = 4)
+  // exercising the success_100 < total_searches * 5 branch (chain depth = c/4)
   let size = 50000
   let data = FixedArray::make(size, b'\x00')
   let mut seed = 77777
@@ -474,7 +474,7 @@ test "adaptive chain depth - high entropy triggers low chain depth" {
 ///|
 test "adaptive chain depth - repetitive data triggers high chain depth" {
   // Highly repetitive data has high match success rate,
-  // exercising the base_chain branch (success_100 >= total_searches * 20)
+  // exercising the full chain depth c (success_100 >= total_searches * 20)
   let size = 50000
   let data = FixedArray::make(size, b'\x00')
   for i in 0..<size {
@@ -595,7 +595,7 @@ test "match loop unrolling - mixed match lengths" {
 ///|
 test "adaptive chain depth - mixed data exercises medium chain depth" {
   // Data mixing compressible and random regions triggers medium success rate,
-  // exercising the success_100 < total_searches * 20 branch (chain depth = 8)
+  // exercising the success_100 < total_searches * 20 branch (chain depth = c/2)
   let size = 50000
   let data = FixedArray::make(size, b'\x00')
   let mut seed = 33333
@@ -707,4 +707,18 @@ test "lazy hash skip - near end of data guard" {
   for i in 0..<size {
     assert_eq(decompressed[i], data[i])
   }
+}
+
+///|
+test "higher compression levels produce better ratios" {
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 128).to_byte()
+  }
+  let c1 = deflate_sync(data, opts={ level: 1, mem: 0, dictionary: None })
+  let c6 = deflate_sync(data, opts={ level: 6, mem: 0, dictionary: None })
+  let c9 = deflate_sync(data, opts={ level: 9, mem: 0, dictionary: None })
+  assert_true(c6.length() <= c1.length())
+  assert_true(c9.length() <= c6.length())
 }

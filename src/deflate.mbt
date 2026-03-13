@@ -400,22 +400,41 @@ fn dflt(
           let maxn_val = (if n < rem { n } else { rem }) - 1
           let maxd = if 32767 < i { 32767 } else { i }
           let ml = if 258 < rem { 258 } else { rem }
-          // Dynamic search parameters (方案 2)
-          let good_match_len = if rem < 1024 { 16 } else { 32 }
+          let good_match_len = {
+            let g = n / 4
+            if g < 4 {
+              4
+            } else if g > 64 {
+              64
+            } else {
+              g
+            }
+          }
           let min_improvement = if rem < 1024 { 2 } else { 4 }
-          let base_chain = if rem < 4096 { 8 } else { 16 }
           total_searches += 1
           // Adaptive chain depth based on success rate
           let max_chain = if total_searches < 100 {
-            base_chain
+            c
           } else {
             let success_100 = successful_matches * 100
             if success_100 < total_searches * 5 {
-              4
+              let reduced = c / 4
+              if reduced < 4 {
+                4
+              } else if reduced > 64 {
+                64
+              } else {
+                reduced
+              }
             } else if success_100 < total_searches * 20 {
-              8
+              let reduced = c / 2
+              if reduced < 4 {
+                4
+              } else {
+                reduced
+              }
             } else {
-              base_chain
+              c
             }
           }
           let mut chain_count = 0
