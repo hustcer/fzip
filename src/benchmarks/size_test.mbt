@@ -66,9 +66,7 @@ test "sizes" {
     "SIZE deflate/compress/random_100k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(r100k), @deflate.level_default()).length()} 102400",
   )
   // GZIP
-  println(
-    "SIZE gzip/compress/1k/fzip \{@fzip.gzip_sync(s1k).length()} 1024",
-  )
+  println("SIZE gzip/compress/1k/fzip \{@fzip.gzip_sync(s1k).length()} 1024")
   println(
     "SIZE gzip/compress/1k/moonzip \{@moonzip.gzip_sync(s1k).length()} 1024",
   )
@@ -85,9 +83,7 @@ test "sizes" {
     "SIZE gzip/compress/100k/zipc \{@deflate.gzip_of_bytes(fa_to_bytes(s100k), @deflate.level_default(), None, None).length()} 102400",
   )
   // Zlib
-  println(
-    "SIZE zlib/compress/1k/fzip \{@fzip.zlib_sync(s1k).length()} 1024",
-  )
+  println("SIZE zlib/compress/1k/fzip \{@fzip.zlib_sync(s1k).length()} 1024")
   println(
     "SIZE zlib/compress/1k/moonzip \{@moonzip.zlib_sync(s1k).length()} 1024",
   )
