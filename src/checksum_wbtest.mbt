@@ -140,6 +140,153 @@ test "crc32 unroll - 100KB consistency" {
 }
 
 ///|
+test "crc32 slice-by-4 - single byte remainder only" {
+  // 1 byte: no Slice-by-4 iteration, only byte-at-a-time fallback
+  // CRC32("a") = 0xE8B7BE43
+  let data : FixedArray[Byte] = [b'\x61']
+  inspect(crc32(data), content="3904355907")
+}
+
+///|
+test "crc32 slice-by-4 - 3 bytes remainder only" {
+  // 3 bytes: no Slice-by-4 iteration, all handled by remainder loop
+  // CRC32("abc") = 0x352441C2
+  let data : FixedArray[Byte] = [b'\x61', b'\x62', b'\x63']
+  inspect(crc32(data), content="891568578")
+}
+
+///|
+test "crc32 slice-by-4 - 5 bytes (1 iteration + 1 remainder)" {
+  // 5 bytes: 1 Slice-by-4 iteration + 1 byte remainder
+  let data : FixedArray[Byte] = [b'\x61', b'\x62', b'\x63', b'\x64', b'\x65']
+  let one_shot = crc32(data)
+  // Verify incremental consistency
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  // push_range must also match
+  let st2 = CRC32State::new()
+  st2.push_range(data, 0, 5)
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-4 - 6 bytes (1 iteration + 2 remainder)" {
+  let data : FixedArray[Byte] = [
+    b'\x10', b'\x20', b'\x30', b'\x40', b'\x50', b'\x60',
+  ]
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-4 - 8 bytes (exact 2 iterations)" {
+  let data : FixedArray[Byte] = [
+    b'\xDE', b'\xAD', b'\xBE', b'\xEF', b'\xCA', b'\xFE', b'\xBA', b'\xBE',
+  ]
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  let st2 = CRC32State::new()
+  st2.push_range(data, 0, 8)
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-4 - all same byte" {
+  // All bytes identical: exercises Slice-by-4 where all 4 table indices
+  // derive from the same byte value XORed with CRC state
+  let data = FixedArray::make(20, b'\xAA')
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-4 - all 0xFF bytes" {
+  // All bits set: stresses all 4 tables with 0xFF indices
+  let data = FixedArray::make(16, b'\xFF')
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  assert_true(one_shot != 0U)
+}
+
+///|
+test "crc32 slice-by-4 - incremental split at non-aligned boundary" {
+  // Split at positions that are NOT multiples of 4
+  // This forces the Slice-by-4 loop to start with different alignments
+  let data : FixedArray[Byte] = [
+    b'\x31', b'\x32', b'\x33', b'\x34', b'\x35', b'\x36', b'\x37', b'\x38', b'\x39',
+  ]
+  let one_shot = crc32(data)
+  // Split at 3+6: first chunk has no Slice-by-4, second chunk has 1 iteration + 2 remainder
+  let st1 = CRC32State::new()
+  st1.push(slc(data, 0, e=3))
+  st1.push(slc(data, 3))
+  assert_eq(st1.digest(), one_shot)
+  // Split at 5+4: first chunk has 1 iteration + 1 remainder, second chunk has 1 iteration
+  let st2 = CRC32State::new()
+  st2.push(slc(data, 0, e=5))
+  st2.push(slc(data, 5))
+  assert_eq(st2.digest(), one_shot)
+  // Split at 1+1+1+1+1+1+1+1+1: every byte is a separate push
+  let st3 = CRC32State::new()
+  for i in 0..<9 {
+    st3.push(slc(data, i, e=i + 1))
+  }
+  assert_eq(st3.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-4 - push_range with non-zero offset" {
+  // Verify push_range correctly handles non-zero starting offset
+  let data = FixedArray::make(20, b'\x00')
+  for i in 0..<20 {
+    data[i] = ((i * 31 + 7) % 256).to_byte()
+  }
+  // Full range
+  let full = crc32(data)
+  // Partial range from offset 5, length 10
+  let st1 = CRC32State::new()
+  st1.push_range(data, 5, 10)
+  // Compare with push of equivalent slice
+  let st2 = CRC32State::new()
+  st2.push(slc(data, 5, e=15))
+  assert_eq(st1.digest(), st2.digest())
+  // Combine: [0..5) + [5..15) + [15..20) should equal full
+  let st3 = CRC32State::new()
+  st3.push_range(data, 0, 5)
+  st3.push_range(data, 5, 10)
+  st3.push_range(data, 15, 5)
+  assert_eq(st3.digest(), full)
+}
+
+///|
+test "crc32 slice-by-4 - table correctness via sequential comparison" {
+  // Generate 256 bytes of varied data and verify Slice-by-4 matches
+  // a naive byte-at-a-time implementation
+  let data = FixedArray::make(256, b'\x00')
+  for i in 0..<256 {
+    data[i] = i.to_byte()
+  }
+  // Compute reference CRC byte-by-byte using only crct (table 0)
+  let mut ref_crc = 0xFFFFFFFFU
+  for i in 0..<256 {
+    ref_crc = crct[((ref_crc ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
+      (ref_crc >> 8)
+  }
+  ref_crc = ref_crc ^ 0xFFFFFFFFU
+  // Compare with Slice-by-4 result
+  assert_eq(crc32(data), ref_crc)
+}
+
+///|
 test "adler32 - push_range matches push" {
   let data : FixedArray[Byte] = [b'\x48', b'\x65', b'\x6C', b'\x6C', b'\x6F']
   let st1 = AdlerState::new()
