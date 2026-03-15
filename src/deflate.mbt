@@ -194,9 +194,45 @@ fn compute_mem_level(len : Int) -> Int {
 ///|
 /// Fast compressibility detection via sampling
 fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
-  if len < 512 {
+  if len < 128 {
     return true
   }
+  // For small data (< 4096), full byte scan is cheap and accurate
+  if len < 4096 {
+    let seen : FixedArray[Bool] = FixedArray::make(256, false)
+    let mut unique_count = 0
+    for i in 0..<len {
+      let b = dat[start + i].to_int()
+      if not(seen[b]) {
+        seen[b] = true
+        unique_count += 1
+      }
+    }
+    // High byte diversity: check periodicity before declaring incompressible
+    if unique_count > 240 {
+      // Test candidate periods for LZ77-matchable patterns
+      let dists : FixedArray[Int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+      for di in 0..<dists.length() {
+        let d = dists[di]
+        if d < len {
+          let check_count = if len - d < 64 { len - d } else { 64 }
+          let mut matches = 0
+          for j in 0..<check_count {
+            if dat[start + d + j] == dat[start + j] {
+              matches += 1
+            }
+          }
+          // > 50% match at this distance → periodic/compressible
+          if matches * 2 > check_count {
+            return true
+          }
+        }
+      }
+      return false
+    }
+    return true
+  }
+  // Sampling for large data
   let sample_size = len / 64
   let mut unique_count = 0
   let seen : FixedArray[Bool] = FixedArray::make(256, false)
