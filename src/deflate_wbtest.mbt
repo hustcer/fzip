@@ -722,3 +722,60 @@ test "higher compression levels produce better ratios" {
   assert_true(c6.length() <= c1.length())
   assert_true(c9.length() <= c6.length())
 }
+
+test "is_compressible - random 1K detected as incompressible" {
+  // LCG random data: high byte diversity, no periodicity
+  let data = FixedArray::make(1024, b'\x00')
+  let mut s = 42
+  for i in 0..<1024 {
+    s = (s * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (s >> 16).to_byte()
+  }
+  assert_false(is_compressible(data, 0, 1024))
+}
+
+///|
+test "is_compressible - sequential 1K detected as compressible" {
+  // Sequential data: 256 unique values but perfect periodicity at distance 256
+  let data = FixedArray::make(1024, b'\x00')
+  for i in 0..<1024 {
+    data[i] = (i % 256).to_byte()
+  }
+  assert_true(is_compressible(data, 0, 1024))
+}
+
+///|
+test "is_compressible - zeros always compressible" {
+  let data = FixedArray::make(1024, b'\x00')
+  assert_true(is_compressible(data, 0, 1024))
+}
+
+///|
+test "is_compressible - small data always compressible" {
+  // Data < 128 bytes always returns true
+  let data = FixedArray::make(100, b'\x00')
+  let mut s = 99
+  for i in 0..<100 {
+    s = (s * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (s >> 16).to_byte()
+  }
+  assert_true(is_compressible(data, 0, 100))
+}
+
+///|
+test "is_compressible - random data roundtrip correctness" {
+  // Even when detected as incompressible, deflate_sync must still produce
+  // valid output (stored blocks) that decompresses correctly
+  let data = FixedArray::make(1024, b'\x00')
+  let mut s = 42
+  for i in 0..<1024 {
+    s = (s * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (s >> 16).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 1024)
+  for i in 0..<1024 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
