@@ -264,7 +264,7 @@ fn dflt(
     let n = opt >> 13
     let c = opt & 8191
     let msk = (1 << plvl) - 1
-    let window_size = 32768
+    let window_size = if s < 32768 { s } else { 32768 }
     let my_prev_from_pool = st.prev is None
     let prev = match st.prev {
       Some(p) => p
