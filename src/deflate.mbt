@@ -308,6 +308,9 @@ fn dflt(
         match dflt_prev_pool.pop() {
           Some(p) =>
             if p.length() >= window_size {
+              for j in 0..<window_size {
+                p[j] = 0
+              }
               p
             } else {
               FixedArray::make(window_size, 0)
