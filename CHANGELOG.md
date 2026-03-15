@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.1 - 2026-03-15
+
+### Performance
+
+- **Small Data Compressibility Detection**: Improved `is_compressible()` for data under 4096 bytes. Instead of sparse sampling, performs a full byte scan to count unique byte values. Data with >240 unique bytes undergoes an additional periodicity check at 10 candidate distances to avoid false positives on patterned data (e.g., sequential bytes cycling through all 256 values). On random 1K data, this skips the LZ77 search entirely and falls back to stored blocks (82 µs → 2.5 µs).
+- **Scaled `prev` Array**: The hash chain `prev` array in `dflt()` is now sized to `min(data_size, 32768)` instead of a fixed 32768 entries, reducing memory allocation for small inputs.
+
+### Testing
+
+- Added 4 white-box tests for `is_compressible()` covering random data, sequential patterns, all-zeros, and small data below the detection threshold.
+
 ## v0.5.0 - 2026-03-14
 
 ### Performance
