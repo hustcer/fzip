@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Performance
 
-- **Enhanced Compressibility Detection**: Upgraded `is_compressible()` with a two-pass entropy detection mechanism for data < 8KB. By distinguishing skewed/compressible data from near-uniform random data via frequency analysis, it avoids unnecessary DEFLATE computation on incompressible inputs. This yields a ~9x speedup on 1K random data by falling back to stored blocks quickly.
+- **Enhanced Compressibility Detection**: Upgraded `is_compressible()` with a two-pass entropy detection mechanism for data < 8KB. By distinguishing skewed/compressible data from near-uniform random data via frequency analysis, it avoids unnecessary DEFLATE computation on incompressible inputs. 
 
 ### Refactoring
 
