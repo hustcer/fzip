@@ -170,10 +170,10 @@ priv struct DeflateState {
 /// Compute memory level for compression
 fn compute_mem_level(len : Int) -> Int {
   // Aggressive memory strategy for small data to reduce hash table overhead
-  if len < 2048 {
+  if len < small_data_mem_threshold {
     return 10 // head array = 2^10 = 1KB (vs 128KB before)
   }
-  if len < 8192 {
+  if len < full_scan_threshold {
     return 12 // head array = 2^12 = 4KB
   }
   let mut log_val = 8
@@ -194,11 +194,11 @@ fn compute_mem_level(len : Int) -> Int {
 ///|
 /// Fast compressibility detection via sampling
 fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
-  if len < 128 {
+  if len < min_compressibility_check_len {
     return true
   }
   // For data < 8192, full scan is cheap and accurate
-  if len < 8192 {
+  if len < full_scan_threshold {
     // First pass: lightweight unique count with boolean array (256 bytes)
     let seen : FixedArray[Bool] = FixedArray::make(256, false)
     let mut unique_count = 0
@@ -209,7 +209,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
         unique_count += 1
       }
     }
-    if unique_count > 240 {
+    if unique_count > high_entropy_unique_threshold {
       // Second pass: frequency analysis (only for high-entropy candidates)
       let freq : FixedArray[Int] = FixedArray::make(256, 0)
       for i in 0..<len {
@@ -222,7 +222,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
           max_freq = freq[i]
         }
       }
-      if max_freq > len >> 5 {
+      if max_freq > len >> freq_skew_shift {
         return true
       }
       // Near-uniform: check periodicity before declaring incompressible
@@ -230,7 +230,11 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
       for di in 0..<dists.length() {
         let d = dists[di]
         if d < len {
-          let check_count = if len - d < 64 { len - d } else { 64 }
+          let check_count = if len - d < periodicity_check_samples {
+            len - d
+          } else {
+            periodicity_check_samples
+          }
           let mut matches = 0
           for j in 0..<check_count {
             if dat[start + d + j] == dat[start + j] {
@@ -247,12 +251,12 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
     return true
   }
   // Sampling for large data
-  let sample_size = len / 64
+  let sample_size = len / sampling_stride
   let mut unique_count = 0
   let seen : FixedArray[Bool] = FixedArray::make(256, false)
   let mut match_count = 0
   for i in 0..<sample_size {
-    let pos = start + i * 64
+    let pos = start + i * sampling_stride
     let b = dat[pos]
     if not(seen[b.to_int()]) {
       seen[b.to_int()] = true
@@ -266,7 +270,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
       match_count += 1
     }
   }
-  let entropy_high = unique_count > 200
+  let entropy_high = unique_count > sampling_entropy_threshold
   let match_rate_low = match_count * 10 < sample_size
   not(entropy_high && match_rate_low)
 }

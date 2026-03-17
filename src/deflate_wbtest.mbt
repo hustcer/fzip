@@ -723,6 +723,7 @@ test "higher compression levels produce better ratios" {
   assert_true(c9.length() <= c6.length())
 }
 
+///|
 test "is_compressible - random 1K detected as incompressible" {
   // LCG random data: high byte diversity, no periodicity
   let data = FixedArray::make(1024, b'\x00')

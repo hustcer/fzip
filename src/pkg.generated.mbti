@@ -16,13 +16,29 @@ pub let default_max_output_size : Int
 
 pub fn deflate_sync(FixedArray[Byte], opts? : DeflateOptions) -> FixedArray[Byte]
 
+pub let freq_skew_shift : Int
+
+pub let full_scan_threshold : Int
+
 pub fn gunzip_sync(FixedArray[Byte], opts? : GunzipOptions) -> FixedArray[Byte] raise FzipError
 
 pub fn gzip_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
 
+pub let high_entropy_unique_threshold : Int
+
 pub fn inflate_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
 pub let max_filename_length : Int
+
+pub let min_compressibility_check_len : Int
+
+pub let periodicity_check_samples : Int
+
+pub let sampling_entropy_threshold : Int
+
+pub let sampling_stride : Int
+
+pub let small_data_mem_threshold : Int
 
 pub fn str_from_u8(FixedArray[Byte], latin1? : Bool, offset? : Int, len? : Int) -> String raise FzipError
 
