@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.2 - 2026-03-17
+
+### Performance
+
+- **Enhanced Compressibility Detection**: Upgraded `is_compressible()` with a two-pass entropy detection mechanism for data < 8KB. By distinguishing skewed/compressible data from near-uniform random data via frequency analysis, it avoids unnecessary DEFLATE computation on incompressible inputs.
+
+### Refactoring
+
+- **Constants Extraction**: Extracted magic numbers and hardcoded compression thresholds (e.g., `full_scan_threshold`, `high_entropy_unique_threshold`) from `deflate.mbt` into a documented `constants.mbt` file.
+
 ## v0.5.1 - 2026-03-15
 
 ### Performance
