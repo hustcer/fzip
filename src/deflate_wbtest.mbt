@@ -779,3 +779,42 @@ test "is_compressible - random data roundtrip correctness" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+test "is_compressible - skewed distribution with high diversity" {
+  // 241 unique values but one byte dominates (50%) → still compressible
+  let data = FixedArray::make(1024, b'\x41')
+  for i in 0..<512 {
+    data[i] = (i % 241).to_byte()
+  }
+  // unique_count > 240, but max_freq > 1024/32 → compressible
+  assert_true(is_compressible(data, 0, 1024))
+}
+
+///|
+test "is_compressible - 4K random data detected as incompressible" {
+  // Tests the extended scan range (< 8192)
+  let data = FixedArray::make(4096, b'\x00')
+  let mut s = 12345
+  for i in 0..<4096 {
+    s = (s * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (s >> 16).to_byte()
+  }
+  assert_false(is_compressible(data, 0, 4096))
+}
+
+///|
+test "is_compressible - 4K random data roundtrip correctness" {
+  let data = FixedArray::make(4096, b'\x00')
+  let mut s = 12345
+  for i in 0..<4096 {
+    s = (s * 1103515245 + 12345) & 0x7FFFFFFF
+    data[i] = (s >> 16).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(decompressed[i], data[i])
+  }
+}

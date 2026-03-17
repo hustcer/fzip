@@ -197,8 +197,9 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
   if len < 128 {
     return true
   }
-  // For small data (< 4096), full byte scan is cheap and accurate
-  if len < 4096 {
+  // For data < 8192, full scan is cheap and accurate
+  if len < 8192 {
+    // First pass: lightweight unique count with boolean array (256 bytes)
     let seen : FixedArray[Bool] = FixedArray::make(256, false)
     let mut unique_count = 0
     for i in 0..<len {
@@ -208,9 +209,23 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
         unique_count += 1
       }
     }
-    // High byte diversity: check periodicity before declaring incompressible
     if unique_count > 240 {
-      // Test candidate periods for LZ77-matchable patterns
+      // Second pass: frequency analysis (only for high-entropy candidates)
+      let freq : FixedArray[Int] = FixedArray::make(256, 0)
+      for i in 0..<len {
+        freq[dat[start + i].to_int()] += 1
+      }
+      // Skewed distribution: Huffman coding can still compress effectively
+      let mut max_freq = 0
+      for i in 0..<256 {
+        if freq[i] > max_freq {
+          max_freq = freq[i]
+        }
+      }
+      if max_freq > len >> 5 {
+        return true
+      }
+      // Near-uniform: check periodicity before declaring incompressible
       let dists : FixedArray[Int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
       for di in 0..<dists.length() {
         let d = dists[di]
@@ -222,7 +237,6 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
               matches += 1
             }
           }
-          // > 50% match at this distance → periodic/compressible
           if matches * 2 > check_count {
             return true
           }
