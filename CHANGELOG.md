@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.3 - 2026-03-19
+
+### Performance
+
+- **32-Bit Bit Buffer for DEFLATE Decompression**: Replaced per-symbol bit-reading wrappers (`bits()` and `bits16()`) in `inflt()` with an inline 32-bit bit accumulator. By maintaining local bit states (`bbuf`, `bcnt`) and only refilling from the data buffer when necessary, byte-boundary divisions and array accesses are drastically reduced (from ~8-12 down to ~3-4 array reads per decoded symbol). This optimization yields approximately a 1.5x speedup during the decompression of 1K payloads.
+
+### Testing & Chores
+
+- **Bit Buffer Coverage**: Added 6 targeted test cases for the new 32-bit buffer mechanism, verifying edge cases including stored blocks alignment, fixed/dynamic Huffman trees, heavy back-references, and non-byte-aligned data bounds.
+
 ## v0.5.2 - 2026-03-17
 
 ### Performance
