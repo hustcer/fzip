@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.5 - 2026-03-23
+
+### Performance
+
+- **Specialized DEFLATE Back-Reference Copy Paths**: Reworked the back-reference copy step in `inflt()` to use three explicit paths instead of a byte-at-a-time loop: `fill()` for distance-1 runs, `blit_to()` for non-overlapping copies, and a doubling `blit_to()` strategy for overlapping matches.
+- Benchmark results vs pre-optimization baseline:
+    - DEFLATE decompress 100K: 102.63 µs → 29.31 µs (3.50x faster)
+
+### Testing
+
+- **Back-Reference Coverage**: Added 8 white-box tests for the updated inflate copy logic, covering distance-1 runs, overlapping 2/3/4-byte patterns, non-overlapping copies, mixed back-reference patterns in a single stream, and a gzip roundtrip case that exercises the same inflate paths.
+
 ## v0.5.3 - 2026-03-19
 
 ### Performance
