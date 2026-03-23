@@ -384,10 +384,11 @@ fn inflt(
         } else {
           // Overlapping pattern: copy with doubling strategy
           buf.blit_to(buf, len=dt_val, src_offset=bt - dt_val, dst_offset=bt)
-          let mut copied = dt_val
-          while copied + copied <= add {
+          let copied = for copied = dt_val; copied + copied <= add; {
             buf.blit_to(buf, len=copied, src_offset=bt, dst_offset=bt + copied)
-            copied += copied
+            continue copied + copied
+          } nobreak {
+            copied
           }
           if copied < add {
             buf.blit_to(

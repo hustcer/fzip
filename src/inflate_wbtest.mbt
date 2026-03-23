@@ -503,10 +503,7 @@ test "inflt/backref/rle_zeros_16k" {
   let data = FixedArray::make(16384, b'\x00')
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 16384)
-  for i in 0..<16384 {
-    assert_eq(decompressed[i], b'\x00')
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -516,10 +513,7 @@ test "inflt/backref/rle_0xff" {
   let data = FixedArray::make(4096, b'\xFF')
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 4096)
-  for i in 0..<4096 {
-    assert_eq(decompressed[i], b'\xFF')
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -532,10 +526,7 @@ test "inflt/backref/overlap_2byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 4096)
-  for i in 0..<4096 {
-    assert_eq(decompressed[i], data[i])
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -548,10 +539,7 @@ test "inflt/backref/overlap_3byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 6000)
-  for i in 0..<6000 {
-    assert_eq(decompressed[i], data[i])
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -564,10 +552,7 @@ test "inflt/backref/overlap_4byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 8192)
-  for i in 0..<8192 {
-    assert_eq(decompressed[i], data[i])
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -590,10 +575,7 @@ test "inflt/backref/non_overlapping" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 4096)
-  for i in 0..<4096 {
-    assert_eq(decompressed[i], data[i])
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
@@ -615,14 +597,11 @@ test "inflt/backref/mixed_paths" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed.length(), 12000)
-  for i in 0..<12000 {
-    assert_eq(decompressed[i], data[i])
-  }
+  assert_eq(decompressed, data)
 }
 
 ///|
-/// Test back-reference via gzip roundtrip (exercises backref paths through wrapper)
+/// Test back-reference via gzip roundtrip
 test "inflt/backref/gzip_rle_pattern" {
   let data = FixedArray::make(10000, b'\x00')
   // Alternating RLE and pattern sections
@@ -634,8 +613,5 @@ test "inflt/backref/gzip_rle_pattern" {
   }
   let gz = gzip_sync(data)
   let result = gunzip_sync(gz)
-  assert_eq(result.length(), 10000)
-  for i in 0..<10000 {
-    assert_eq(result[i], data[i])
-  }
+  assert_eq(result, data)
 }
