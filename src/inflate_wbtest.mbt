@@ -495,3 +495,147 @@ test "inflt/bitbuf/mixed_content" {
     assert_eq(decompressed[i], data[i])
   }
 }
+
+///|
+/// Test back-reference copy: RLE path (dt_val==1)
+/// All-zeros data produces long runs decoded via buf.fill()
+test "inflt/backref/rle_zeros_16k" {
+  let data = FixedArray::make(16384, b'\x00')
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 16384)
+  for i in 0..<16384 {
+    assert_eq(decompressed[i], b'\x00')
+  }
+}
+
+///|
+/// Test back-reference copy: RLE path with non-zero byte
+/// Repeated 0xFF triggers the same dt_val==1 fill path
+test "inflt/backref/rle_0xff" {
+  let data = FixedArray::make(4096, b'\xFF')
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(decompressed[i], b'\xFF')
+  }
+}
+
+///|
+/// Test back-reference copy: overlapping doubling (dt_val==2)
+/// Alternating 2-byte pattern AB AB AB... triggers dt_val=2 with add >> 2
+test "inflt/backref/overlap_2byte_pattern" {
+  let data = FixedArray::make(4096, b'\x00')
+  for i in 0..<4096 {
+    data[i] = [b'\xAA', b'\x55'][i % 2]
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test back-reference copy: overlapping doubling (dt_val==3)
+/// Repeating 3-byte pattern ABC exercises the doubling loop with non-power-of-2 stride
+test "inflt/backref/overlap_3byte_pattern" {
+  let data = FixedArray::make(6000, b'\x00')
+  for i in 0..<6000 {
+    data[i] = [b'\x01', b'\x02', b'\x03'][i % 3]
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 6000)
+  for i in 0..<6000 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test back-reference copy: overlapping doubling (dt_val==4)
+/// 4-byte repeating pattern DEADBEEF exercises doubling with power-of-2 stride
+test "inflt/backref/overlap_4byte_pattern" {
+  let data = FixedArray::make(8192, b'\x00')
+  for i in 0..<8192 {
+    data[i] = [b'\xDE', b'\xAD', b'\xBE', b'\xEF'][i % 4]
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 8192)
+  for i in 0..<8192 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test back-reference copy: non-overlapping path (dt_val >= add)
+/// Data with short repeated fragments separated by unique bytes creates
+/// back-references where distance >= match length (non-overlapping blit_to)
+test "inflt/backref/non_overlapping" {
+  let data = FixedArray::make(4096, b'\x00')
+  // Blocks of 32 unique bytes followed by 4 repeated bytes from far back
+  for i in 0..<4096 {
+    let block = i / 36
+    let pos = i % 36
+    if pos < 32 {
+      // Unique section: use block number + position for variety
+      data[i] = ((block * 7 + pos * 3 + 11) % 256).to_byte()
+    } else {
+      // Short repeat of earlier bytes at distance >> match length
+      data[i] = data[block * 36 + pos - 32]
+    }
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 4096)
+  for i in 0..<4096 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test back-reference copy: mixed RLE + pattern + non-overlapping in one stream
+/// Exercises all three backref paths within a single decompression call
+test "inflt/backref/mixed_paths" {
+  let data = FixedArray::make(12000, b'\x00')
+  // Section 1 (0-3999): RLE run → dt_val==1 path
+  for i in 0..<4000 {
+    data[i] = b'\x42'
+  }
+  // Section 2 (4000-7999): 5-byte repeating pattern → overlapping doubling
+  for i in 4000..<8000 {
+    data[i] = [b'\x10', b'\x20', b'\x30', b'\x40', b'\x50'][(i - 4000) % 5]
+  }
+  // Section 3 (8000-11999): varied data with scattered short matches
+  for i in 8000..<12000 {
+    data[i] = ((i * 13 + 7) % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), 12000)
+  for i in 0..<12000 {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+/// Test back-reference via gzip roundtrip (exercises backref paths through wrapper)
+test "inflt/backref/gzip_rle_pattern" {
+  let data = FixedArray::make(10000, b'\x00')
+  // Alternating RLE and pattern sections
+  for i in 0..<5000 {
+    data[i] = b'\x77' // RLE section
+  }
+  for i in 5000..<10000 {
+    data[i] = [b'\x0A', b'\x0B', b'\x0C'][i % 3] // 3-byte pattern
+  }
+  let gz = gzip_sync(data)
+  let result = gunzip_sync(gz)
+  assert_eq(result.length(), 10000)
+  for i in 0..<10000 {
+    assert_eq(result[i], data[i])
+  }
+}

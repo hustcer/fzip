@@ -373,9 +373,31 @@ fn inflt(
           }
         }
         // copy from output (LZ77 back-reference)
-        while bt < end {
-          buf[bt] = buf[bt - dt_val]
-          bt += 1
+        if dt_val == 1 {
+          // RLE: fill with single repeated byte
+          buf.fill(buf[bt - 1], start=bt, end~)
+          bt = end
+        } else if dt_val >= add {
+          // Non-overlapping: block copy
+          buf.blit_to(buf, len=add, src_offset=bt - dt_val, dst_offset=bt)
+          bt = end
+        } else {
+          // Overlapping pattern: copy with doubling strategy
+          buf.blit_to(buf, len=dt_val, src_offset=bt - dt_val, dst_offset=bt)
+          let mut copied = dt_val
+          while copied + copied <= add {
+            buf.blit_to(buf, len=copied, src_offset=bt, dst_offset=bt + copied)
+            copied += copied
+          }
+          if copied < add {
+            buf.blit_to(
+              buf,
+              len=add - copied,
+              src_offset=bt,
+              dst_offset=bt + copied,
+            )
+          }
+          bt = end
         }
       }
     }
