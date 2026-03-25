@@ -16,6 +16,7 @@
   "source": "src",
   "deps": {
     "ivgtr/moonzip": "0.2.4",
-    "bobzhang/zipc": "0.1.1"
+    "bobzhang/zipc": "0.1.1",
+    "bikallem/compress": "0.3.2"
   }
 }

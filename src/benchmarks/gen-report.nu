@@ -64,6 +64,12 @@ def fmt_ratio [name: string, sizes: list]: nothing -> string {
     }
 }
 
+# Try to get a benchmark entry, return null if not found
+def get_bench [benches: list, name: string]: nothing -> any {
+    let found = $benches | where name == $name
+    if ($found | is-empty) { null } else { $found | get 0 }
+}
+
 # Generate DEFLATE compress table
 def gen_deflate_compress [benches: list, sizes: list] {
     print "## DEFLATE Compress\n"
@@ -77,20 +83,26 @@ def gen_deflate_compress [benches: list, sizes: list] {
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
-            let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let bkl = get_bench $benches $'($prefix)bkl'
+            let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let stats = calc_stats $libs
 
-            {
+            let row = {
                 Pattern: $pattern,
                 Size: ($size | str upcase),
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 zipc: (fmt_time $zipc),
+                bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                 Winner: $stats.winner,
                 'Max-Min Ratio': $'($stats.ratio)x',
                 'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                 'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                 'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
+                'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
             }
+            $row
         }
     } | flatten
 
@@ -107,13 +119,17 @@ def gen_deflate_decompress [benches: list] {
         let fzip = $benches | where name == $'($prefix)fzip' | get 0
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let zipc = $benches | where name == $'($prefix)zipc' | get 0
-        let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+        let bkl = get_bench $benches $'($prefix)bkl'
+        let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+        let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+        let stats = calc_stats $libs
 
         {
             Size: ($size | str upcase),
             fzip: (fmt_time $fzip),
             moonzip: (fmt_time $moonzip),
             zipc: (fmt_time $zipc),
+            bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
             Winner: $stats.winner,
             'Max-Min Ratio': $'($stats.ratio)x'
         }
@@ -133,7 +149,10 @@ def gen_gzip [benches: list, sizes: list] {
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
-            let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let bkl = get_bench $benches $'($prefix)bkl'
+            let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let stats = calc_stats $libs
 
             if $op == 'compress' {
                 {
@@ -142,11 +161,13 @@ def gen_gzip [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
+                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                     'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                     'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
+                    'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
                 }
             } else {
                 {
@@ -155,11 +176,13 @@ def gen_gzip [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
+                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': '-',
                     'moonzip Ratio': '-',
                     'zipc Ratio': '-',
+                    'bkl Ratio': '-',
                 }
             }
         }
@@ -179,7 +202,10 @@ def gen_zlib [benches: list, sizes: list] {
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
-            let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let bkl = get_bench $benches $'($prefix)bkl'
+            let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let stats = calc_stats $libs
 
             if $op == 'compress' {
                 {
@@ -188,11 +214,13 @@ def gen_zlib [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
+                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                     'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                     'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
+                    'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
                 }
             } else {
                 {
@@ -201,11 +229,13 @@ def gen_zlib [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
+                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': '-',
                     'moonzip Ratio': '-',
                     'zipc Ratio': '-',
+                    'bkl Ratio': '-',
                 }
             }
         }
@@ -262,7 +292,10 @@ def gen_checksum [benches: list] {
             let fzip = $benches | where name == $'($prefix)fzip' | get 0
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
-            let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let bkl = get_bench $benches $'($prefix)bkl'
+            let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
+            let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let stats = calc_stats $libs
 
             {
                 Algorithm: ($algo | str upcase),
@@ -270,6 +303,7 @@ def gen_checksum [benches: list] {
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 zipc: (fmt_time $zipc),
+                bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
                 Winner: $stats.winner,
                 'Max-Min Ratio': $'($stats.ratio)x'
             }

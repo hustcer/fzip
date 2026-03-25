@@ -4,5 +4,9 @@ import {
   "bobzhang/zipc/deflate",
   "bobzhang/zipc/crc32",
   "bobzhang/zipc/adler32",
+  "bikallem/compress/flate",
+  "bikallem/compress/gzip",
+  "bikallem/compress/zlib",
+  "bikallem/compress/checksum",
   "moonbitlang/core/bench",
 } for "test"
