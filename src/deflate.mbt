@@ -260,7 +260,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
     let mut unique_count = 0
     for i in 0..<len {
       let b = dat[start + i].to_int()
-      if not(seen[b]) {
+      if !seen[b] {
         seen[b] = true
         unique_count += 1
       }
@@ -314,7 +314,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
   for i in 0..<sample_size {
     let pos = start + i * sampling_stride
     let b = dat[pos]
-    if not(seen[b.to_int()]) {
+    if !seen[b.to_int()] {
       seen[b.to_int()] = true
       unique_count += 1
     }
@@ -328,7 +328,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
   }
   let entropy_high = unique_count > sampling_entropy_threshold
   let match_rate_low = match_count * 10 < sample_size
-  not(entropy_high && match_rate_low)
+  !(entropy_high && match_rate_low)
 }
 
 ///|
@@ -382,7 +382,7 @@ fn dflt(
   let mut pos = st.r & 7
   if lvl > 0 {
     // Fast incompressible data detection (方案 1)
-    if not(is_compressible(dat, 0, s)) {
+    if !is_compressible(dat, 0, s) {
       return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)
     }
     if pos != 0 {

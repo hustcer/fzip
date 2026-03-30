@@ -79,9 +79,8 @@ pub(all) struct DeflateOptions {
   level : Int
   mem : Int
   dictionary : FixedArray[Byte]?
-}
+} derive(Show)
 pub fn DeflateOptions::default() -> Self
-pub impl Show for DeflateOptions
 
 pub(all) struct DeflateStream {
   mut ondata : FlateStreamHandler?
@@ -111,9 +110,7 @@ pub(all) enum FzipErrorCode {
   InvalidZipData
   UnknownCompressionMethod
   InvalidChecksum
-}
-pub impl Eq for FzipErrorCode
-pub impl Show for FzipErrorCode
+} derive(Eq, Show)
 
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
@@ -121,9 +118,8 @@ pub(all) struct GunzipOptions {
   max_output_size : Int
   max_input_size : Int
   verify_checksum : Bool
-}
+} derive(Show)
 pub fn GunzipOptions::default() -> Self
-pub impl Show for GunzipOptions
 
 pub(all) struct GunzipStream {
   mut ondata : FlateStreamHandler?
@@ -138,9 +134,8 @@ pub(all) struct GzipOptions {
   dictionary : FixedArray[Byte]?
   mtime : Int
   filename : String
-}
+} derive(Show)
 pub fn GzipOptions::default() -> Self
-pub impl Show for GzipOptions
 
 pub(all) struct GzipStream {
   mut ondata : FlateStreamHandler?
@@ -154,9 +149,8 @@ pub(all) struct InflateOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int
   max_input_size : Int
-}
+} derive(Show)
 pub fn InflateOptions::default() -> Self
-pub impl Show for InflateOptions
 
 pub(all) struct InflateStream {
   mut ondata : FlateStreamHandler?
@@ -170,8 +164,7 @@ pub(all) struct UnzipFileInfo {
   size : Int
   original_size : Int
   compression : Int
-}
-pub impl Show for UnzipFileInfo
+} derive(Show)
 
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
@@ -179,9 +172,8 @@ pub(all) struct UnzlibOptions {
   max_output_size : Int
   max_input_size : Int
   verify_checksum : Bool
-}
+} derive(Show)
 pub fn UnzlibOptions::default() -> Self
-pub impl Show for UnzlibOptions
 
 pub(all) struct UnzlibStream {
   mut ondata : FlateStreamHandler?
@@ -198,17 +190,15 @@ pub(all) struct ZipEntryOptions {
   extra : Array[(Int, FixedArray[Byte])]
   comment : String
   mtime : Int
-}
+} derive(Show)
 pub fn ZipEntryOptions::default() -> Self
-pub impl Show for ZipEntryOptions
 
 pub(all) struct ZlibOptions {
   level : Int
   mem : Int
   dictionary : FixedArray[Byte]?
-}
+} derive(Show)
 pub fn ZlibOptions::default() -> Self
-pub impl Show for ZlibOptions
 
 pub(all) struct ZlibStream {
   mut ondata : FlateStreamHandler?

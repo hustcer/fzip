@@ -54,7 +54,7 @@ fn zh(
     raise fzip_err(InvalidZipData, msg="zip filename exceeds data bounds")
   }
   let is_utf8 = (b2(d, b + 8) & 2048) != 0
-  let fn_str = str_from_u8(d, latin1=not(is_utf8), offset=b + 46, len=fnl)
+  let fn_str = str_from_u8(d, latin1=!is_utf8, offset=b + 46, len=fnl)
   let es = b + 46 + fnl
   let bs = b4(d, b + 20)
   let (sc, su, off) = if z && bs == 4294967295U {

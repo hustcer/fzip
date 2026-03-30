@@ -432,7 +432,7 @@ fn inflt(
     st.pos = lpos
     st.bt = bt
     st.final_ = final_
-    if not(lm is None) {
+    if !(lm is None) {
       final_ = 1
       st.lbt = lbt
       st.dm = dm
