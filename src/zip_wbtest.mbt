@@ -131,3 +131,41 @@ test "zip - normal compression ratio accepted" {
   assert_eq(result.length(), 1)
   assert_eq(result[0].1.length(), 1000)
 }
+
+///|
+test "zip - deflated entry writes correct CRC in local and central headers" {
+  let size = 50000
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 64).to_byte()
+  }
+  let zipped = zip_sync([("crc.bin", data)])
+  let expected = crc32(data)
+  // Local file header CRC-32 starts at byte 14
+  assert_eq(b4(zipped, 14), expected)
+  // EOCD is 22 bytes with empty comment; central directory offset is at +16
+  let cd_offset = b4(zipped, zipped.length() - 6).reinterpret_as_int()
+  // Central directory CRC-32 starts at byte 16 from the CD header start
+  assert_eq(b4(zipped, cd_offset + 16), expected)
+}
+
+///|
+test "zip - stored entry writes correct CRC in local and central headers" {
+  let data = FixedArray::make(1024, b'\x00')
+  for i in 0..<1024 {
+    data[i] = (i % 251).to_byte()
+  }
+  let zipped = zip_sync([("stored-crc.bin", data)], opts={
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  })
+  let expected = crc32(data)
+  assert_eq(b4(zipped, 14), expected)
+  let cd_offset = b4(zipped, zipped.length() - 6).reinterpret_as_int()
+  assert_eq(b4(zipped, cd_offset + 16), expected)
+}

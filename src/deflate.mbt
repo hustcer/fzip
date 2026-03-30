@@ -1,4 +1,56 @@
 ///|
+/// Largest positive Int value, used to clamp capacity math before allocation
+fn max_int_val() -> Int {
+  ((-1).reinterpret_as_uint() >> 1).reinterpret_as_int()
+}
+
+///|
+/// Saturating add for non-negative buffer sizing math
+fn sat_add(a : Int, b : Int) -> Int {
+  let max_i = max_int_val()
+  if a > max_i - b {
+    max_i
+  } else {
+    a + b
+  }
+}
+
+///|
+/// Saturating multiply for non-negative values with a small constant factor
+fn sat_mul(a : Int, b : Int) -> Int {
+  let max_i = max_int_val()
+  if a == 0 || b == 0 {
+    0
+  } else if a > max_i / b {
+    max_i
+  } else {
+    a * b
+  }
+}
+
+///|
+/// Compute required output capacity without letting intermediate sums wrap
+fn out_capacity_need(pre : Int, pos : Int, bl : Int, post : Int) -> Int {
+  let with_pre = sat_add(pre, shft(pos))
+  let with_block = sat_add(with_pre, bl)
+  let with_header = sat_add(with_block, 8)
+  sat_add(with_header, post)
+}
+
+///|
+/// Grow output capacity without overflowing the doubling step
+fn grown_out_capacity(cur : Int, need : Int) -> Int {
+  let max_i = max_int_val()
+  let safe_need = if need < 0 { max_i } else { need }
+  let doubled = if cur > 0 && cur <= max_i / 2 { cur * 2 } else { max_i }
+  if doubled > safe_need {
+    doubled
+  } else {
+    safe_need
+  }
+}
+
+///|
 /// Write a stored (uncompressed) block
 /// Returns new bit position
 fn wfblk(
@@ -278,10 +330,11 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
 ///|
 /// Ensure output buffer has enough capacity, growing if needed
 fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
+  let need = if need < 0 { max_int_val() } else { need }
   if need <= o.length() {
     return o
   }
-  let new_size = if o.length() * 2 > need { o.length() * 2 } else { need }
+  let new_size = grown_out_capacity(o.length(), need)
   let n = FixedArray::make(new_size, b'\x00')
   o.blit_to(n, len=o.length(), src_offset=0, dst_offset=0)
   n
@@ -315,11 +368,10 @@ fn dflt(
   adler_state? : AdlerState? = None,
 ) -> (FixedArray[Byte], Int) {
   let s = if st.z != 0 { st.z } else { dat.length() }
-  let o_size = if lvl > 0 && s > 512 {
-    pre + (s >> 1) + 5 * (1 + (s + 6999) / 7000) + post + 128
-  } else {
-    pre + s + 5 * (1 + (s + 6999) / 7000) + post
-  }
+  let block_count = if s == 0 { 1 } else { 1 + (s - 1) / 7000 }
+  let block_overhead = sat_mul(block_count, 5)
+  let base_size = if lvl > 0 && s > 512 { sat_add(s >> 1, 128) } else { s }
+  let o_size = sat_add(sat_add(pre, base_size), sat_add(block_overhead, post))
   let mut o = FixedArray::make(o_size, b'\x00')
   let w_start = pre
   let lst = st.l
@@ -435,7 +487,7 @@ fn dflt(
         let rem = s - i
         if (lc > 7000 || li > 24576) && (rem > 423 || lst == 0) {
           let bl = i - bs
-          o = ensure_out(o, pre + shft(pos) + bl + 8 + post)
+          o = ensure_out(o, out_capacity_need(pre, pos, bl, post))
           pos = wblk(dat, o, 0, syms, lf, df, eb, li, bs, bl, pos + w_start * 8) -
             w_start * 8
           li = 0
@@ -603,7 +655,7 @@ fn dflt(
       j += 1
     }
     let bl = j - bs
-    o = ensure_out(o, pre + shft(pos) + bl + 8 + post)
+    o = ensure_out(o, out_capacity_need(pre, pos, bl, post))
     pos = wblk(dat, o, lst, syms, lf, df, eb, li, bs, bl, pos + w_start * 8) -
       w_start * 8
     if s > cksum_i {

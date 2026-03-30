@@ -875,6 +875,29 @@ test "ensure_out - preserves all original content" {
 }
 
 ///|
+test "out_capacity_need - computes normal capacity correctly" {
+  assert_eq(out_capacity_need(10, 17, 99, 8), 128)
+}
+
+///|
+test "out_capacity_need - saturates on large inputs" {
+  let max_i = max_int_val()
+  assert_eq(out_capacity_need(max_i - 4, 8, 32, 16), max_i)
+}
+
+///|
+test "grown_out_capacity - doubles when safe" {
+  assert_eq(grown_out_capacity(100, 101), 200)
+  assert_eq(grown_out_capacity(100, 300), 300)
+}
+
+///|
+test "grown_out_capacity - avoids doubling overflow" {
+  let max_i = max_int_val()
+  assert_eq(grown_out_capacity(max_i / 2 + 1, max_i - 16), max_i)
+}
+
+///|
 test "reduced initial allocation - lvl>0 s>512 uses smaller buffer" {
   // Verify that the (buf, len) returned by dopt has a tighter fit
   // when compression ratio is good
