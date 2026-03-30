@@ -52,8 +52,33 @@ bench-json output='':
 # Bench RPT: Run performance benchmarks and generate a report
 bench-rpt:
     #!/usr/bin/env nu
-    moon bench -p benchmarks o+e>| nu --stdin bench/parse-bench.nu -s src/benchmarks/bench.json
-    moon test src/benchmarks/size_test.mbt --target wasm-gc -v o+e>| nu --stdin bench/parse-sizes.nu -s src/benchmarks/sizes.json
+    let mizchi_path = (($env.MIZCHI_ZLIB_PATH? | default '/Users/hustcer/iWork/github/zlib.mbt') | path expand)
+    if not ($mizchi_path | path exists) {
+      print $'(ansi r)[ERROR](ansi reset) `mizchi/zlib` not found at: ($mizchi_path)'
+      exit 1
+    }
+
+    open --raw bench/mizchi/moon.mod.template.json
+      | str replace '__MIZCHI_ZLIB_PATH__' $mizchi_path
+      | save -f bench/mizchi/moon.mod.json
+
+    mkdir target/bench-rpt
+    moon bench -p benchmarks o+e>| nu --stdin bench/parse-bench.nu -s target/bench-rpt/bench.base.json
+    moon test src/benchmarks/size_test.mbt --target wasm-gc -v o+e>| nu --stdin bench/parse-sizes.nu -s target/bench-rpt/sizes.base.json
+    moon -C bench/mizchi bench -p benchmarks --target wasm-gc o+e>| nu --stdin bench/parse-bench.nu -s target/bench-rpt/bench.mizchi.json
+    moon -C bench/mizchi test src/benchmarks/size_test.mbt --target wasm-gc -v o+e>| nu --stdin bench/parse-sizes.nu -s target/bench-rpt/sizes.mizchi.json
+
+    let base_bench = open target/bench-rpt/bench.base.json
+    let mizchi_bench = open target/bench-rpt/bench.mizchi.json
+    {
+      metadata: $base_bench.metadata,
+      benchmarks: ([$base_bench.benchmarks $mizchi_bench.benchmarks] | flatten),
+    } | to json -i 2 | save -f src/benchmarks/bench.json
+
+    let base_sizes = open target/bench-rpt/sizes.base.json
+    let mizchi_sizes = open target/bench-rpt/sizes.mizchi.json
+    ([$base_sizes $mizchi_sizes] | flatten) | to json -i 2 | save -f src/benchmarks/sizes.json
+
     nu src/benchmarks/gen-report.nu o> src/benchmarks/bench.md
     oxfmt src/benchmarks/bench.md src/benchmarks/bench.json src/benchmarks/sizes.json
 

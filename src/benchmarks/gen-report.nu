@@ -70,6 +70,10 @@ def get_bench [benches: list, name: string]: nothing -> any {
     if ($found | is-empty) { null } else { $found | get 0 }
 }
 
+def fmt_optional_time [bench: any]: nothing -> string {
+    if $bench == null { '-' } else { fmt_time $bench }
+}
+
 # Generate DEFLATE compress table
 def gen_deflate_compress [benches: list, sizes: list] {
     print "## DEFLATE Compress\n"
@@ -84,8 +88,10 @@ def gen_deflate_compress [benches: list, sizes: list] {
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let bkl = get_bench $benches $'($prefix)bkl'
+            let mizchi = get_bench $benches $'($prefix)mizchi'
             let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
             let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let libs = if $mizchi != null { $libs | merge {mizchi: $mizchi} } else { $libs }
             let stats = calc_stats $libs
 
             let row = {
@@ -94,13 +100,15 @@ def gen_deflate_compress [benches: list, sizes: list] {
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 zipc: (fmt_time $zipc),
-                bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                bkl: (fmt_optional_time $bkl),
+                mizchi: (fmt_optional_time $mizchi),
                 Winner: $stats.winner,
                 'Max-Min Ratio': $'($stats.ratio)x',
                 'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                 'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                 'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
                 'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
+                'mizchi Ratio': (fmt_ratio $'($prefix)mizchi' $sizes),
             }
             $row
         }
@@ -120,8 +128,10 @@ def gen_deflate_decompress [benches: list] {
         let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
         let zipc = $benches | where name == $'($prefix)zipc' | get 0
         let bkl = get_bench $benches $'($prefix)bkl'
+        let mizchi = get_bench $benches $'($prefix)mizchi'
         let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
         let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+        let libs = if $mizchi != null { $libs | merge {mizchi: $mizchi} } else { $libs }
         let stats = calc_stats $libs
 
         {
@@ -129,7 +139,8 @@ def gen_deflate_decompress [benches: list] {
             fzip: (fmt_time $fzip),
             moonzip: (fmt_time $moonzip),
             zipc: (fmt_time $zipc),
-            bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+            bkl: (fmt_optional_time $bkl),
+            mizchi: (fmt_optional_time $mizchi),
             Winner: $stats.winner,
             'Max-Min Ratio': $'($stats.ratio)x'
         }
@@ -150,8 +161,10 @@ def gen_gzip [benches: list, sizes: list] {
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let bkl = get_bench $benches $'($prefix)bkl'
+            let mizchi = get_bench $benches $'($prefix)mizchi'
             let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
             let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let libs = if $mizchi != null { $libs | merge {mizchi: $mizchi} } else { $libs }
             let stats = calc_stats $libs
 
             if $op == 'compress' {
@@ -161,13 +174,15 @@ def gen_gzip [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
-                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                    bkl: (fmt_optional_time $bkl),
+                    mizchi: (fmt_optional_time $mizchi),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                     'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                     'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
                     'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
+                    'mizchi Ratio': (fmt_ratio $'($prefix)mizchi' $sizes),
                 }
             } else {
                 {
@@ -176,20 +191,26 @@ def gen_gzip [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
-                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                    bkl: (fmt_optional_time $bkl),
+                    mizchi: (fmt_optional_time $mizchi),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': '-',
                     'moonzip Ratio': '-',
                     'zipc Ratio': '-',
                     'bkl Ratio': '-',
+                    'mizchi Ratio': '-',
                 }
             }
         }
     } | flatten
 
     print ($rows | to md)
-    print ""
+    if (get_bench $benches 'gzip/compress/1k/mizchi') != null {
+        print "\n> **Note**: `mizchi/zlib` currently benchmarks `gzip_compress_stored`, so its GZIP compression rows reflect store-mode throughput rather than real DEFLATE compression.\n"
+    } else {
+        print ""
+    }
 }
 
 # Generate Zlib table
@@ -203,8 +224,10 @@ def gen_zlib [benches: list, sizes: list] {
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let bkl = get_bench $benches $'($prefix)bkl'
+            let mizchi = get_bench $benches $'($prefix)mizchi'
             let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
             let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let libs = if $mizchi != null { $libs | merge {mizchi: $mizchi} } else { $libs }
             let stats = calc_stats $libs
 
             if $op == 'compress' {
@@ -214,13 +237,15 @@ def gen_zlib [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
-                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                    bkl: (fmt_optional_time $bkl),
+                    mizchi: (fmt_optional_time $mizchi),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': (fmt_ratio $'($prefix)fzip' $sizes),
                     'moonzip Ratio': (fmt_ratio $'($prefix)moonzip' $sizes),
                     'zipc Ratio': (fmt_ratio $'($prefix)zipc' $sizes),
                     'bkl Ratio': (fmt_ratio $'($prefix)bkl' $sizes),
+                    'mizchi Ratio': (fmt_ratio $'($prefix)mizchi' $sizes),
                 }
             } else {
                 {
@@ -229,13 +254,15 @@ def gen_zlib [benches: list, sizes: list] {
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     zipc: (fmt_time $zipc),
-                    bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                    bkl: (fmt_optional_time $bkl),
+                    mizchi: (fmt_optional_time $mizchi),
                     Winner: $stats.winner,
                     'Max-Min Ratio': $'($stats.ratio)x',
                     'fzip Ratio': '-',
                     'moonzip Ratio': '-',
                     'zipc Ratio': '-',
                     'bkl Ratio': '-',
+                    'mizchi Ratio': '-',
                 }
             }
         }
@@ -279,7 +306,7 @@ def gen_zip [benches: list, sizes: list] {
     }
 
     print ($rows | to md)
-    print ""
+    print "\n> **Note**: `zipc`, `bkl`, and `mizchi/zlib` are omitted here because the current benchmark matrix does not expose compatible ZIP APIs.\n"
 }
 
 # Generate checksum table
@@ -293,8 +320,10 @@ def gen_checksum [benches: list] {
             let moonzip = $benches | where name == $'($prefix)moonzip' | get 0
             let zipc = $benches | where name == $'($prefix)zipc' | get 0
             let bkl = get_bench $benches $'($prefix)bkl'
+            let mizchi = get_bench $benches $'($prefix)mizchi'
             let libs = {fzip: $fzip, moonzip: $moonzip, zipc: $zipc}
             let libs = if $bkl != null { $libs | merge {bkl: $bkl} } else { $libs }
+            let libs = if $mizchi != null { $libs | merge {mizchi: $mizchi} } else { $libs }
             let stats = calc_stats $libs
 
             {
@@ -303,7 +332,8 @@ def gen_checksum [benches: list] {
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 zipc: (fmt_time $zipc),
-                bkl: (if $bkl != null { fmt_time $bkl } else { '-' }),
+                bkl: (fmt_optional_time $bkl),
+                mizchi: (fmt_optional_time $mizchi),
                 Winner: $stats.winner,
                 'Max-Min Ratio': $'($stats.ratio)x'
             }
@@ -334,7 +364,7 @@ def gen_auto_detect [benches: list] {
     }
 
     print ($rows | to md)
-    print ""
+    print "\n> **Note**: Only `fzip` and `moonzip` expose a comparable auto-detect decompress API in this benchmark matrix.\n"
 }
 
 # Format time with unit

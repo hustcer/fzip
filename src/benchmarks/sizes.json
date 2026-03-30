@@ -208,5 +208,55 @@
     "name": "zip/compress/moonzip",
     "compressed": 2680.0,
     "original": 3584.0
+  },
+  {
+    "name": "deflate/compress/zeros_1k/mizchi",
+    "compressed": 12.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/zeros_100k/mizchi",
+    "compressed": 361.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/seq_1k/mizchi",
+    "compressed": 281.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/seq_100k/mizchi",
+    "compressed": 963.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/random_1k/mizchi",
+    "compressed": 1076.0,
+    "original": 1024.0
+  },
+  {
+    "name": "deflate/compress/random_100k/mizchi",
+    "compressed": 102519.0,
+    "original": 102400.0
+  },
+  {
+    "name": "gzip/compress/1k/mizchi",
+    "compressed": 1047.0,
+    "original": 1024.0
+  },
+  {
+    "name": "gzip/compress/100k/mizchi",
+    "compressed": 102428.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zlib/compress/1k/mizchi",
+    "compressed": 287.0,
+    "original": 1024.0
+  },
+  {
+    "name": "zlib/compress/100k/mizchi",
+    "compressed": 969.0,
+    "original": 102400.0
   }
 ]
