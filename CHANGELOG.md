@@ -2,13 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.6 - 2026-03-30
+
+### Performance
+
+- **Fused checksum updates into existing DEFLATE passes**: `dopt()`/`dflt()` can now update `CRC32State` and `AdlerState` while compressing, and `inflt()` can update those states while producing output. `gzip_sync` and `zlib_sync` now reuse those fused updates instead of doing a separate full-buffer checksum pass after compression; `gunzip_sync` and `unzlib_sync` do the same during decompression when checksum verification is enabled. `zip_sync` reuses the fused CRC-32 path for compressed entries; stored entries are also unified to use `CRC32State` instead of a standalone `crc32()` call.
+- **Smaller initial DEFLATE output allocation**: For compressed (`level > 0`) inputs larger than 512 bytes, `dflt()` now starts with a smaller output buffer and grows it on demand instead of preallocating close to the full input size.
+
+### Robustness
+
+- **Safer DEFLATE output capacity math**: Added saturating helpers for DEFLATE output sizing so intermediate buffer-capacity calculations do not wrap on large values. The internal sizing helpers now also guard their non-negative input invariant and fail fast if it is violated.
+
+### Testing
+
+- Added white-box coverage for DEFLATE output growth and capacity helpers, including multi-block growth cases and large-value saturation checks.
+- Added checksum-fusion tests for DEFLATE, GZIP, and Zlib across compressed, stored-block, multi-block, incompressible, and dictionary-backed cases.
+- Added ZIP tests that verify the CRC-32 written to both the local file header and the central directory header.
+
 ## v0.5.5 - 2026-03-23
 
 ### Performance
 
 - **Specialized DEFLATE Back-Reference Copy Paths**: Reworked the back-reference copy step in `inflt()` to use three explicit paths instead of a byte-at-a-time loop: `fill()` for distance-1 runs, `blit_to()` for non-overlapping copies, and a doubling `blit_to()` strategy for overlapping matches.
 - Benchmark results vs pre-optimization baseline:
-    - DEFLATE decompress 100K: 102.63 µs → 29.31 µs (3.50x faster)
+  - DEFLATE decompress 100K: 102.63 µs → 29.31 µs (3.50x faster)
 
 ### Testing
 
