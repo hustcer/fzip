@@ -43,7 +43,7 @@ fn zls(d : FixedArray[Byte], has_dict : Bool) -> Int raise FzipError {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")
   }
   let dict_flag = (d[1].to_int() >> 5) & 1
-  if dict_flag == 1 && not(has_dict) {
+  if dict_flag == 1 && !has_dict {
     raise fzip_err(InvalidHeader, msg="invalid zlib data: need dictionary")
   }
   if dict_flag == 0 && has_dict {
