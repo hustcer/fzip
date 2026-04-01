@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.7 - 2026-04-01
+
+### Chores
+
+- Fix all warnings for the latest moon
+
 ## v0.5.6 - 2026-03-30
 
 ### Performance
