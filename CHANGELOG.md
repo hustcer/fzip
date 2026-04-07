@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## v0.5.8 - 2026-04-07
+
+### Chores
+
+- Replace deprecated Show derives for moon 0.9.0
+
 ## v0.5.7 - 2026-04-01
 
 ### Chores
