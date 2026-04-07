@@ -3,7 +3,7 @@ pub(all) struct DeflateOptions {
   level : Int // 0-9, default 6
   mem : Int // 0-12, memory level
   dictionary : FixedArray[Byte]? // compression dictionary
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn DeflateOptions::default() -> DeflateOptions {
@@ -16,7 +16,7 @@ pub(all) struct InflateOptions {
   dictionary : FixedArray[Byte]? // decompression dictionary
   max_output_size : Int // maximum uncompressed size (default 100MB)
   max_input_size : Int // maximum compressed input size (default 1GB)
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn InflateOptions::default() -> InflateOptions {
@@ -35,7 +35,7 @@ pub(all) struct GzipOptions {
   dictionary : FixedArray[Byte]?
   mtime : Int // unix timestamp in seconds, 0 = omit
   filename : String
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn GzipOptions::default() -> GzipOptions {
@@ -49,7 +49,7 @@ pub(all) struct GunzipOptions {
   max_output_size : Int // maximum uncompressed size (default 100MB)
   max_input_size : Int // maximum compressed input size (default 1GB)
   verify_checksum : Bool // verify CRC-32 checksum (default true)
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn GunzipOptions::default() -> GunzipOptions {
@@ -67,7 +67,7 @@ pub(all) struct ZlibOptions {
   level : Int
   mem : Int
   dictionary : FixedArray[Byte]?
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn ZlibOptions::default() -> ZlibOptions {
@@ -81,7 +81,7 @@ pub(all) struct UnzlibOptions {
   max_output_size : Int // maximum uncompressed size (default 100MB)
   max_input_size : Int // maximum compressed input size (default 1GB)
   verify_checksum : Bool // verify Adler-32 checksum (default true)
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn UnzlibOptions::default() -> UnzlibOptions {
@@ -103,7 +103,7 @@ pub(all) struct ZipEntryOptions {
   extra : Array[(Int, FixedArray[Byte])] // extra fields
   comment : String
   mtime : Int // unix timestamp
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn ZipEntryOptions::default() -> ZipEntryOptions {
@@ -116,4 +116,4 @@ pub(all) struct UnzipFileInfo {
   size : Int // compressed size
   original_size : Int // uncompressed size
   compression : Int // compression method (0=store, 8=deflate)
-} derive(Show)
+} derive(Debug)

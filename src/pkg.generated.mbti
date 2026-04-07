@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "hustcer/fzip"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn adler32(FixedArray[Byte]) -> UInt
 
@@ -79,7 +83,7 @@ pub(all) struct DeflateOptions {
   level : Int
   mem : Int
   dictionary : FixedArray[Byte]?
-} derive(Show)
+} derive(@debug.Debug)
 pub fn DeflateOptions::default() -> Self
 
 pub(all) struct DeflateStream {
@@ -110,7 +114,8 @@ pub(all) enum FzipErrorCode {
   InvalidZipData
   UnknownCompressionMethod
   InvalidChecksum
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl Show for FzipErrorCode
 
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
@@ -118,7 +123,7 @@ pub(all) struct GunzipOptions {
   max_output_size : Int
   max_input_size : Int
   verify_checksum : Bool
-} derive(Show)
+} derive(@debug.Debug)
 pub fn GunzipOptions::default() -> Self
 
 pub(all) struct GunzipStream {
@@ -134,7 +139,7 @@ pub(all) struct GzipOptions {
   dictionary : FixedArray[Byte]?
   mtime : Int
   filename : String
-} derive(Show)
+} derive(@debug.Debug)
 pub fn GzipOptions::default() -> Self
 
 pub(all) struct GzipStream {
@@ -149,7 +154,7 @@ pub(all) struct InflateOptions {
   dictionary : FixedArray[Byte]?
   max_output_size : Int
   max_input_size : Int
-} derive(Show)
+} derive(@debug.Debug)
 pub fn InflateOptions::default() -> Self
 
 pub(all) struct InflateStream {
@@ -164,7 +169,7 @@ pub(all) struct UnzipFileInfo {
   size : Int
   original_size : Int
   compression : Int
-} derive(Show)
+} derive(@debug.Debug)
 
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
@@ -172,7 +177,7 @@ pub(all) struct UnzlibOptions {
   max_output_size : Int
   max_input_size : Int
   verify_checksum : Bool
-} derive(Show)
+} derive(@debug.Debug)
 pub fn UnzlibOptions::default() -> Self
 
 pub(all) struct UnzlibStream {
@@ -190,14 +195,14 @@ pub(all) struct ZipEntryOptions {
   extra : Array[(Int, FixedArray[Byte])]
   comment : String
   mtime : Int
-} derive(Show)
+} derive(@debug.Debug)
 pub fn ZipEntryOptions::default() -> Self
 
 pub(all) struct ZlibOptions {
   level : Int
   mem : Int
   dictionary : FixedArray[Byte]?
-} derive(Show)
+} derive(@debug.Debug)
 pub fn ZlibOptions::default() -> Self
 
 pub(all) struct ZlibStream {
