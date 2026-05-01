@@ -94,8 +94,6 @@ pub fn DeflateStream::new(opts? : DeflateOptions) -> Self
 pub fn DeflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 
 pub(all) struct FlateStreamHandler((FixedArray[Byte], Bool) -> Unit)
-#deprecated
-pub fn FlateStreamHandler::inner(Self) -> (FixedArray[Byte], Bool) -> Unit
 
 pub(all) enum FzipErrorCode {
   UnexpectedEOF

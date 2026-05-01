@@ -87,7 +87,7 @@ test "gunzip with verify_checksum=true detects corruption" {
   } catch {
     FzipError(code~, ..) => Some(code)
   }
-  assert_eq(result, Some(InvalidChecksum))
+  assert_true(result == Some(InvalidChecksum), msg="expected InvalidChecksum")
 }
 
 ///|
