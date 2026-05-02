@@ -184,14 +184,14 @@ test "deflate rle fast path - rejects mixed data" {
 
 ///|
 test "deflate periodic fast path - 256 byte sequence" {
-  let size = 102400
+  let size = 1024
   let data : FixedArray[Byte] = FixedArray::make(size, b'\x00')
   for i in 0..<size {
     data[i] = (i % 256).to_byte()
   }
   assert_eq(detect_period(data, data.length()), 256)
   let compressed = deflate_sync(data)
-  assert_true(compressed.length() < size / 50)
+  assert_true(compressed.length() < size / 3)
   let decompressed = inflate_sync(compressed)
   assert_eq(decompressed.length(), size)
   for i in 0..<size {

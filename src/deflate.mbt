@@ -58,6 +58,9 @@ fn grown_out_capacity(cur : Int, need : Int) -> Int {
 let small_fixed_block_threshold : Int = 1024
 
 ///|
+let periodic_fast_block_limit : Int = 4096
+
+///|
 /// Write a stored (uncompressed) block
 /// Returns new bit position
 fn wfblk(
@@ -548,7 +551,11 @@ fn dflt(
     if !is_compressible(dat, 0, s) {
       return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)
     }
-    if s >= 1024 && st.w == 0 && st.i == 0 && st.r == 0 {
+    if s >= 1024 &&
+      s <= periodic_fast_block_limit &&
+      st.w == 0 &&
+      st.i == 0 &&
+      st.r == 0 {
       let period = detect_period(dat, s)
       if period != 0 {
         return dflt_periodic_block(
