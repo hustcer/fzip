@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.9 - 2026-05-02
+
+### Chores
+
+- Fix warnings for moon 0.9.1
+- Update docs for public API
 
 ## v0.5.8 - 2026-04-07
 
