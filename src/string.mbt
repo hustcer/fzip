@@ -1,5 +1,9 @@
 ///|
-/// Convert a string to UTF-8 byte array
+/// Encode a `String` into bytes.
+///
+/// By default this returns UTF-8 bytes. When `latin1` is `true`, each UTF-16
+/// code unit is truncated to one byte, which is useful for legacy ZIP metadata
+/// that is explicitly stored as Latin-1 compatible byte data.
 pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
   if latin1 {
     let ar = FixedArray::make(s.length(), b'\x00')
@@ -54,7 +58,13 @@ pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
 }
 
 ///|
-/// Convert UTF-8 byte array to a string
+/// Decode bytes into a `String`.
+///
+/// By default the selected byte range is decoded as UTF-8. Truncated multi-byte
+/// sequences raise `FzipError`; other malformed byte patterns are decoded
+/// permissively by the current implementation. When `latin1` is `true`, each
+/// byte is mapped directly to the same Unicode code point. `offset` and `len`
+/// select the range to decode.
 pub fn str_from_u8(
   data : FixedArray[Byte],
   latin1? : Bool = false,

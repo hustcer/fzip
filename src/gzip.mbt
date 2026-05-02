@@ -74,7 +74,13 @@ fn gzhl(o : GzipOptions) -> Int {
 }
 
 ///|
-/// Compress data with GZIP
+/// Compress data into a GZIP stream.
+///
+/// The output contains a GZIP header, a DEFLATE payload, and a footer with the
+/// CRC-32 checksum and original input size. `GzipOptions` controls compression
+/// level, optional dictionary use, and header metadata such as timestamp and
+/// original filename. When a dictionary is used, callers must pass the same
+/// dictionary to `gunzip_sync`; the GZIP format does not carry a dictionary ID.
 pub fn gzip_sync(
   data : FixedArray[Byte],
   opts? : GzipOptions = GzipOptions::default(),
@@ -96,7 +102,12 @@ pub fn gzip_sync(
 }
 
 ///|
-/// Decompress GZIP data
+/// Decompress a GZIP stream.
+///
+/// The GZIP header is parsed, the inner DEFLATE payload is inflated, and the
+/// CRC-32 footer is verified by default. Set `verify_checksum` to `false` in
+/// `GunzipOptions` only when checksum validation is handled elsewhere. If no
+/// output buffer is provided, fzip allocates one using the GZIP ISIZE footer.
 pub fn gunzip_sync(
   data : FixedArray[Byte],
   opts? : GunzipOptions = GunzipOptions::default(),

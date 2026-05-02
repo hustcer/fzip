@@ -772,7 +772,11 @@ fn dopt(
 }
 
 ///|
-/// Compress data with DEFLATE
+/// Compress data as a raw DEFLATE stream.
+///
+/// Raw DEFLATE contains only compressed blocks, with no GZIP or Zlib wrapper
+/// and no checksum footer. Use this when another protocol supplies its own
+/// framing, or when you need the exact DEFLATE payload for ZIP entries.
 pub fn deflate_sync(
   data : FixedArray[Byte],
   opts? : DeflateOptions = DeflateOptions::default(),

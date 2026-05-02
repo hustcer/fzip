@@ -230,7 +230,13 @@ fn wzf(o : FixedArray[Byte], b : Int, c : Int, d : Int, e : Int) -> Unit {
 }
 
 ///|
-/// Create a ZIP archive from a list of (filename, data) pairs
+/// Create a ZIP archive from `(filename, data)` entries.
+///
+/// Each entry is written with the same `ZipEntryOptions`. Entry names are
+/// encoded as UTF-8 when needed, and `level = 0` stores files without DEFLATE
+/// compression. The returned bytes are a complete ZIP archive containing local
+/// file headers, central directory entries, and the end-of-central-directory
+/// record.
 pub fn zip_sync(
   files : Array[(String, FixedArray[Byte])],
   opts? : ZipEntryOptions = ZipEntryOptions::default(),
@@ -335,7 +341,12 @@ pub fn zip_sync(
 }
 
 ///|
-/// Extract files from a ZIP archive
+/// Extract all supported files from a ZIP archive.
+///
+/// The result preserves archive order as `(filename, data)` pairs. fzip supports
+/// stored entries (`method 0`) and deflated entries (`method 8`), rejects unsafe
+/// paths such as absolute paths or `..` components, and applies decompression
+/// ratio checks to reduce zip-bomb risk.
 pub fn unzip_sync(
   data : FixedArray[Byte],
 ) -> Array[(String, FixedArray[Byte])] raise FzipError {
@@ -412,7 +423,11 @@ pub fn unzip_sync(
 }
 
 ///|
-/// List files in a ZIP archive without extracting
+/// List ZIP entries without extracting their contents.
+///
+/// This reads the central directory and returns entry names, compressed sizes,
+/// original sizes, and compression methods. It is useful for inspecting an
+/// archive before deciding whether to call `unzip_sync`.
 pub fn unzip_list(
   data : FixedArray[Byte],
 ) -> Array[UnzipFileInfo] raise FzipError {

@@ -58,7 +58,12 @@ fn zls(d : FixedArray[Byte], has_dict : Bool) -> Int raise FzipError {
 }
 
 ///|
-/// Compress data with Zlib
+/// Compress data into a Zlib stream.
+///
+/// The output contains a Zlib header, a raw DEFLATE payload, and an Adler-32
+/// checksum footer. If `ZlibOptions.dictionary` is set, the dictionary checksum
+/// is written into the header and callers must provide the same dictionary when
+/// decompressing.
 pub fn zlib_sync(
   data : FixedArray[Byte],
   opts? : ZlibOptions = ZlibOptions::default(),
@@ -82,7 +87,13 @@ pub fn zlib_sync(
 }
 
 ///|
-/// Decompress Zlib data
+/// Decompress a Zlib stream.
+///
+/// The Zlib header is validated before inflating the inner DEFLATE payload. The
+/// Adler-32 footer is verified by default and can be disabled with
+/// `UnzlibOptions.verify_checksum` for trusted inputs. For dictionary streams,
+/// fzip checks that a dictionary is expected but does not compare the header's
+/// dictionary checksum with the provided dictionary.
 pub fn unzlib_sync(
   data : FixedArray[Byte],
   opts? : UnzlibOptions = UnzlibOptions::default(),

@@ -486,7 +486,12 @@ fn ensure_buf(
 }
 
 ///|
-/// Decompress raw DEFLATE data
+/// Decompress a raw DEFLATE stream.
+///
+/// The input must be raw DEFLATE data without a GZIP or Zlib wrapper. Use
+/// `decompress_sync` when the format is unknown. `InflateOptions` can provide a
+/// preset dictionary, a caller-owned output buffer, and input/output size
+/// limits for defensive decompression.
 pub fn inflate_sync(
   data : FixedArray[Byte],
   opts? : InflateOptions = InflateOptions::default(),

@@ -46,7 +46,10 @@ let crct3 : FixedArray[UInt] = {
 }
 
 ///|
-/// Compute CRC-32 checksum of data (Slice-by-4 algorithm)
+/// Compute the CRC-32 checksum of `data`.
+///
+/// The returned value uses the standard reflected CRC-32 polynomial
+/// `0xEDB88320`, matching the checksum stored in GZIP and ZIP records.
 pub fn crc32(data : FixedArray[Byte]) -> UInt {
   let mut c = 0xFFFFFFFFU
   let mut i = 0
@@ -151,7 +154,10 @@ fn CRC32State::digest(self : CRC32State) -> UInt {
 }
 
 ///|
-/// Compute Adler-32 checksum of data
+/// Compute the Adler-32 checksum of `data`.
+///
+/// The returned `UInt` uses fzip's little-endian footer representation, so it
+/// matches the value read from Zlib streams by fzip's byte readers.
 pub fn adler32(data : FixedArray[Byte]) -> UInt {
   let mut a : UInt = 1U
   let mut b : UInt = 0U
