@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.10 - 2026-05-07
+
+### Performance
+
+- **Optimize stored block copy with `blit_to`**: Replace the manual byte-by-byte loop in `wfblk()` with a single `blit_to` call, delivering up to 60%+ faster stored-block (level 0) compression.
+
 ## v0.5.9 - 2026-05-02
 
 ### Chores
