@@ -52,6 +52,25 @@ test "deflate level 0 - store" {
 }
 
 ///|
+test "deflate level 0 - stored block copy across block boundary" {
+  let size = 70000
+  let data : FixedArray[Byte] = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = ((i * 17 + 31) & 255).to_byte()
+  }
+  let compressed = deflate_sync(data, opts={
+    level: 0,
+    mem: 0,
+    dictionary: None,
+  })
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), data.length())
+  for i in 0..<data.length() {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
 test "deflate level 1 - fast" {
   let data : FixedArray[Byte] = FixedArray::make(200, b'\x00')
   for i in 0..<200 {

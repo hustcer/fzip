@@ -69,9 +69,7 @@ fn wfblk(
   out[o + 1] = (dat_len >> 8).to_byte()
   out[o + 2] = (out[o].to_int() ^ 255).to_byte()
   out[o + 3] = (out[o + 1].to_int() ^ 255).to_byte()
-  for i in 0..<dat_len {
-    out[o + i + 4] = dat[dat_start + i]
-  }
+  dat.blit_to(out, len=dat_len, src_offset=dat_start, dst_offset=o + 4)
   (o + 4 + dat_len) * 8
 }
 
