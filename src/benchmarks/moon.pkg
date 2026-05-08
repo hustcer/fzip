@@ -1,8 +1,6 @@
 import {
   "hustcer/fzip",
   "ivgtr/moonzip",
-  "bobzhang/zipc/deflate",
-  "bobzhang/zipc/crc32",
-  "bobzhang/zipc/adler32",
+  "mizchi/zlib",
   "moonbitlang/core/bench",
 } for "test"

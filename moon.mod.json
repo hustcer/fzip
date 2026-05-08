@@ -16,6 +16,6 @@
   "source": "src",
   "deps": {
     "ivgtr/moonzip": "0.2.4",
-    "bobzhang/zipc": "0.1.1"
+    "mizchi/zlib": "0.4.4"
   }
 }

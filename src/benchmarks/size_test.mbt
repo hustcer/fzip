@@ -16,7 +16,7 @@ test "sizes" {
     "SIZE deflate/compress/zeros_1k/moonzip \{@moonzip.deflate_sync(z1k).length()} 1024",
   )
   println(
-    "SIZE deflate/compress/zeros_1k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(z1k), @deflate.level_default()).length()} 1024",
+    "SIZE deflate/compress/zeros_1k/mizchi \{@zlib.deflate_compress(fa_to_bytes(z1k)).length()} 1024",
   )
   println(
     "SIZE deflate/compress/zeros_100k/fzip \{@fzip.deflate_sync(z100k).length()} 102400",
@@ -25,7 +25,7 @@ test "sizes" {
     "SIZE deflate/compress/zeros_100k/moonzip \{@moonzip.deflate_sync(z100k).length()} 102400",
   )
   println(
-    "SIZE deflate/compress/zeros_100k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(z100k), @deflate.level_default()).length()} 102400",
+    "SIZE deflate/compress/zeros_100k/mizchi \{@zlib.deflate_compress(fa_to_bytes(z100k)).length()} 102400",
   )
   // DEFLATE seq
   println(
@@ -35,7 +35,7 @@ test "sizes" {
     "SIZE deflate/compress/seq_1k/moonzip \{@moonzip.deflate_sync(s1k).length()} 1024",
   )
   println(
-    "SIZE deflate/compress/seq_1k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(s1k), @deflate.level_default()).length()} 1024",
+    "SIZE deflate/compress/seq_1k/mizchi \{@zlib.deflate_compress(fa_to_bytes(s1k)).length()} 1024",
   )
   println(
     "SIZE deflate/compress/seq_100k/fzip \{@fzip.deflate_sync(s100k).length()} 102400",
@@ -44,7 +44,7 @@ test "sizes" {
     "SIZE deflate/compress/seq_100k/moonzip \{@moonzip.deflate_sync(s100k).length()} 102400",
   )
   println(
-    "SIZE deflate/compress/seq_100k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(s100k), @deflate.level_default()).length()} 102400",
+    "SIZE deflate/compress/seq_100k/mizchi \{@zlib.deflate_compress(fa_to_bytes(s100k)).length()} 102400",
   )
   // DEFLATE random
   println(
@@ -54,7 +54,7 @@ test "sizes" {
     "SIZE deflate/compress/random_1k/moonzip \{@moonzip.deflate_sync(r1k).length()} 1024",
   )
   println(
-    "SIZE deflate/compress/random_1k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(r1k), @deflate.level_default()).length()} 1024",
+    "SIZE deflate/compress/random_1k/mizchi \{@zlib.deflate_compress(fa_to_bytes(r1k)).length()} 1024",
   )
   println(
     "SIZE deflate/compress/random_100k/fzip \{@fzip.deflate_sync(r100k).length()} 102400",
@@ -63,7 +63,7 @@ test "sizes" {
     "SIZE deflate/compress/random_100k/moonzip \{@moonzip.deflate_sync(r100k).length()} 102400",
   )
   println(
-    "SIZE deflate/compress/random_100k/zipc \{@deflate.deflate_of_bytes(fa_to_bytes(r100k), @deflate.level_default()).length()} 102400",
+    "SIZE deflate/compress/random_100k/mizchi \{@zlib.deflate_compress(fa_to_bytes(r100k)).length()} 102400",
   )
   // GZIP
   println("SIZE gzip/compress/1k/fzip \{@fzip.gzip_sync(s1k).length()} 1024")
@@ -71,7 +71,7 @@ test "sizes" {
     "SIZE gzip/compress/1k/moonzip \{@moonzip.gzip_sync(s1k).length()} 1024",
   )
   println(
-    "SIZE gzip/compress/1k/zipc \{@deflate.gzip_of_bytes(fa_to_bytes(s1k), @deflate.level_default(), None, None).length()} 1024",
+    "SIZE gzip/compress/1k/mizchi \{@zlib.gzip_compress(fa_to_bytes(s1k)).length()} 1024",
   )
   println(
     "SIZE gzip/compress/100k/fzip \{@fzip.gzip_sync(s100k).length()} 102400",
@@ -80,7 +80,7 @@ test "sizes" {
     "SIZE gzip/compress/100k/moonzip \{@moonzip.gzip_sync(s100k).length()} 102400",
   )
   println(
-    "SIZE gzip/compress/100k/zipc \{@deflate.gzip_of_bytes(fa_to_bytes(s100k), @deflate.level_default(), None, None).length()} 102400",
+    "SIZE gzip/compress/100k/mizchi \{@zlib.gzip_compress(fa_to_bytes(s100k)).length()} 102400",
   )
   // Zlib
   println("SIZE zlib/compress/1k/fzip \{@fzip.zlib_sync(s1k).length()} 1024")
@@ -88,7 +88,7 @@ test "sizes" {
     "SIZE zlib/compress/1k/moonzip \{@moonzip.zlib_sync(s1k).length()} 1024",
   )
   println(
-    "SIZE zlib/compress/1k/zipc \{@deflate.zlib_of_bytes(fa_to_bytes(s1k), @deflate.level_default()).length()} 1024",
+    "SIZE zlib/compress/1k/mizchi \{@zlib.zlib_compress(fa_to_bytes(s1k)).length()} 1024",
   )
   println(
     "SIZE zlib/compress/100k/fzip \{@fzip.zlib_sync(s100k).length()} 102400",
@@ -97,7 +97,7 @@ test "sizes" {
     "SIZE zlib/compress/100k/moonzip \{@moonzip.zlib_sync(s100k).length()} 102400",
   )
   println(
-    "SIZE zlib/compress/100k/zipc \{@deflate.zlib_of_bytes(fa_to_bytes(s100k), @deflate.level_default()).length()} 102400",
+    "SIZE zlib/compress/100k/mizchi \{@zlib.zlib_compress(fa_to_bytes(s100k)).length()} 102400",
   )
   // ZIP
   let files = make_zip_files()
