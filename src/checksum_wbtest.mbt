@@ -196,6 +196,34 @@ test "crc32 slice-by-4 - 8 bytes (exact 2 iterations)" {
 }
 
 ///|
+test "crc32 slice-by-8 - 15 bytes (1 iteration + 7 remainder)" {
+  let data = FixedArray::make(15, b'\x00')
+  for i in 0..<15 {
+    data[i] = ((i * 29 + 3) & 255).to_byte()
+  }
+  let one_shot = crc32(data)
+  let st = CRC32State::new()
+  st.push(data)
+  assert_eq(st.digest(), one_shot)
+  let st2 = CRC32State::new()
+  st2.push_range(data, 0, data.length())
+  assert_eq(st2.digest(), one_shot)
+}
+
+///|
+test "crc32 slice-by-8 - push_range with non-zero offset and exact multiple" {
+  let data = FixedArray::make(40, b'\x00')
+  for i in 0..<40 {
+    data[i] = ((i * 37 + 11) & 255).to_byte()
+  }
+  let st1 = CRC32State::new()
+  st1.push_range(data, 5, 24)
+  let st2 = CRC32State::new()
+  st2.push(slc(data, 5, e=29))
+  assert_eq(st1.digest(), st2.digest())
+}
+
+///|
 test "crc32 slice-by-4 - all same byte" {
   // All bytes identical: exercises Slice-by-4 where all 4 table indices
   // derive from the same byte value XORed with CRC state

@@ -46,15 +46,61 @@ let crct3 : FixedArray[UInt] = {
 }
 
 ///|
-/// Compute the CRC-32 checksum of `data`.
-///
-/// The returned value uses the standard reflected CRC-32 polynomial
-/// `0xEDB88320`, matching the checksum stored in GZIP and ZIP records.
-pub fn crc32(data : FixedArray[Byte]) -> UInt {
-  let mut c = 0xFFFFFFFFU
-  let mut i = 0
-  let l = data.length()
-  while i + 3 < l {
+/// Slice-by-8 CRC-32 table 4 (four extra CRC steps from crct)
+let crct4 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct3[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+/// Slice-by-8 CRC-32 table 5 (five extra CRC steps from crct)
+let crct5 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct4[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+/// Slice-by-8 CRC-32 table 6 (six extra CRC steps from crct)
+let crct6 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct5[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+/// Slice-by-8 CRC-32 table 7 (seven extra CRC steps from crct)
+let crct7 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct6[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+/// Update an internal CRC-32 state over a byte range using Slice-by-8.
+fn crc32_update_range(
+  crc : UInt,
+  data : FixedArray[Byte],
+  offset : Int,
+  len : Int,
+) -> UInt {
+  let end = offset + len
+  let mut c = crc
+  let mut i = offset
+  while i + 7 < end {
     c = c ^
       (
         data[i].to_uint() |
@@ -62,17 +108,30 @@ pub fn crc32(data : FixedArray[Byte]) -> UInt {
         (data[i + 2].to_uint() << 16) |
         (data[i + 3].to_uint() << 24)
       )
-    c = crct3[(c & 0xFFU).reinterpret_as_int()] ^
-      crct2[((c >> 8) & 0xFFU).reinterpret_as_int()] ^
-      crct1[((c >> 16) & 0xFFU).reinterpret_as_int()] ^
-      crct[(c >> 24).reinterpret_as_int()]
-    i += 4
+    c = crct7[(c & 0xFFU).reinterpret_as_int()] ^
+      crct6[((c >> 8) & 0xFFU).reinterpret_as_int()] ^
+      crct5[((c >> 16) & 0xFFU).reinterpret_as_int()] ^
+      crct4[(c >> 24).reinterpret_as_int()] ^
+      crct3[data[i + 4].to_int()] ^
+      crct2[data[i + 5].to_int()] ^
+      crct1[data[i + 6].to_int()] ^
+      crct[data[i + 7].to_int()]
+    i += 8
   }
-  while i < l {
+  while i < end {
     c = crct[((c ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
     i += 1
   }
-  c ^ 0xFFFFFFFFU
+  c
+}
+
+///|
+/// Compute the CRC-32 checksum of `data`.
+///
+/// The returned value uses the standard reflected CRC-32 polynomial
+/// `0xEDB88320`, matching the checksum stored in GZIP and ZIP records.
+pub fn crc32(data : FixedArray[Byte]) -> UInt {
+  crc32_update_range(0xFFFFFFFFU, data, 0, data.length()) ^ 0xFFFFFFFFU
 }
 
 ///|
@@ -87,64 +146,20 @@ fn CRC32State::new() -> CRC32State {
 }
 
 ///|
-/// Feed data into the CRC-32 state (Slice-by-4)
+/// Feed data into the CRC-32 state (Slice-by-8)
 fn CRC32State::push(self : CRC32State, data : FixedArray[Byte]) -> Unit {
-  let mut cr = self.c
-  let mut i = 0
-  let l = data.length()
-  while i + 3 < l {
-    cr = cr ^
-      (
-        data[i].to_uint() |
-        (data[i + 1].to_uint() << 8) |
-        (data[i + 2].to_uint() << 16) |
-        (data[i + 3].to_uint() << 24)
-      )
-    cr = crct3[(cr & 0xFFU).reinterpret_as_int()] ^
-      crct2[((cr >> 8) & 0xFFU).reinterpret_as_int()] ^
-      crct1[((cr >> 16) & 0xFFU).reinterpret_as_int()] ^
-      crct[(cr >> 24).reinterpret_as_int()]
-    i += 4
-  }
-  while i < l {
-    cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
-      (cr >> 8)
-    i += 1
-  }
-  self.c = cr
+  self.c = crc32_update_range(self.c, data, 0, data.length())
 }
 
 ///|
-/// Feed partial data into the CRC-32 state (Slice-by-4)
+/// Feed partial data into the CRC-32 state (Slice-by-8)
 fn CRC32State::push_range(
   self : CRC32State,
   data : FixedArray[Byte],
   offset : Int,
   len : Int,
 ) -> Unit {
-  let mut cr = self.c
-  let end = offset + len
-  let mut i = offset
-  while i + 3 < end {
-    cr = cr ^
-      (
-        data[i].to_uint() |
-        (data[i + 1].to_uint() << 8) |
-        (data[i + 2].to_uint() << 16) |
-        (data[i + 3].to_uint() << 24)
-      )
-    cr = crct3[(cr & 0xFFU).reinterpret_as_int()] ^
-      crct2[((cr >> 8) & 0xFFU).reinterpret_as_int()] ^
-      crct1[((cr >> 16) & 0xFFU).reinterpret_as_int()] ^
-      crct[(cr >> 24).reinterpret_as_int()]
-    i += 4
-  }
-  while i < end {
-    cr = crct[((cr ^ data[i].to_uint()) & 0xFFU).reinterpret_as_int()] ^
-      (cr >> 8)
-    i += 1
-  }
-  self.c = cr
+  self.c = crc32_update_range(self.c, data, offset, len)
 }
 
 ///|
