@@ -24,7 +24,7 @@ def main [] {
     print $"- MoonBit: ($meta.moon_version)"
     print $"- Target: ($meta.target)"
     print $"- Date: ($meta.timestamp | into datetime | format date '%Y-%m-%d')"
-    print ""
+    print "\n> **Note**:\n> - `Max-Min Ratio` is calculated as the slowest mean time divided by the fastest mean time within the same row. `1.0x` means a tie; larger values mean a wider performance spread.\n> - `Compression Ratio` is calculated as compressed size divided by original size. Smaller is better.\n"
 
     # Group benchmarks by category
     let benches = $data.benchmarks
@@ -106,7 +106,7 @@ def gen_deflate_compress [benches: list, sizes: list] {
     } | flatten
 
     print (to_md_table $rows)
-    print "\n> **⚠️ Note**:\n> - `fzip` switches to store mode (level 0) upon detecting uncompressible data (e.g., random 100K), skipping LZ77 search, resulting in extremely high speed but no compression effect.\n> - Compression Ratio = Compressed Size / Original Size, smaller is better.\n"
+    print "\n> **⚠️ Note**:\n> - `fzip` switches to store mode (level 0) upon detecting uncompressible data (e.g., random 100K), skipping LZ77 search, resulting in extremely high speed but no compression effect.\n"
 }
 
 # Generate DEFLATE decompress table
@@ -131,7 +131,7 @@ def gen_deflate_decompress [benches: list] {
     }
 
     print (to_md_table $rows)
-    print ""
+    print "\n> **Note**: Decompress benchmarks use self-produced streams: each library decompresses data produced by its own compressor for that format.\n"
 }
 
 # Generate GZIP table
@@ -177,7 +177,7 @@ def gen_gzip [benches: list, sizes: list] {
     } | flatten
 
     print (to_md_table $rows)
-    print "\n> **Note**: `mizchi/zlib` `gzip_compress` only emits stored blocks (no real compression), so its 1K/100K compression ratios are ≈100%.\n"
+    print "\n> **Note**:\n> - Decompress benchmarks use self-produced streams: each library decompresses data produced by its own compressor for that format.\n> - `mizchi/zlib` `gzip_compress` only emits stored blocks (no real compression), so its 1K/100K compression ratios are ≈100%.\n"
 }
 
 # Generate Zlib table
@@ -223,7 +223,7 @@ def gen_zlib [benches: list, sizes: list] {
     } | flatten
 
     print (to_md_table $rows)
-    print ""
+    print "\n> **Note**: Decompress benchmarks use self-produced streams: each library decompresses data produced by its own compressor for that format.\n"
 }
 
 # Generate ZIP table
@@ -349,8 +349,7 @@ def calc_stats [benches: record]: nothing -> record {
     let min = $times | get us | math min
     let max = $times | get us | math max
     let winner = $times | where us == $min | get name.0
-    # Friendlier label in output: report mizchi entries as "zlib" (the column header).
-    let winner_label = if $winner == 'mizchi' { 'zlib' } else { $winner }
+    let winner_label = if $winner == 'mizchi' { 'mizchi/zlib' } else { $winner }
     let ratio = $max / $min
 
     {winner: $winner_label, ratio: ($ratio | math round -p 1)}

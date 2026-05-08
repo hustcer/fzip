@@ -160,39 +160,39 @@ test "deflate/compress/random_100k/mizchi" (b : @bench.T) {
 ///|
 test "deflate/decompress/1k/fzip" (b : @bench.T) {
   let compressed = @fzip.deflate_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@fzip.inflate_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.inflate_sync(compressed)) })
 }
 
 ///|
 test "deflate/decompress/1k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.deflate_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@moonzip.inflate_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.inflate_sync(compressed)) })
 }
 
 ///|
 test "deflate/decompress/1k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(1024))
   let compressed = @zlib.deflate_compress(data)
-  b.bench(fn() { b.keep(@zlib.deflate_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.deflate_decompress(compressed)) })
 }
 
 ///|
 test "deflate/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.deflate_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@fzip.inflate_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.inflate_sync(compressed)) })
 }
 
 ///|
 test "deflate/decompress/100k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.deflate_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@moonzip.inflate_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.inflate_sync(compressed)) })
 }
 
 ///|
 test "deflate/decompress/100k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(102400))
   let compressed = @zlib.deflate_compress(data)
-  b.bench(fn() { b.keep(@zlib.deflate_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.deflate_decompress(compressed)) })
 }
 
 // ============================================================
@@ -242,39 +242,39 @@ test "gzip/compress/100k/mizchi" (b : @bench.T) {
 ///|
 test "gzip/decompress/1k/fzip" (b : @bench.T) {
   let compressed = @fzip.gzip_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@fzip.gunzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.gunzip_sync(compressed)) })
 }
 
 ///|
 test "gzip/decompress/1k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.gzip_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@moonzip.gunzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.gunzip_sync(compressed)) })
 }
 
 ///|
 test "gzip/decompress/1k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(1024))
   let compressed = @zlib.gzip_compress(data)
-  b.bench(fn() { b.keep(@zlib.gzip_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.gzip_decompress(compressed)) })
 }
 
 ///|
 test "gzip/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.gzip_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@fzip.gunzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.gunzip_sync(compressed)) })
 }
 
 ///|
 test "gzip/decompress/100k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.gzip_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@moonzip.gunzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.gunzip_sync(compressed)) })
 }
 
 ///|
 test "gzip/decompress/100k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(102400))
   let compressed = @zlib.gzip_compress(data)
-  b.bench(fn() { b.keep(@zlib.gzip_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.gzip_decompress(compressed)) })
 }
 
 // ============================================================
@@ -324,39 +324,39 @@ test "zlib/compress/100k/mizchi" (b : @bench.T) {
 ///|
 test "zlib/decompress/1k/fzip" (b : @bench.T) {
   let compressed = @fzip.zlib_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@fzip.unzlib_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.unzlib_sync(compressed)) })
 }
 
 ///|
 test "zlib/decompress/1k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.zlib_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@moonzip.unzlib_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.unzlib_sync(compressed)) })
 }
 
 ///|
 test "zlib/decompress/1k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(1024))
   let compressed = @zlib.zlib_compress(data)
-  b.bench(fn() { b.keep(@zlib.zlib_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.zlib_decompress(compressed)) })
 }
 
 ///|
 test "zlib/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.zlib_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@fzip.unzlib_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.unzlib_sync(compressed)) })
 }
 
 ///|
 test "zlib/decompress/100k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.zlib_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@moonzip.unzlib_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.unzlib_sync(compressed)) })
 }
 
 ///|
 test "zlib/decompress/100k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(102400))
   let compressed = @zlib.zlib_compress(data)
-  b.bench(fn() { b.keep(@zlib.zlib_decompress(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @zlib.zlib_decompress(compressed)) })
 }
 
 // ============================================================
@@ -382,13 +382,13 @@ test "zip/compress/moonzip" (b : @bench.T) {
 ///|
 test "zip/decompress/fzip" (b : @bench.T) {
   let compressed = @fzip.zip_sync(make_zip_files())
-  b.bench(fn() { b.keep(@fzip.unzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.unzip_sync(compressed)) })
 }
 
 ///|
 test "zip/decompress/moonzip" (b : @bench.T) {
   let compressed = @moonzip.zip_sync(make_zip_files())
-  b.bench(fn() { b.keep(@moonzip.unzip_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @moonzip.unzip_sync(compressed)) })
 }
 
 // ============================================================
@@ -478,31 +478,23 @@ test "adler32/100k/mizchi" (b : @bench.T) {
 ///|
 test "decompress/auto_detect/1k/fzip" (b : @bench.T) {
   let compressed = @fzip.gzip_sync(make_sequential(1024))
-  b.bench(fn() { b.keep(@fzip.decompress_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.decompress_sync(compressed)) })
 }
 
 ///|
 test "decompress/auto_detect/1k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.gzip_sync(make_sequential(1024))
-  b.bench(fn() {
-    b.keep(@moonzip.decompress_sync(compressed)) catch {
-      _ => ()
-    }
-  })
+  b.bench(fn() { b.keep(try! @moonzip.decompress_sync(compressed)) })
 }
 
 ///|
 test "decompress/auto_detect/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.gzip_sync(make_sequential(102400))
-  b.bench(fn() { b.keep(@fzip.decompress_sync(compressed)) catch { _ => () } })
+  b.bench(fn() { b.keep(try! @fzip.decompress_sync(compressed)) })
 }
 
 ///|
 test "decompress/auto_detect/100k/moonzip" (b : @bench.T) {
   let compressed = @moonzip.gzip_sync(make_sequential(102400))
-  b.bench(fn() {
-    b.keep(@moonzip.decompress_sync(compressed)) catch {
-      _ => ()
-    }
-  })
+  b.bench(fn() { b.keep(try! @moonzip.decompress_sync(compressed)) })
 }
