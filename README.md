@@ -15,7 +15,7 @@ This library provides:
 - Automatic format detection for decompression
 - High-performance, memory-efficient streaming APIs
 - Robust security limits configurable per operation
-- Comprehensive test coverage (170+ tests)
+- Comprehensive test coverage (220+ tests)
 
 ## Benchmark
 
@@ -32,7 +32,7 @@ Or add this to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/fzip": "0.5.5"
+    "hustcer/fzip": "0.6.0"
   }
 }
 ```
@@ -66,7 +66,7 @@ This library is fully functional and actively maintained. Detailed documentation
 - **Streaming compression** - Stream-based handlers for chunk-based data processing
 - **In-built protections** - Size limits, path traversal detection, and zip bomb mitigation
 - **Auto-detection** - Smart decompression that automatically recognizes formats
-- **Comprehensive tests** - 170+ passing tests spanning basic encoding, edge cases, and security
+- **Comprehensive tests** - 220+ passing tests spanning basic encoding, edge cases, and security
 
 ### API Compatibility
 

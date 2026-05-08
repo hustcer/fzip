@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.0 - 2026-05-08
+
+### Performance
+
+- **Slice-by-8 CRC-32 Algorithm**: Upgraded CRC-32 from Slice-by-4 to Slice-by-8 by adding four new pre-computed lookup tables (`crct4`–`crct7`). The inner loop now processes 8 bytes per iteration instead of 4, with 8 independent table lookups per step, yielding a 36.6% throughput improvement on CRC-32 operations.
+
 ## v0.5.10 - 2026-05-07
 
 ### Performance
