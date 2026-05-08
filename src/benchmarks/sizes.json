@@ -15,6 +15,11 @@
     "original": 1024.0
   },
   {
+    "name": "deflate/compress/zeros_1k/compress",
+    "compressed": 14.0,
+    "original": 1024.0
+  },
+  {
     "name": "deflate/compress/zeros_100k/fzip",
     "compressed": 462.0,
     "original": 102400.0
@@ -27,6 +32,11 @@
   {
     "name": "deflate/compress/zeros_100k/mizchi",
     "compressed": 361.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/zeros_100k/compress",
+    "compressed": 148.0,
     "original": 102400.0
   },
   {
@@ -45,6 +55,11 @@
     "original": 1024.0
   },
   {
+    "name": "deflate/compress/seq_1k/compress",
+    "compressed": 284.0,
+    "original": 1024.0
+  },
+  {
     "name": "deflate/compress/seq_100k/fzip",
     "compressed": 1127.0,
     "original": 102400.0
@@ -57,6 +72,11 @@
   {
     "name": "deflate/compress/seq_100k/mizchi",
     "compressed": 963.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/seq_100k/compress",
+    "compressed": 725.0,
     "original": 102400.0
   },
   {
@@ -75,6 +95,11 @@
     "original": 1024.0
   },
   {
+    "name": "deflate/compress/random_1k/compress",
+    "compressed": 1080.0,
+    "original": 1024.0
+  },
+  {
     "name": "deflate/compress/random_100k/fzip",
     "compressed": 102410.0,
     "original": 102400.0
@@ -87,6 +112,11 @@
   {
     "name": "deflate/compress/random_100k/mizchi",
     "compressed": 102519.0,
+    "original": 102400.0
+  },
+  {
+    "name": "deflate/compress/random_100k/compress",
+    "compressed": 102567.0,
     "original": 102400.0
   },
   {
@@ -105,6 +135,11 @@
     "original": 1024.0
   },
   {
+    "name": "gzip/compress/1k/compress",
+    "compressed": 302.0,
+    "original": 1024.0
+  },
+  {
     "name": "gzip/compress/100k/fzip",
     "compressed": 1145.0,
     "original": 102400.0
@@ -117,6 +152,11 @@
   {
     "name": "gzip/compress/100k/mizchi",
     "compressed": 102428.0,
+    "original": 102400.0
+  },
+  {
+    "name": "gzip/compress/100k/compress",
+    "compressed": 743.0,
     "original": 102400.0
   },
   {
@@ -135,6 +175,11 @@
     "original": 1024.0
   },
   {
+    "name": "zlib/compress/1k/compress",
+    "compressed": 290.0,
+    "original": 1024.0
+  },
+  {
     "name": "zlib/compress/100k/fzip",
     "compressed": 1133.0,
     "original": 102400.0
@@ -147,6 +192,11 @@
   {
     "name": "zlib/compress/100k/mizchi",
     "compressed": 969.0,
+    "original": 102400.0
+  },
+  {
+    "name": "zlib/compress/100k/compress",
+    "compressed": 731.0,
     "original": 102400.0
   },
   {

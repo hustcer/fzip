@@ -42,7 +42,42 @@ fn fa_to_bytes(data : FixedArray[Byte]) -> Bytes {
 }
 
 // ============================================================
-// DEFLATE compress — 3 patterns × 2 sizes × 3 libs = 18
+// bikallem/compress helpers
+// ============================================================
+
+///|
+fn compress_deflate(data : Bytes) -> Bytes {
+  try! @cflate.compress(data)
+}
+
+///|
+fn decompress_deflate(data : Bytes) -> Bytes {
+  try! @cflate.decompress(data)
+}
+
+///|
+fn compress_gzip(data : Bytes) -> Bytes {
+  try! @cgzip.compress(data)
+}
+
+///|
+fn decompress_gzip(data : Bytes) -> Bytes {
+  let (out, _) = try! @cgzip.decompress(data)
+  out
+}
+
+///|
+fn compress_zlib(data : Bytes) -> Bytes {
+  try! @czlib.compress(data)
+}
+
+///|
+fn decompress_zlib(data : Bytes) -> Bytes {
+  try! @czlib.decompress(data)
+}
+
+// ============================================================
+// DEFLATE compress — 3 patterns × 2 sizes × 4 libs = 24
 // ============================================================
 
 ///|
@@ -64,6 +99,12 @@ test "deflate/compress/zeros_1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "deflate/compress/zeros_1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_zeros(1024))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
+}
+
+///|
 test "deflate/compress/zeros_100k/fzip" (b : @bench.T) {
   let data = make_zeros(102400)
   b.bench(fn() { b.keep(@fzip.deflate_sync(data)) })
@@ -79,6 +120,12 @@ test "deflate/compress/zeros_100k/moonzip" (b : @bench.T) {
 test "deflate/compress/zeros_100k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_zeros(102400))
   b.bench(fn() { b.keep(@zlib.deflate_compress(data)) })
+}
+
+///|
+test "deflate/compress/zeros_100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_zeros(102400))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
 }
 
 ///|
@@ -100,6 +147,12 @@ test "deflate/compress/seq_1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "deflate/compress/seq_1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
+}
+
+///|
 test "deflate/compress/seq_100k/fzip" (b : @bench.T) {
   let data = make_sequential(102400)
   b.bench(fn() { b.keep(@fzip.deflate_sync(data)) })
@@ -115,6 +168,12 @@ test "deflate/compress/seq_100k/moonzip" (b : @bench.T) {
 test "deflate/compress/seq_100k/mizchi" (b : @bench.T) {
   let data = fa_to_bytes(make_sequential(102400))
   b.bench(fn() { b.keep(@zlib.deflate_compress(data)) })
+}
+
+///|
+test "deflate/compress/seq_100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
 }
 
 ///|
@@ -136,6 +195,12 @@ test "deflate/compress/random_1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "deflate/compress/random_1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_random(1024, 42))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
+}
+
+///|
 test "deflate/compress/random_100k/fzip" (b : @bench.T) {
   let data = make_random(102400, 42)
   b.bench(fn() { b.keep(@fzip.deflate_sync(data)) })
@@ -153,8 +218,14 @@ test "deflate/compress/random_100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(@zlib.deflate_compress(data)) })
 }
 
+///|
+test "deflate/compress/random_100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_random(102400, 42))
+  b.bench(fn() { b.keep(compress_deflate(data)) })
+}
+
 // ============================================================
-// DEFLATE decompress — 2 sizes × 3 libs = 6
+// DEFLATE decompress — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -177,6 +248,13 @@ test "deflate/decompress/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "deflate/decompress/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  let compressed = compress_deflate(data)
+  b.bench(fn() { b.keep(decompress_deflate(compressed)) })
+}
+
+///|
 test "deflate/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.deflate_sync(make_sequential(102400))
   b.bench(fn() { b.keep(try! @fzip.inflate_sync(compressed)) })
@@ -195,8 +273,15 @@ test "deflate/decompress/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(try! @zlib.deflate_decompress(compressed)) })
 }
 
+///|
+test "deflate/decompress/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  let compressed = compress_deflate(data)
+  b.bench(fn() { b.keep(decompress_deflate(compressed)) })
+}
+
 // ============================================================
-// GZIP compress — 2 sizes × 3 libs = 6
+// GZIP compress — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -218,6 +303,12 @@ test "gzip/compress/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "gzip/compress/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  b.bench(fn() { b.keep(compress_gzip(data)) })
+}
+
+///|
 test "gzip/compress/100k/fzip" (b : @bench.T) {
   let data = make_sequential(102400)
   b.bench(fn() { b.keep(@fzip.gzip_sync(data)) })
@@ -235,8 +326,14 @@ test "gzip/compress/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(@zlib.gzip_compress(data)) })
 }
 
+///|
+test "gzip/compress/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  b.bench(fn() { b.keep(compress_gzip(data)) })
+}
+
 // ============================================================
-// GZIP decompress — 2 sizes × 3 libs = 6
+// GZIP decompress — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -259,6 +356,13 @@ test "gzip/decompress/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "gzip/decompress/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  let compressed = compress_gzip(data)
+  b.bench(fn() { b.keep(decompress_gzip(compressed)) })
+}
+
+///|
 test "gzip/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.gzip_sync(make_sequential(102400))
   b.bench(fn() { b.keep(try! @fzip.gunzip_sync(compressed)) })
@@ -277,8 +381,15 @@ test "gzip/decompress/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(try! @zlib.gzip_decompress(compressed)) })
 }
 
+///|
+test "gzip/decompress/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  let compressed = compress_gzip(data)
+  b.bench(fn() { b.keep(decompress_gzip(compressed)) })
+}
+
 // ============================================================
-// Zlib compress — 2 sizes × 3 libs = 6
+// Zlib compress — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -300,6 +411,12 @@ test "zlib/compress/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "zlib/compress/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  b.bench(fn() { b.keep(compress_zlib(data)) })
+}
+
+///|
 test "zlib/compress/100k/fzip" (b : @bench.T) {
   let data = make_sequential(102400)
   b.bench(fn() { b.keep(@fzip.zlib_sync(data)) })
@@ -317,8 +434,14 @@ test "zlib/compress/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(@zlib.zlib_compress(data)) })
 }
 
+///|
+test "zlib/compress/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  b.bench(fn() { b.keep(compress_zlib(data)) })
+}
+
 // ============================================================
-// Zlib decompress — 2 sizes × 3 libs = 6
+// Zlib decompress — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -341,6 +464,13 @@ test "zlib/decompress/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "zlib/decompress/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  let compressed = compress_zlib(data)
+  b.bench(fn() { b.keep(decompress_zlib(compressed)) })
+}
+
+///|
 test "zlib/decompress/100k/fzip" (b : @bench.T) {
   let compressed = @fzip.zlib_sync(make_sequential(102400))
   b.bench(fn() { b.keep(try! @fzip.unzlib_sync(compressed)) })
@@ -359,8 +489,15 @@ test "zlib/decompress/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(try! @zlib.zlib_decompress(compressed)) })
 }
 
+///|
+test "zlib/decompress/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  let compressed = compress_zlib(data)
+  b.bench(fn() { b.keep(decompress_zlib(compressed)) })
+}
+
 // ============================================================
-// ZIP compress — 2 libs = 2 (mizchi/zlib has no ZIP API)
+// ZIP compress — 2 libs = 2 (mizchi/zlib and bikallem/compress have no ZIP API)
 // ============================================================
 
 ///|
@@ -376,7 +513,7 @@ test "zip/compress/moonzip" (b : @bench.T) {
 }
 
 // ============================================================
-// ZIP decompress — 2 libs = 2 (mizchi/zlib has no ZIP API)
+// ZIP decompress — 2 libs = 2 (mizchi/zlib and bikallem/compress have no ZIP API)
 // ============================================================
 
 ///|
@@ -392,7 +529,7 @@ test "zip/decompress/moonzip" (b : @bench.T) {
 }
 
 // ============================================================
-// CRC-32 — 2 sizes × 3 libs = 6
+// CRC-32 — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -414,6 +551,12 @@ test "crc32/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "crc32/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  b.bench(fn() { b.keep(@cchecksum.crc32(data[:])) })
+}
+
+///|
 test "crc32/100k/fzip" (b : @bench.T) {
   let data = make_sequential(102400)
   b.bench(fn() { b.keep(@fzip.crc32(data)) })
@@ -431,8 +574,14 @@ test "crc32/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(@zlib.crc32(data)) })
 }
 
+///|
+test "crc32/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  b.bench(fn() { b.keep(@cchecksum.crc32(data[:])) })
+}
+
 // ============================================================
-// Adler-32 — 2 sizes × 3 libs = 6
+// Adler-32 — 2 sizes × 4 libs = 8
 // ============================================================
 
 ///|
@@ -454,6 +603,12 @@ test "adler32/1k/mizchi" (b : @bench.T) {
 }
 
 ///|
+test "adler32/1k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(1024))
+  b.bench(fn() { b.keep(@cchecksum.adler32(data[:])) })
+}
+
+///|
 test "adler32/100k/fzip" (b : @bench.T) {
   let data = make_sequential(102400)
   b.bench(fn() { b.keep(@fzip.adler32(data)) })
@@ -471,8 +626,14 @@ test "adler32/100k/mizchi" (b : @bench.T) {
   b.bench(fn() { b.keep(@zlib.adler32(data)) })
 }
 
+///|
+test "adler32/100k/compress" (b : @bench.T) {
+  let data = fa_to_bytes(make_sequential(102400))
+  b.bench(fn() { b.keep(@cchecksum.adler32(data[:])) })
+}
+
 // ============================================================
-// decompress_sync (auto-detect) — 2 sizes × 2 libs = 4 (mizchi N/A)
+// decompress_sync (auto-detect) — 2 sizes × 2 libs = 4 (mizchi/compress N/A)
 // ============================================================
 
 ///|

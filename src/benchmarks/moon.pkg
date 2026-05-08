@@ -2,5 +2,9 @@ import {
   "hustcer/fzip",
   "ivgtr/moonzip",
   "mizchi/zlib",
+  "bikallem/compress/flate" @cflate,
+  "bikallem/compress/gzip" @cgzip,
+  "bikallem/compress/zlib" @czlib,
+  "bikallem/compress/checksum" @cchecksum,
   "moonbitlang/core/bench",
 } for "test"
