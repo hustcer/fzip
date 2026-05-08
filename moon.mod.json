@@ -12,7 +12,7 @@
     "zip",
     "fflate"
   ],
-  "description": "High-performance compression library for MoonBit, ported from fflate. (DEFLATE/GZIP/Zlib/ZIP)",
+  "description": "High-performance compression library for MoonBit, ported from fflate. (DEFLATE/GZIP/Zlib/ZIP) 🚀",
   "source": "src",
   "deps": {
     "ivgtr/moonzip": "0.2.4",

@@ -1,6 +1,6 @@
 # fzip – High-performance compression library for MoonBit
 
-fzip is a high-performance, in-memory compression library for MoonBit, ported from the [fflate](https://github.com/101arrowz/fflate) JavaScript library.
+`fzip` (short for *fast zip*) is a high-performance, in-memory compression library for MoonBit, ported from the [fflate](https://github.com/101arrowz/fflate) JavaScript library.
 
 This library provides:
 
@@ -16,6 +16,10 @@ This library provides:
 - High-performance, memory-efficient streaming APIs
 - Robust security limits configurable per operation
 - Comprehensive test coverage (170+ tests)
+
+## Benchmark
+
+Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
 
 ## Installation
 
@@ -71,10 +75,6 @@ The API is directly inspired by the original `fflate` library structure but adap
 - Type-safe synchronous and stream-based representations (`ondata` callbacks).
 - Clean error propagation utilizing MoonBit's `raise Error` mechanisms rather than unchecked exceptions.
 - Zero-dependency string encoding/decoding implementations built-in.
-
-## Benchmark
-
-Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
 
 ## Detailed API
 
