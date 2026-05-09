@@ -8,6 +8,10 @@ This library provides:
 - **Streaming and Synchronous APIs** for flexible data processing
 - **Built-in Security** against zip bombs, path traversal, and corrupted data
 
+## Benchmark
+
+Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
+
 ## Features
 
 - Pure MoonBit implementation with no external dependencies (compiled to Wasm-GC)
@@ -16,10 +20,6 @@ This library provides:
 - High-performance, memory-efficient streaming APIs
 - Robust security limits configurable per operation
 - Comprehensive test coverage (220+ tests)
-
-## Benchmark
-
-Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.md](https://github.com/hustcer/fzip/blob/feature/bench/src/benchmarks/bench.md).
 
 ## Installation
 
@@ -32,7 +32,7 @@ Or add this to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/fzip": "0.6.0"
+    "hustcer/fzip": "0.6.1"
   }
 }
 ```

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.1 - 2026-05-09
+
+### Performance
+
+- **Tune inflate preallocation for high-ratio streams**: For compressed inputs in the 512–2047 byte range, preallocate 96× instead of 3× the input size, reducing buffer reallocations and yielding a **13.7% decompression speedup**.
+
 ## v0.6.0 - 2026-05-08
 
 ### Performance
