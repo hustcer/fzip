@@ -37,6 +37,11 @@ pub(all) enum FzipErrorCode {
   UnknownCompressionMethod
   /// A checksum footer does not match the decompressed data.
   InvalidChecksum
+  /// Well-formed ZIP64 metadata whose size, offset, count, or layout cannot be
+  /// represented or safely indexed by the current `Int`/`FixedArray`-based
+  /// sync APIs. The archive may be structurally valid; the sync API just
+  /// cannot process it.
+  Zip64ValueTooLarge
 } derive(Eq, Debug)
 
 ///|
@@ -59,6 +64,7 @@ pub impl Show for FzipErrorCode with output(self, logger) {
     InvalidZipData => logger.write_string("InvalidZipData")
     UnknownCompressionMethod => logger.write_string("UnknownCompressionMethod")
     InvalidChecksum => logger.write_string("InvalidChecksum")
+    Zip64ValueTooLarge => logger.write_string("Zip64ValueTooLarge")
   }
 }
 
@@ -67,7 +73,7 @@ let error_messages : Array[String] = [
   "unexpected EOF", "invalid block type", "invalid length/literal", "invalid distance",
   "stream finished", "no stream handler", "invalid header", "no callback", "invalid UTF-8 data",
   "extra field too long", "date not in range 1980-2099", "filename too long", "stream finishing",
-  "invalid zip data", "unknown compression method", "invalid checksum",
+  "invalid zip data", "unknown compression method", "invalid checksum", "zip64 value too large for sync API",
 ]
 
 ///|
@@ -98,6 +104,7 @@ fn fzip_error_code_to_int(code : FzipErrorCode) -> Int {
     InvalidZipData => 13
     UnknownCompressionMethod => 14
     InvalidChecksum => 15
+    Zip64ValueTooLarge => 16
   }
 }
 

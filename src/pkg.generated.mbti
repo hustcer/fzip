@@ -54,7 +54,10 @@ pub fn unzip_sync(FixedArray[Byte]) -> Array[(String, FixedArray[Byte])] raise F
 
 pub fn unzlib_sync(FixedArray[Byte], opts? : UnzlibOptions) -> FixedArray[Byte] raise FzipError
 
-pub let zip64_eocd_locator_signature : UInt
+#alias(zip64_eocd_locator_signature, deprecated)
+pub let zip64_eocd_signature : UInt
+
+pub let zip64_locator_signature : UInt
 
 pub let zip_cd_signature : UInt
 
@@ -112,6 +115,7 @@ pub(all) enum FzipErrorCode {
   InvalidZipData
   UnknownCompressionMethod
   InvalidChecksum
+  Zip64ValueTooLarge
 } derive(Eq, @debug.Debug)
 pub impl Show for FzipErrorCode
 

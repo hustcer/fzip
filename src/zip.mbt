@@ -373,7 +373,7 @@ pub fn unzip_sync(
   let mut z = o == -1 || c == 65535
   if z {
     let ze = b4(data, e - 12).reinterpret_as_int()
-    z = b4(data, ze) == 0x06064B50U
+    z = b4(data, ze) == zip64_eocd_signature
     if z {
       c = b4(data, ze + 32).reinterpret_as_int()
       o = b4(data, ze + 48).reinterpret_as_int()
@@ -453,7 +453,7 @@ pub fn unzip_list(
   let mut z = o == -1 || c == 65535
   if z {
     let ze = b4(data, e - 12).reinterpret_as_int()
-    z = b4(data, ze) == 0x06064B50U
+    z = b4(data, ze) == zip64_eocd_signature
     if z {
       c = b4(data, ze + 32).reinterpret_as_int()
       o = b4(data, ze + 48).reinterpret_as_int()

@@ -23,8 +23,38 @@ pub let zip_local_signature : UInt = 0x04034B50U
 pub let zip_eocd_signature : UInt = 0x06054B50U
 
 ///|
-/// ZIP64 end-of-central-directory record signature.
-pub let zip64_eocd_locator_signature : UInt = 0x06064B50U
+/// ZIP64 end-of-central-directory record signature (PKWARE APPNOTE §4.3.14).
+///
+/// Replaces the misnamed `zip64_eocd_locator_signature`, which is kept as a
+/// deprecated alias for source compatibility. The actual ZIP64 EOCD locator
+/// signature is `zip64_locator_signature` below.
+#alias(zip64_eocd_locator_signature, deprecated)
+pub let zip64_eocd_signature : UInt = 0x06064B50U
+
+///|
+/// ZIP64 end-of-central-directory locator signature (PKWARE APPNOTE §4.3.15).
+pub let zip64_locator_signature : UInt = 0x07064B50U
+
+///|
+/// ZIP64 extended information extra field header id (PKWARE APPNOTE §4.5.3).
+let zip64_extra_field_id : Int = 0x0001
+
+///|
+/// Maximum value for a 16-bit ZIP field. Used as the ZIP64 promotion sentinel
+/// for the entry-count field in the classic EOCD record.
+let zip_uint16_max : Int = 65535
+
+///|
+/// Maximum value for a 32-bit ZIP field. Used as the ZIP64 promotion sentinel
+/// for size/offset fields in classic ZIP headers and the EOCD record.
+let zip_uint32_max : UInt = 0xffffffffU
+
+///|
+/// Maximum total extra-field length accepted on a single local or central
+/// directory entry. Larger values are rejected with `ExtraFieldTooLong`
+/// before scanning individual extra fields, so an oversized declared length
+/// cannot drive a long parser scan.
+let max_extra_field_length : Int = 4096
 
 ///|
 /// Maximum filename length accepted while reading ZIP central directory entries.

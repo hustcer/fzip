@@ -92,3 +92,53 @@ test "fa_set - copy array" {
   inspect(dst[1].to_int(), content="10")
   inspect(dst[3].to_int(), content="12")
 }
+
+///|
+test "w2 - emits both bytes including leading zero" {
+  let d : FixedArray[Byte] = FixedArray::make(4, b'\xFF')
+  w2(d, 0, 0x002D) // version_needed = 45
+  inspect(d[0].to_int(), content="45")
+  inspect(d[1].to_int(), content="0")
+  // Untouched bytes after the field stay as we left them.
+  inspect(d[2].to_int(), content="255")
+  // Full 16-bit value spans both bytes.
+  w2(d, 2, 0xABCD)
+  inspect(d[2].to_int(), content="205")
+  inspect(d[3].to_int(), content="171")
+}
+
+///|
+test "w4 - writes a four-byte little-endian unsigned value" {
+  let d : FixedArray[Byte] = FixedArray::make(8, b'\x00')
+  // Sentinel 0xFFFFFFFF must round-trip as four 0xFF bytes.
+  w4(d, 0, 0xFFFFFFFFU)
+  for i in 0..<4 {
+    assert_eq(d[i].to_int(), 255)
+  }
+  // Mid-value with leading zero high byte must still emit four bytes.
+  w4(d, 4, 0x00010203U)
+  inspect(d[4].to_int(), content="3")
+  inspect(d[5].to_int(), content="2")
+  inspect(d[6].to_int(), content="1")
+  inspect(d[7].to_int(), content="0")
+}
+
+///|
+test "w8 - writes an eight-byte little-endian value" {
+  let d : FixedArray[Byte] = FixedArray::make(16, b'\x00')
+  // Small positive value: only the low byte is set; the upper seven must be 0.
+  w8(d, 0, 1L)
+  inspect(d[0].to_int(), content="1")
+  for i in 1..<8 {
+    assert_eq(d[i].to_int(), 0)
+  }
+  // Value larger than 32 bits crosses the 4-byte boundary.
+  w8(d, 8, 0x0000_0001_0000_0000L)
+  for i in 8..<12 {
+    assert_eq(d[i].to_int(), 0)
+  }
+  inspect(d[12].to_int(), content="1")
+  inspect(d[13].to_int(), content="0")
+  inspect(d[14].to_int(), content="0")
+  inspect(d[15].to_int(), content="0")
+}

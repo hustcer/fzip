@@ -72,6 +72,34 @@ fn wbytes(d : FixedArray[Byte], b : Int, v : Int) -> Unit {
 }
 
 ///|
+/// Write a 2-byte little-endian value, always emitting both bytes (including
+/// any leading zero byte). Caller must ensure value fits in `0..=0xffff`;
+/// `Int::to_byte()` truncates to the low 8 bits.
+fn w2(d : FixedArray[Byte], offset : Int, value : Int) -> Unit {
+  d[offset] = value.to_byte()
+  d[offset + 1] = (value >> 8).to_byte()
+}
+
+///|
+/// Write a 4-byte little-endian unsigned value, always emitting four bytes.
+/// Takes `UInt` because `0xffffffff` does not fit in a 32-bit signed `Int`.
+fn w4(d : FixedArray[Byte], offset : Int, value : UInt) -> Unit {
+  d[offset] = value.to_byte()
+  d[offset + 1] = (value >> 8).to_byte()
+  d[offset + 2] = (value >> 16).to_byte()
+  d[offset + 3] = (value >> 24).to_byte()
+}
+
+///|
+/// Write an 8-byte little-endian value, always emitting eight bytes (including
+/// any leading zero bytes). Raw — does not validate. ZIP metadata callers must
+/// validate via `write_zip64_int` before calling this directly.
+fn w8(d : FixedArray[Byte], offset : Int, value : Int64) -> Unit {
+  w4(d, offset, value.to_int().reinterpret_as_uint())
+  w4(d, offset + 4, (value >> 32).to_int().reinterpret_as_uint())
+}
+
+///|
 /// Slice a FixedArray (copy)
 fn slc(
   v : FixedArray[Byte],
