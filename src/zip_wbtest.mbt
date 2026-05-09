@@ -835,3 +835,157 @@ test "unzip_list - trailing bytes inside CD raise InvalidZipData" {
   assert_eq(code, InvalidZipData)
   assert_true(message.contains("trailing or missing"))
 }
+
+// =============================================================================
+// PR4 (Phase 4) — local_data_offset + bit-flag + output cap
+// =============================================================================
+
+///|
+/// Build a local file header (+ optional inline file data).
+/// Tests can opt into a non-zero general-purpose bit flag to exercise the
+/// encryption / data-descriptor rejections.
+fn make_local_file_header(
+  name : FixedArray[Byte],
+  compression : Int,
+  comp_size : UInt,
+  uncomp_size : UInt,
+  flag? : Int = 0,
+  extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  data? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+) -> FixedArray[Byte] {
+  let nl = name.length()
+  let el = extra.length()
+  let dl = data.length()
+  let buf = FixedArray::make(30 + nl + el + dl, b'\x00')
+  w4(buf, 0, zip_local_signature)
+  // version_needed (+4): 0 — irrelevant for local_data_offset
+  w2(buf, 6, flag)
+  w2(buf, 8, compression)
+  // mtime/mdate (+10/+12): 0
+  // CRC-32 (+14): 0 — local_data_offset doesn't validate it
+  w4(buf, 14, 0U)
+  w4(buf, 18, comp_size)
+  w4(buf, 22, uncomp_size)
+  w2(buf, 26, nl)
+  w2(buf, 28, el)
+  if nl > 0 {
+    name.blit_to(buf, len=nl, src_offset=0, dst_offset=30)
+  }
+  if el > 0 {
+    extra.blit_to(buf, len=el, src_offset=0, dst_offset=30 + nl)
+  }
+  if dl > 0 {
+    data.blit_to(buf, len=dl, src_offset=0, dst_offset=30 + nl + el)
+  }
+  buf
+}
+
+///|
+/// Glue helper: complete archive (local header + central directory entry +
+/// classic EOCD) for one stored entry. Computes lengths/offsets so the
+/// cd_size and cd_offset fields are internally consistent.
+fn build_classic_archive(
+  name : FixedArray[Byte],
+  data : FixedArray[Byte],
+  local_flag? : Int = 0,
+) -> FixedArray[Byte] {
+  let comp = data.length().reinterpret_as_uint()
+  let lh = make_local_file_header(name, 0, comp, comp, flag=local_flag, data~)
+  let cd = make_cd_entry(name, 0, comp, comp, 0U)
+  let cd_size = cd.length().reinterpret_as_uint()
+  let cd_offset = lh.length().reinterpret_as_uint()
+  let eocd = make_classic_eocd(1, cd_size, cd_offset)
+  concat_bytes([lh, cd, eocd])
+}
+
+///|
+test "unzip_sync - rejects encrypted entry (general-purpose bit 0)" {
+  let arc = build_classic_archive([b'a'], [b'X'], local_flag=1)
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("encrypted"))
+}
+
+///|
+test "unzip_sync - rejects data-descriptor entry (general-purpose bit 3)" {
+  let arc = build_classic_archive([b'a'], [b'X'], local_flag=8)
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("data descriptor"))
+}
+
+///|
+test "unzip_sync - rejects entry with bad local file header signature" {
+  let name : FixedArray[Byte] = [b'a']
+  let lh = make_local_file_header(name, 0, 1U, 1U, data=[b'X'])
+  // Stomp the local signature.
+  lh[0] = b'\x00'
+  let cd = make_cd_entry(name, 0, 1U, 1U, 0U)
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("local file header signature"))
+}
+
+///|
+test "unzip_sync - rejects entry whose uncompressed size exceeds default_max_output_size" {
+  // CD claims a stored entry larger than the configured cap; the cap check
+  // fires before we even look at the local file header data.
+  let name : FixedArray[Byte] = [b'b', b'i', b'g']
+  let huge = (default_max_output_size + 1).reinterpret_as_uint()
+  let cd = make_cd_entry(name, 0, huge, huge, 0U)
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("default_max_output_size"))
+}
+
+///|
+test "unzip_sync - rejects deflated entry whose uncompressed size exceeds cap" {
+  // Deflated entry with claimed uncompressed_size = cap + 1. The cap check
+  // fires before allocation.
+  let name : FixedArray[Byte] = [b'd']
+  let huge = (default_max_output_size + 1).reinterpret_as_uint()
+  let cd = make_cd_entry(name, 8, 1U, huge, 0U)
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("default_max_output_size"))
+}
+
+///|
+test "unzip_sync - hand-built classic stored archive round-trips through new helpers" {
+  // Sanity: confirms local_data_offset accepts a normal local header and
+  // unzip_sync returns the right bytes.
+  let arc = build_classic_archive([b'h', b'i'], [b'X', b'Y', b'Z'])
+  let files = unzip_sync(arc)
+  assert_eq(files.length(), 1)
+  let (name, content) = files[0]
+  assert_eq(name, "hi")
+  assert_eq(content.length(), 3)
+  assert_eq(content[0], b'X')
+  assert_eq(content[1], b'Y')
+  assert_eq(content[2], b'Z')
+}

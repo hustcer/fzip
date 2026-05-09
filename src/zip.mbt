@@ -31,9 +31,65 @@ fn is_unsafe_path(path : String) -> Bool {
 }
 
 ///|
-/// Skip local ZIP file header, return offset past header+name+extra
-fn slzh(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
-  b + 30 + b2(d, b + 26) + b2(d, b + 28)
+/// Validate a local file header and return the offset of the entry's data.
+///
+/// Replaces the old `slzh`. The previous helper only added 30 + filename +
+/// extra to the local offset without validating the local header signature,
+/// the general-purpose bit flag, or that the data range stayed inside the
+/// archive. This helper performs all of those checks before returning.
+///
+/// Specifically:
+/// * `local_offset >= 0` and `local_offset + 30 <= data.length()` so the
+///   fixed-size header is fully present.
+/// * The 4-byte signature equals `zip_local_signature`.
+/// * General-purpose bit 0 (encryption) is not set — fzip does not implement
+///   ZIP encryption.
+/// * General-purpose bit 3 (data descriptor) is not set — Phase 1 defers
+///   data descriptor support to Phase 2; the user explicitly opted for the
+///   "reject and document" path. Reader streaming will revisit this.
+/// * Filename and extra lengths fit inside `data`.
+/// * `data_offset + compressed_size <= data.length()`, so slicing or
+///   inflating the entry's bytes never reads past the archive.
+fn local_data_offset(
+  data : FixedArray[Byte],
+  local_offset : Int,
+  compressed_size : Int,
+) -> Int raise FzipError {
+  if local_offset < 0 || local_offset + 30 > data.length() {
+    raise fzip_err(InvalidZipData, msg="local file header out of bounds")
+  }
+  if b4(data, local_offset) != zip_local_signature {
+    raise fzip_err(InvalidZipData, msg="invalid local file header signature")
+  }
+  let flag = b2(data, local_offset + 6)
+  if (flag & 1) != 0 {
+    raise fzip_err(
+      InvalidZipData,
+      msg="encrypted ZIP entries are not supported",
+    )
+  }
+  if (flag & 8) != 0 {
+    raise fzip_err(
+      InvalidZipData,
+      msg="ZIP data descriptors (bit 3) are deferred to Phase 2",
+    )
+  }
+  let fnl = b2(data, local_offset + 26)
+  let exl = b2(data, local_offset + 28)
+  let data_off = local_offset + 30 + fnl + exl
+  if data_off > data.length() {
+    raise fzip_err(
+      InvalidZipData,
+      msg="local header filename/extra exceed bounds",
+    )
+  }
+  if compressed_size < 0 {
+    raise fzip_err(InvalidZipData, msg="negative compressed size")
+  }
+  if data_off > data.length() - compressed_size {
+    raise fzip_err(InvalidZipData, msg="entry data range exceeds bounds")
+  }
+  data_off
 }
 
 ///|
@@ -669,10 +725,17 @@ pub fn unzip_sync(
         msg="zip entry contains unsafe path: " + header.name,
       )
     }
-    let b_off = slzh(data, header.local_offset)
     o = header.next_offset
     let sc = header.compressed_size
     let su = header.uncompressed_size
+    // Cap output size before allocating, regardless of compression method.
+    if su > default_max_output_size {
+      raise fzip_err(
+        InvalidZipData,
+        msg="entry uncompressed size exceeds default_max_output_size",
+      )
+    }
+    let b_off = local_data_offset(data, header.local_offset, sc)
     if header.compression == 0 {
       files.push((header.name, slc(data, b_off, e=b_off + sc)))
     } else if header.compression == 8 {
@@ -691,7 +754,7 @@ pub fn unzip_sync(
         Some(out),
         None,
         default_max_input_size,
-        default_max_input_size,
+        default_max_output_size,
         dat_off=b_off,
         dat_end=b_off + sc,
       )
