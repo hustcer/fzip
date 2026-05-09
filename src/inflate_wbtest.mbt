@@ -73,6 +73,30 @@ test "inflate/large_buffer/100kb" {
 }
 
 ///|
+test "inflate/high_ratio_preallocation/100kb_sequential" {
+  let size = 102400
+  let data = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() >= 512)
+  assert_true(compressed.length() < 2048)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
+test "inflate initial size heuristic" {
+  assert_eq(initial_inflate_size(100, default_max_output_size), 300)
+  assert_eq(initial_inflate_size(512, default_max_output_size), 49152)
+  assert_eq(initial_inflate_size(2048, default_max_output_size), 6144)
+}
+
+///|
 /// Test unzlib_sync roundtrip for small data — also affected by P0 fix
 test "inflate/unzlib_small/1kb" {
   let data = FixedArray::make(1024, b'\x00')

@@ -17,6 +17,26 @@ fn InflateState::new(i : Int) -> InflateState {
 }
 
 ///|
+/// Choose an initial one-shot output buffer size.
+fn initial_inflate_size(sl : Int, max_output_size : Int) -> Int raise FzipError {
+  let max_safe = max_output_size / 3
+  if sl > max_safe {
+    raise fzip_err(InvalidZipData, msg="input too large for safe allocation")
+  }
+  let base = sl * 3
+  if sl >= 512 && sl < 2048 {
+    let expanded = sl * 96
+    if expanded > max_output_size {
+      max_output_size
+    } else {
+      expanded
+    }
+  } else {
+    base
+  }
+}
+
+///|
 /// Core DEFLATE decompression with 32-bit bit buffer.
 /// Instead of calling bits()/bits16() per read (each doing p/8 division +
 /// 2-3 array accesses + boundary checks), we maintain a bit accumulator
@@ -55,15 +75,7 @@ fn inflt(
   let mut buf = match buf {
     Some(b) => b
     None => {
-      // Prevent integer overflow: check if sl * 3 would overflow
-      let max_safe = max_output_size / 3
-      if sl > max_safe {
-        raise fzip_err(
-          InvalidZipData,
-          msg="input too large for safe allocation",
-        )
-      }
-      let initial_size = sl * 3
+      let initial_size = initial_inflate_size(sl, max_output_size)
       FixedArray::make(initial_size, b'\x00')
     }
   }
