@@ -487,3 +487,351 @@ test "unzip_sync / unzip_list - empty ZIP64 archive end-to-end" {
   let infos = unzip_list(arc)
   inspect(infos.length(), content="0")
 }
+
+// =============================================================================
+// PR3 (Phase 3) — read_zip64_entry_extra + read_central_directory_entry
+// =============================================================================
+
+///|
+/// Build a ZIP64 extended information extra field (header id 0x0001) with
+/// any subset of the 8-byte values the spec allows, in spec-fixed order.
+fn make_zip64_extra(
+  uncompressed? : Int64,
+  compressed? : Int64,
+  local_offset? : Int64,
+) -> FixedArray[Byte] {
+  let payload = []
+  match uncompressed {
+    Some(v) => payload.push(v)
+    None => ()
+  }
+  match compressed {
+    Some(v) => payload.push(v)
+    None => ()
+  }
+  match local_offset {
+    Some(v) => payload.push(v)
+    None => ()
+  }
+  let payload_bytes = payload.length() * 8
+  let buf = FixedArray::make(4 + payload_bytes, b'\x00')
+  w2(buf, 0, zip64_extra_field_id) // header id
+  w2(buf, 2, payload_bytes) // data size
+  for i, v in payload {
+    w8(buf, 4 + i * 8, v)
+  }
+  buf
+}
+
+///|
+test "read_zip64_entry_extra - only uncompressed needed" {
+  let extra = make_zip64_extra(uncompressed=999L)
+  let sizes = read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=100U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=200U,
+  )
+  inspect(sizes.uncompressed, content="999")
+  inspect(sizes.compressed, content="100")
+  inspect(sizes.local_offset, content="200")
+}
+
+///|
+test "read_zip64_entry_extra - uncompressed AND compressed needed" {
+  let extra = make_zip64_extra(uncompressed=999L, compressed=500L)
+  let sizes = read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=zip_uint32_max,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=200U,
+  )
+  inspect(sizes.uncompressed, content="999")
+  inspect(sizes.compressed, content="500")
+  inspect(sizes.local_offset, content="200")
+}
+
+///|
+test "read_zip64_entry_extra - all three needed" {
+  let extra = make_zip64_extra(
+    uncompressed=999L,
+    compressed=500L,
+    local_offset=1234L,
+  )
+  let sizes = read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=zip_uint32_max,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=zip_uint32_max,
+  )
+  inspect(sizes.uncompressed, content="999")
+  inspect(sizes.compressed, content="500")
+  inspect(sizes.local_offset, content="1234")
+}
+
+///|
+test "read_zip64_entry_extra - skips unrelated extra fields before ZIP64" {
+  // Build: <unrelated extra (header_id=0x5455)> <ZIP64 extra>
+  let other_payload : FixedArray[Byte] = [b'\x01', b'\x02', b'\x03', b'\x04']
+  let other = FixedArray::make(8, b'\x00')
+  w2(other, 0, 0x5455) // some unrelated header id
+  w2(other, 2, 4)
+  other_payload.blit_to(other, len=4, src_offset=0, dst_offset=4)
+  let zip64 = make_zip64_extra(uncompressed=42L)
+  let combined = concat_bytes([other, zip64])
+  let sizes = read_zip64_entry_extra(
+    combined,
+    0,
+    combined.length(),
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  inspect(sizes.uncompressed, content="42")
+  inspect(sizes.compressed, content="10")
+  inspect(sizes.local_offset, content="20")
+}
+
+///|
+test "read_zip64_entry_extra - rejects extra_len > max_extra_field_length" {
+  let extra : FixedArray[Byte] = FixedArray::make(0, b'\x00')
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    max_extra_field_length + 1,
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, ExtraFieldTooLong)
+}
+
+///|
+test "read_zip64_entry_extra - missing required ZIP64 extra raises" {
+  // Empty extra block but a sentinel says ZIP64 is needed.
+  let extra : FixedArray[Byte] = FixedArray::make(0, b'\x00')
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    0,
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("required ZIP64 extra"))
+}
+
+///|
+test "read_zip64_entry_extra - truncated ZIP64 extra raises" {
+  // Header claims 8 bytes of payload but only 4 are present.
+  let extra : FixedArray[Byte] = FixedArray::make(8, b'\x00')
+  w2(extra, 0, zip64_extra_field_id)
+  w2(extra, 2, 8) // claim 8 bytes payload
+  // ... but only 4 bytes follow
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("truncated"))
+}
+
+///|
+test "read_zip64_entry_extra - Zip64ValueTooLarge for huge values" {
+  // Set the high word of uncompressed-size 8-byte field to 1 so the value
+  // exceeds 2^32.
+  let extra = FixedArray::make(12, b'\x00')
+  w2(extra, 0, zip64_extra_field_id)
+  w2(extra, 2, 8)
+  // bytes 4..12 are the 8-byte uncompressed value; high word at offset 8.
+  extra[8] = b'\x01'
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+}
+
+///|
+/// Build a synthetic central directory file header (no following entries)
+/// for use with `read_central_directory_entry`.
+fn make_cd_entry(
+  name : FixedArray[Byte],
+  compression : Int,
+  comp_size : UInt,
+  uncomp_size : UInt,
+  local_offset : UInt,
+  extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  flag? : Int = 0,
+) -> FixedArray[Byte] {
+  let name_len = name.length()
+  let extra_len = extra.length()
+  let total = 46 + name_len + extra_len
+  let buf = FixedArray::make(total, b'\x00')
+  w4(buf, 0, zip_cd_signature)
+  // version made by, version needed: 0 — irrelevant for this parser
+  w2(buf, 8, flag)
+  w2(buf, 10, compression)
+  // mtime/mdate: 0
+  // crc-32: 0 (not validated by read_central_directory_entry)
+  w4(buf, 20, comp_size)
+  w4(buf, 24, uncomp_size)
+  w2(buf, 28, name_len)
+  w2(buf, 30, extra_len)
+  w2(buf, 32, 0) // comment length
+  w2(buf, 34, 0) // disk number start
+  w2(buf, 36, 0) // internal attrs
+  w4(buf, 38, 0U) // external attrs
+  w4(buf, 42, local_offset)
+  name.blit_to(buf, len=name_len, src_offset=0, dst_offset=46)
+  if extra_len > 0 {
+    extra.blit_to(buf, len=extra_len, src_offset=0, dst_offset=46 + name_len)
+  }
+  buf
+}
+
+///|
+test "read_central_directory_entry - rejects bad signature" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  // Stomp the signature.
+  entry[0] = b'\x00'
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("central directory header signature"))
+}
+
+///|
+test "read_central_directory_entry - rejects entry exceeding CD bounds" {
+  let name : FixedArray[Byte] = [b'a', b'b', b'c', b'd']
+  let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  // Pretend the CD is 10 bytes shorter than the entry needs.
+  let cd_end = entry.length() - 10
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry, 0, cd_end, false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(
+    message.contains("CD bounds") || message.contains("exceeds CD bounds"),
+  )
+}
+
+///|
+test "read_central_directory_entry - rejects per-entry non-zero disk_number_start" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  // disk_number_start is at offset 34.
+  w2(entry, 34, 1)
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("multi-disk"))
+}
+
+///|
+test "read_central_directory_entry - classic entry resolves classic fields" {
+  let name : FixedArray[Byte] = [b'h', b'i']
+  let entry = make_cd_entry(name, 8, 100U, 200U, 50U)
+  let header = read_central_directory_entry(entry, 0, entry.length(), false)
+  inspect(header.compression, content="8")
+  inspect(header.compressed_size, content="100")
+  inspect(header.uncompressed_size, content="200")
+  inspect(header.local_offset, content="50")
+  inspect(header.name, content="hi")
+  inspect(header.next_offset, content=entry.length().to_string())
+}
+
+///|
+test "read_central_directory_entry - ZIP64 entry resolves via extra" {
+  let name : FixedArray[Byte] = [b'b', b'i', b'g']
+  let extra = make_zip64_extra(uncompressed=12345L, compressed=6789L)
+  let entry = make_cd_entry(
+    name,
+    8,
+    zip_uint32_max,
+    zip_uint32_max,
+    50U,
+    extra~,
+  )
+  let header = read_central_directory_entry(entry, 0, entry.length(), true)
+  inspect(header.compressed_size, content="6789")
+  inspect(header.uncompressed_size, content="12345")
+  inspect(header.local_offset, content="50")
+  inspect(header.name, content="big")
+}
+
+///|
+test "read_central_directory_entry - ZIP64 sentinel rejected when archive isn't ZIP64" {
+  // Same entry but the caller passes zip64=false, simulating an archive
+  // whose EOCD doesn't advertise ZIP64. Without the locator we cannot
+  // safely resolve the sentinels.
+  let name : FixedArray[Byte] = [b'b', b'i', b'g']
+  let extra = make_zip64_extra(uncompressed=12345L, compressed=6789L)
+  let entry = make_cd_entry(
+    name,
+    8,
+    zip_uint32_max,
+    zip_uint32_max,
+    50U,
+    extra~,
+  )
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("ZIP64 sentinels but archive is not ZIP64"))
+}
+
+///|
+test "unzip_list - trailing bytes inside CD raise InvalidZipData" {
+  // Build a 49-byte central directory entry but tell the EOCD the CD is
+  // 50 bytes. After parsing the single entry the cursor lands at 49, which
+  // doesn't match the declared cd_end of 50; the final-cursor check fires.
+  let name : FixedArray[Byte] = [b'a', b'b', b'c']
+  let cd_entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  inspect(cd_entry.length(), content="49")
+  let claimed_cd_size = 50
+  let padded_cd = FixedArray::make(claimed_cd_size, b'\x00')
+  cd_entry.blit_to(padded_cd, len=cd_entry.length(), src_offset=0, dst_offset=0)
+  let eocd = make_classic_eocd(1, claimed_cd_size.reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([padded_cd, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("trailing or missing"))
+}

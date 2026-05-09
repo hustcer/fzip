@@ -37,56 +37,121 @@ fn slzh(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
 }
 
 ///|
-/// Read central directory header
-/// Returns (compression, compressed_size, uncompressed_size, filename, next_offset, local_offset)
-fn zh(
-  d : FixedArray[Byte],
-  b : Int,
-  z : Bool,
-) -> (Int, Int, Int, String, Int, Int) raise FzipError {
-  let fnl = b2(d, b + 28)
-  // Validate filename length (max `max_filename_length` bytes is reasonable)
-  if fnl > max_filename_length {
-    raise fzip_err(InvalidZipData, msg="zip filename too long")
-  }
-  // Check bounds before reading filename
-  if b + 46 + fnl > d.length() {
-    raise fzip_err(InvalidZipData, msg="zip filename exceeds data bounds")
-  }
-  let is_utf8 = (b2(d, b + 8) & 2048) != 0
-  let fn_str = str_from_u8(d, latin1=!is_utf8, offset=b + 46, len=fnl)
-  let es = b + 46 + fnl
-  let bs = b4(d, b + 20)
-  let (sc, su, off) = if z && bs == 4294967295U {
-    z64e(d, es)
-  } else {
-    (
-      bs.reinterpret_as_int(),
-      b4(d, b + 24).reinterpret_as_int(),
-      b4(d, b + 42).reinterpret_as_int(),
-    )
-  }
-  (b2(d, b + 10), sc, su, fn_str, es + b2(d, b + 30) + b2(d, b + 32), off)
+/// Resolved central directory entry. Replaces the old positional 6-tuple
+/// returned by `zh` with named fields so callers can't accidentally swap
+/// `compressed_size` and `uncompressed_size` (or `local_offset` and either
+/// of the sizes — they're all `Int`).
+priv struct ZipEntryHeader {
+  compression : Int
+  compressed_size : Int
+  uncompressed_size : Int
+  name : String
+  next_offset : Int
+  local_offset : Int
 }
 
 ///|
-/// Read ZIP64 extra field
-fn z64e(d : FixedArray[Byte], b : Int) -> (Int, Int, Int) raise FzipError {
-  let mut b = b
-  while b + 4 <= d.length() && b2(d, b) != 1 {
-    let field_len = b2(d, b + 2)
-    if b + 4 + field_len > d.length() {
-      raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
+/// Parse one central directory file header into a `ZipEntryHeader`.
+///
+/// Differences from the previous `zh`/`z64e` pair:
+/// * Validates the central directory header signature (`zip_cd_signature`).
+/// * Bounds-checks the full entry size (header + filename + extra + comment)
+///   against the central directory's declared end (`cd_end`).
+/// * Rejects per-entry multi-disk indicators (non-zero disk-number-start).
+/// * Detects ZIP64 by checking ALL three sentinels (compressed size,
+///   uncompressed size, local header offset) instead of just compressed
+///   size, then resolves them via `read_zip64_entry_extra` so a sentinel
+///   value never propagates as a real number.
+fn read_central_directory_entry(
+  data : FixedArray[Byte],
+  offset : Int,
+  cd_end : Int,
+  zip64 : Bool,
+) -> ZipEntryHeader raise FzipError {
+  if offset + 46 > cd_end {
+    raise fzip_err(
+      InvalidZipData,
+      msg="central directory header exceeds CD bounds",
+    )
+  }
+  if b4(data, offset) != zip_cd_signature {
+    raise fzip_err(
+      InvalidZipData,
+      msg="invalid central directory header signature",
+    )
+  }
+  let flag = b2(data, offset + 8)
+  let compression = b2(data, offset + 10)
+  let comp_size_classic = b4(data, offset + 20)
+  let uncomp_size_classic = b4(data, offset + 24)
+  let filename_len = b2(data, offset + 28)
+  let extra_len = b2(data, offset + 30)
+  let comment_len = b2(data, offset + 32)
+  let disk_number_start = b2(data, offset + 34)
+  let local_offset_classic = b4(data, offset + 42)
+  if filename_len > max_filename_length {
+    raise fzip_err(InvalidZipData, msg="zip filename too long")
+  }
+  if disk_number_start != 0 {
+    raise fzip_err(
+      InvalidZipData,
+      msg="multi-disk ZIP archives are not supported",
+    )
+  }
+  let entry_total = 46 + filename_len + extra_len + comment_len
+  if offset + entry_total > cd_end {
+    raise fzip_err(
+      InvalidZipData,
+      msg="central directory entry exceeds CD bounds",
+    )
+  }
+  let is_utf8 = (flag & 2048) != 0
+  let name = str_from_u8(
+    data,
+    latin1=!is_utf8,
+    offset=offset + 46,
+    len=filename_len,
+  )
+  let need_uncomp = uncomp_size_classic == zip_uint32_max
+  let need_comp = comp_size_classic == zip_uint32_max
+  let need_local = local_offset_classic == zip_uint32_max
+  let any_zip64 = need_uncomp || need_comp || need_local
+  let (compressed_size, uncompressed_size, local_offset) = if any_zip64 {
+    if !zip64 {
+      // The archive's EOCD said this isn't a ZIP64 archive, but this entry
+      // uses ZIP64 sentinels. Without the ZIP64 EOCD/locator we cannot
+      // safely resolve them, so reject rather than treat sentinels as real
+      // sizes.
+      raise fzip_err(
+        InvalidZipData,
+        msg="entry uses ZIP64 sentinels but archive is not ZIP64",
+      )
     }
-    b += 4 + field_len
+    let extra_offset = offset + 46 + filename_len
+    let sizes = read_zip64_entry_extra(
+      data,
+      extra_offset,
+      extra_len,
+      classic_compressed=comp_size_classic,
+      classic_uncompressed=uncomp_size_classic,
+      classic_local_offset=local_offset_classic,
+    )
+    (sizes.compressed, sizes.uncompressed, sizes.local_offset)
+  } else {
+    (
+      comp_size_classic.reinterpret_as_int(),
+      uncomp_size_classic.reinterpret_as_int(),
+      local_offset_classic.reinterpret_as_int(),
+    )
   }
-  if b + 28 > d.length() {
-    raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
+  {
+    compression,
+    compressed_size,
+    uncompressed_size,
+    name,
+    next_offset: offset + entry_total,
+    local_offset,
   }
-  if b2(d, b) != 1 {
-    raise fzip_err(InvalidZipData, msg="invalid zip64 extra field")
-  }
-  (b8(d, b + 12).to_int(), b8(d, b + 4).to_int(), b8(d, b + 20).to_int())
 }
 
 ///|
@@ -597,18 +662,20 @@ pub fn unzip_sync(
         msg="central directory entry exceeds CD bounds",
       )
     }
-    let (comp, sc, su, fn_str, no, off) = zh(data, o, cd.zip64)
-    if is_unsafe_path(fn_str) {
+    let header = read_central_directory_entry(data, o, cd_end, cd.zip64)
+    if is_unsafe_path(header.name) {
       raise fzip_err(
         InvalidZipData,
-        msg="zip entry contains unsafe path: " + fn_str,
+        msg="zip entry contains unsafe path: " + header.name,
       )
     }
-    let b_off = slzh(data, off)
-    o = no
-    if comp == 0 {
-      files.push((fn_str, slc(data, b_off, e=b_off + sc)))
-    } else if comp == 8 {
+    let b_off = slzh(data, header.local_offset)
+    o = header.next_offset
+    let sc = header.compressed_size
+    let su = header.uncompressed_size
+    if header.compression == 0 {
+      files.push((header.name, slc(data, b_off, e=b_off + sc)))
+    } else if header.compression == 8 {
       // Check compression ratio to detect potential zip bombs
       // Reject if uncompressed size > 1000x compressed size
       if sc > 0 && su / sc > 1000 {
@@ -628,13 +695,19 @@ pub fn unzip_sync(
         dat_off=b_off,
         dat_end=b_off + sc,
       )
-      files.push((fn_str, buf))
+      files.push((header.name, buf))
     } else {
       raise fzip_err(
         UnknownCompressionMethod,
-        msg="unknown compression type " + comp.to_string(),
+        msg="unknown compression type " + header.compression.to_string(),
       )
     }
+  }
+  if o != cd_end {
+    raise fzip_err(
+      InvalidZipData,
+      msg="central directory has trailing or missing bytes",
+    )
   }
   files
 }
@@ -663,9 +736,20 @@ pub fn unzip_list(
         msg="central directory entry exceeds CD bounds",
       )
     }
-    let (comp, sc, su, fn_str, no, _off) = zh(data, o, cd.zip64)
-    o = no
-    infos.push({ name: fn_str, size: sc, original_size: su, compression: comp })
+    let header = read_central_directory_entry(data, o, cd_end, cd.zip64)
+    o = header.next_offset
+    infos.push({
+      name: header.name,
+      size: header.compressed_size,
+      original_size: header.uncompressed_size,
+      compression: header.compression,
+    })
+  }
+  if o != cd_end {
+    raise fzip_err(
+      InvalidZipData,
+      msg="central directory has trailing or missing bytes",
+    )
   }
   infos
 }
