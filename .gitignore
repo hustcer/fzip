@@ -1,5 +1,6 @@
 _build/
 target
+.planning/
 .mooncakes/
 findings.md
 progress.md
@@ -7,3 +8,5 @@ task_plan.md
 .agents/
 skills-lock.json
 bench/node_modules/
+tools/zip64-fixtures/output/
+tools/zip64-fixtures/provenance.md
