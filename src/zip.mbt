@@ -55,7 +55,13 @@ fn local_data_offset(
   local_offset : Int,
   compressed_size : Int,
 ) -> Int raise FzipError {
-  if local_offset < 0 || local_offset + 30 > data.length() {
+  // Use subtraction-form for the upper bound: an additive form
+  // (`local_offset + 30 > data.length()`) wraps to a negative Int when
+  // `local_offset` is near `Int` max — for example, a malformed central
+  // directory whose 32-bit local header offset is `0x7FFFFFFF` reinterprets
+  // to `2^31 - 1`. The wrap silently bypasses the check and lets the parser
+  // index past the archive end.
+  if local_offset < 0 || local_offset > data.length() - 30 {
     raise fzip_err(InvalidZipData, msg="local file header out of bounds")
   }
   if b4(data, local_offset) != zip_local_signature {
@@ -76,13 +82,21 @@ fn local_data_offset(
   }
   let fnl = b2(data, local_offset + 26)
   let exl = b2(data, local_offset + 28)
-  let data_off = local_offset + 30 + fnl + exl
-  if data_off > data.length() {
+  // `fnl` and `exl` are 16-bit values so each fits in `Int`, but their sum
+  // with `local_offset + 30` can overflow when `local_offset` is close to
+  // `Int` max. Compute in `Int64`, then range-check against the archive
+  // before storing back.
+  let data_off_64 = local_offset.to_int64() +
+    30L +
+    fnl.to_int64() +
+    exl.to_int64()
+  if data_off_64 > data.length().to_int64() {
     raise fzip_err(
       InvalidZipData,
       msg="local header filename/extra exceed bounds",
     )
   }
+  let data_off = data_off_64.to_int()
   if compressed_size < 0 {
     raise fzip_err(InvalidZipData, msg="negative compressed size")
   }
@@ -124,7 +138,11 @@ fn read_central_directory_entry(
   cd_end : Int,
   zip64 : Bool,
 ) -> ZipEntryHeader raise FzipError {
-  if offset + 46 > cd_end {
+  // Subtraction-form bounds checks. `offset + 46 > cd_end` would wrap on
+  // `offset >= 2^31 - 46`, which is reachable in a multi-GiB archive whose
+  // CD lives near the upper edge of `Int` range; silently bypassing the
+  // check would let the parser index past `cd_end`.
+  if offset < 0 || cd_end < 46 || offset > cd_end - 46 {
     raise fzip_err(
       InvalidZipData,
       msg="central directory header exceeds CD bounds",
@@ -154,13 +172,22 @@ fn read_central_directory_entry(
       msg="multi-disk ZIP archives are not supported",
     )
   }
-  let entry_total = 46 + filename_len + extra_len + comment_len
-  if offset + entry_total > cd_end {
+  // `entry_total` and `offset + entry_total` can each overflow `Int` for
+  // adversarial archives (filename_len + extra_len + comment_len ≤ 196605
+  // but offset can be near `Int` max). Keep the math in `Int64` for the
+  // bounds check, then convert back.
+  let entry_total_64 = 46L +
+    filename_len.to_int64() +
+    extra_len.to_int64() +
+    comment_len.to_int64()
+  let next_offset_64 = offset.to_int64() + entry_total_64
+  if next_offset_64 > cd_end.to_int64() {
     raise fzip_err(
       InvalidZipData,
       msg="central directory entry exceeds CD bounds",
     )
   }
+  let entry_total = entry_total_64.to_int()
   let is_utf8 = (flag & 2048) != 0
   let name = str_from_u8(
     data,

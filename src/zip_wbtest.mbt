@@ -293,6 +293,20 @@ test "find_eocd - finds EOCD with non-empty comment" {
 }
 
 ///|
+/// Pin the upper edge of the EOCD search window. The classic EOCD comment
+/// field is a 16-bit length, so the maximum legal comment is 65535 bytes
+/// and the corresponding scan window from the end of the archive is
+/// `22 + 65535 = 65557` bytes. A real EOCD at exactly that distance must
+/// still be located.
+test "find_eocd - finds EOCD with maximum 65535-byte comment" {
+  let comment : FixedArray[Byte] = FixedArray::make(65535, b'\x00')
+  let arc = make_classic_eocd(0, 0U, 0U, comment~)
+  // The EOCD record sits at offset 0; everything else is comment.
+  inspect(arc.length(), content="65557")
+  inspect(find_eocd(arc), content="0")
+}
+
+///|
 test "read_central_directory_info - basic classic archive" {
   let arc = make_classic_eocd(0, 0U, 0U)
   let eocd = find_eocd(arc)
@@ -727,6 +741,40 @@ test "read_central_directory_entry - rejects bad signature" {
 }
 
 ///|
+/// Defensive guard added with the `Int64` overflow rewrite: a negative
+/// offset (which the public reader path can't produce, but a misuse of the
+/// internal helper could) must be rejected at the bounds check rather than
+/// crashing on a negative `FixedArray` index further down.
+test "read_central_directory_entry - rejects negative offset" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    -1,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("CD bounds"))
+}
+
+///|
+/// Companion guard: a `cd_end` smaller than 46 bytes (the minimum CD entry
+/// header) must reject any non-negative offset rather than silently passing
+/// because of an arithmetic underflow in the bounds expression.
+test "read_central_directory_entry - rejects cd_end smaller than minimum CD header" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
+  // `cd_end = 20` is below the 46-byte CD entry header.
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry, 0, 20, false,
+  )
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+}
+
+///|
 test "read_central_directory_entry - rejects entry exceeding CD bounds" {
   let name : FixedArray[Byte] = [b'a', b'b', b'c', b'd']
   let entry = make_cd_entry(name, 0, 0U, 0U, 0U)
@@ -988,6 +1036,65 @@ test "unzip_sync - hand-built classic stored archive round-trips through new hel
   assert_eq(content[0], b'X')
   assert_eq(content[1], b'Y')
   assert_eq(content[2], b'Z')
+}
+
+///|
+/// Defensive overflow guard for `local_data_offset`. A malformed central
+/// directory could declare a 32-bit local-header offset of `0x7FFFFFFF`,
+/// which reinterprets to `Int` `2^31 - 1`. The original additive bounds
+/// check `local_offset + 30 > data.length()` wraps that to a negative value
+/// and silently passes — the rewritten subtraction-form check rejects it.
+test "local_data_offset - rejects local_offset near Int max without overflow" {
+  let data : FixedArray[Byte] = FixedArray::make(100, b'\x00')
+  let r : Result[Int, FzipError] = try? local_data_offset(data, 2147483647, 0)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("local file header out of bounds"))
+}
+
+///|
+/// Companion guard for `local_offset` exactly one past the valid window:
+/// it must still be rejected, not silently accepted as `local_offset == data.length() - 30`.
+test "local_data_offset - rejects local_offset > data.length() - 30" {
+  // A 35-byte buffer leaves room for a 30-byte LFH at offset 0..4. Offset 6
+  // would push the 30-byte header end to byte 36, one past the buffer.
+  let data : FixedArray[Byte] = FixedArray::make(35, b'\x00')
+  let r : Result[Int, FzipError] = try? local_data_offset(data, 6, 0)
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+}
+
+///|
+/// `data_off = local_offset + 30 + fnl + exl` previously used straight `Int`
+/// arithmetic and could wrap when `fnl + exl` approaches `2 * 65535`. Build a
+/// hand-rolled LFH with both fields maxed out so the implied data range
+/// extends past the archive — the Int64 path catches it whether or not the
+/// addition would have wrapped.
+test "local_data_offset - rejects oversized fnl/exl that overflow data_off" {
+  let data : FixedArray[Byte] = FixedArray::make(100, b'\x00')
+  // Place a valid local file header signature at offset 0 so we get past the
+  // signature check and exercise the bounds check on `data_off`.
+  w4(data, 0, zip_local_signature)
+  // Set fnl and exl in the 26/28 fields to 65535 each.
+  w2(data, 26, 65535)
+  w2(data, 28, 65535)
+  let r : Result[Int, FzipError] = try? local_data_offset(data, 0, 0)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("filename/extra exceed bounds"))
+}
+
+///|
+/// Companion: a normal LFH (small fnl/exl) at offset 0 still works. This
+/// pins that the new Int64 path doesn't change the happy-path semantics.
+test "local_data_offset - happy path returns expected data offset" {
+  // 30-byte LFH + 3-byte filename "abc" + 0-byte extra + 5 bytes of data.
+  let total = 30 + 3 + 5
+  let data : FixedArray[Byte] = FixedArray::make(total, b'\x00')
+  w4(data, 0, zip_local_signature)
+  w2(data, 26, 3)
+  w2(data, 28, 0)
+  inspect(local_data_offset(data, 0, 5), content="33")
 }
 
 // =============================================================================
