@@ -238,6 +238,12 @@ fn dbf(l : Int) -> Int {
 ///|
 /// Write ZIP file header (local or central directory)
 /// If ce is >= 0, writes central directory header; otherwise local header.
+///
+/// `version_needed` and `version_made_by_low` are the low ZIP-spec bytes
+/// of the matching APPNOTE §4.4.2 / §4.4.3.2 fields. PR5b passes 20 (the
+/// classic baseline) for both; PR5c will pass 45 for entries that use
+/// ZIP64 sentinels or carry a ZIP64 extra field, while still preserving
+/// `os` in the high byte of `version made by`.
 fn wzh(
   d : FixedArray[Byte],
   b : Int,
@@ -254,6 +260,8 @@ fn wzh(
   extra : Array[(Int, FixedArray[Byte])],
   ce : Int, // central directory entry offset, -1 for local header
   comment : FixedArray[Byte]?,
+  version_needed? : Int = 20,
+  version_made_by_low? : Int = 20,
 ) -> Int {
   let fl = fn_data.length()
   let exl = exfl(extra)
@@ -270,12 +278,12 @@ fn wzh(
   }
   b += 4
   if ce >= 0 {
-    d[b] = b'\x14' // version made by
+    d[b] = version_made_by_low.to_byte() // ZIP-spec byte
     b += 1
-    d[b] = os.to_byte()
+    d[b] = os.to_byte() // host OS
     b += 1
   }
-  d[b] = b'\x14' // version needed
+  w2(d, b, version_needed)
   b += 2
   // flags
   d[b] = (flag << 1).to_byte()
@@ -284,17 +292,11 @@ fn wzh(
   d[b] = (compression & 255).to_byte()
   d[b + 1] = (compression >> 8).to_byte()
   b += 2
-  // mtime as DOS datetime
-  let mtime_val = if mtime != 0 { mtime } else { 0 }
-  // Convert unix timestamp to DOS datetime
-  // Simplified: store raw value (would need proper conversion for real use)
-  if mtime_val != 0 {
-    // Simple DOS datetime encoding
-    // DOS date = ((year-1980)<<9) | (month<<5) | day
-    // DOS time = (hour<<11) | (minute<<5) | (second/2)
-    // For simplicity, store 0 if no mtime
-    wbytes(d, b, mtime_val)
-  }
+  // mtime: caller supplies the raw 4-byte value. The Unix-seconds-to-DOS
+  // conversion is a separate pre-existing bug tracked outside the ZIP64
+  // work; PR5b only swaps the variable-width `wbytes` for a fixed-width
+  // `w4` so the field always occupies its 4 bytes.
+  w4(d, b, mtime.reinterpret_as_uint())
   b += 4
   // CRC-32
   wbytes(d, b, crc_val)
@@ -371,11 +373,33 @@ priv struct ZipEntryLayout {
 /// `Int64` so the writer can detect ZIP64 thresholds (PR5c) without
 /// hitting `Int` overflow during arithmetic. Each `Int64` value gets
 /// range-checked before it is converted back for `FixedArray` indexing.
+/// `sanitized_extra` is the user's `opts.extra` with reserved-id
+/// `0x0001` (ZIP64 extended information) entries removed — fzip owns
+/// that id and will emit its own `0x0001` payload in PR5c.
 priv struct ZipLayout {
   entries : Array[ZipEntryLayout]
   cd_offset : Int64
   cd_size : Int64
   total_size : Int64
+  sanitized_extra : Array[(Int, FixedArray[Byte])]
+}
+
+///|
+/// Drop user-provided extra fields whose header id is reserved by fzip
+/// for its own ZIP64 metadata (`0x0001`). PR5b documents the policy and
+/// removes any conflicting entries; PR5c will emit a real ZIP64 extra
+/// field for entries that need one. Other extra fields pass through.
+fn sanitize_user_extra(
+  extra : Array[(Int, FixedArray[Byte])],
+) -> Array[(Int, FixedArray[Byte])] {
+  let result : Array[(Int, FixedArray[Byte])] = []
+  for kv in extra {
+    let (id, _) = kv
+    if id != zip64_extra_field_id {
+      result.push(kv)
+    }
+  }
+  result
 }
 
 ///|
@@ -386,12 +410,13 @@ fn compute_zip_layout(
   files : Array[(String, FixedArray[Byte])],
   opts : ZipEntryOptions,
 ) -> ZipLayout {
+  let sanitized_extra = sanitize_user_extra(opts.extra)
   let comment_len_per_entry = if opts.comment.length() > 0 {
     str_to_u8(opts.comment).length()
   } else {
     0
   }
-  let user_extra_len = exfl(opts.extra)
+  let user_extra_len = exfl(sanitized_extra)
   let entries : Array[ZipEntryLayout] = []
   let mut local_offset = 0L
   let mut cd_size = 0L
@@ -438,7 +463,7 @@ fn compute_zip_layout(
   }
   let cd_offset = local_offset
   let total_size = cd_offset + cd_size + 22L
-  { entries, cd_offset, cd_size, total_size }
+  { entries, cd_offset, cd_size, total_size, sanitized_extra }
 }
 
 ///|
@@ -475,7 +500,7 @@ fn build_classic_zip(
       opts.mtime,
       opts.os,
       opts.attrs,
-      opts.extra,
+      layout.sanitized_extra,
       -1,
       None,
     )
@@ -502,7 +527,7 @@ fn build_classic_zip(
       opts.mtime,
       opts.os,
       opts.attrs,
-      opts.extra,
+      layout.sanitized_extra,
       entry.local_offset.to_int(),
       comment_bytes,
     )

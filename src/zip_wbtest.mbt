@@ -1053,3 +1053,142 @@ test "zip_sync - byte-identical to pre-refactor for classic empty-comment input"
     assert_eq(a[i], b[i])
   }
 }
+
+// =============================================================================
+// PR5b (Phase 5b) — Writer fixed-width metadata cleanup
+// =============================================================================
+
+///|
+test "zip_sync (PR5b) - mtime field is written as a fixed-width 4-byte LE value" {
+  // Cover all four bytes by picking a value whose every byte is non-zero —
+  // the previous variable-width `wbytes` would also have written four bytes
+  // here, but the explicit `w4` makes the field width invariant rather than
+  // dependent on the buffer being zero-initialized.
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0x11223344,
+  }
+  let zipped = zip_sync([("t", [b'X'])], opts~)
+  // Local file header: mtime occupies LFH +10..+13 (after sig +4 / version +2
+  // / flag +2 / compression +2).
+  assert_eq(zipped[10].to_int(), 0x44)
+  assert_eq(zipped[11].to_int(), 0x33)
+  assert_eq(zipped[12].to_int(), 0x22)
+  assert_eq(zipped[13].to_int(), 0x11)
+  // Central directory: same field at CD +12 (after sig +4 / vmb +2 / vn +2 /
+  // flag +2 / compression +2). EOCD is the trailing 22 bytes; the CD offset
+  // lives in the EOCD at -6.
+  let cd_offset = b4(zipped, zipped.length() - 6).reinterpret_as_int()
+  assert_eq(zipped[cd_offset + 12].to_int(), 0x44)
+  assert_eq(zipped[cd_offset + 13].to_int(), 0x33)
+  assert_eq(zipped[cd_offset + 14].to_int(), 0x22)
+  assert_eq(zipped[cd_offset + 15].to_int(), 0x11)
+}
+
+///|
+test "zip_sync (PR5b) - mtime=0 still writes four explicit zero bytes" {
+  // Defensive test: the previous code skipped the write entirely when
+  // `mtime == 0`. The new fixed-width writer always emits four bytes; on a
+  // zero-initialized buffer the visible result is the same, but the test
+  // pins the contract.
+  let zipped = zip_sync([("t", [b'X'])])
+  assert_eq(zipped[10].to_int(), 0)
+  assert_eq(zipped[11].to_int(), 0)
+  assert_eq(zipped[12].to_int(), 0)
+  assert_eq(zipped[13].to_int(), 0)
+}
+
+///|
+test "zip_sync (PR5b) - classic entries stamp version_needed=20 and version_made_by low=20, high=os" {
+  // Phase 5b only emits classic-baseline version bytes. The `wzh` helper now
+  // takes per-call `version_needed` / `version_made_by_low` parameters, but
+  // both default to 20 until PR5c flips them to 45 for ZIP64 entries.
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 3, // Unix
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = zip_sync([("a", [b'X'])], opts~)
+  // LFH version_needed at +4 (low = ZIP spec, high = compatibility OS = 0).
+  assert_eq(zipped[4].to_int(), 20)
+  assert_eq(zipped[5].to_int(), 0)
+  // CD version_made_by at +4 (low = ZIP spec, high = host OS = opts.os).
+  let cd_offset = b4(zipped, zipped.length() - 6).reinterpret_as_int()
+  assert_eq(zipped[cd_offset + 4].to_int(), 20)
+  assert_eq(zipped[cd_offset + 5].to_int(), 3)
+  // CD version_needed at +6 (low = ZIP spec, high = compatibility OS = 0).
+  assert_eq(zipped[cd_offset + 6].to_int(), 20)
+  assert_eq(zipped[cd_offset + 7].to_int(), 0)
+}
+
+///|
+test "zip_sync (PR5b) - drops user-provided extra id 0x0001 (reserved for ZIP64)" {
+  // fzip owns header id 0x0001 (ZIP64 extended information). User-provided
+  // 0x0001 entries are dropped from BOTH the local and the central headers
+  // before any ZIP64 emission decision; unrelated ids pass through verbatim.
+  // Phase 5c will additionally emit fzip's own 0x0001 payload when the
+  // entry actually overflows classic limits.
+  let payload : FixedArray[Byte] = [b'\x99', b'\x88']
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    // 0x0001 would collide with fzip's reserved id; 0x5455 (extended timestamp)
+    // is unrelated and must survive sanitization.
+    extra: [(0x0001, payload), (0x5455, payload)],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = zip_sync([("a", [b'X'])], opts~)
+  let lfh_extra_off = 30 + 1 // 30-byte LFH + 1-byte filename "a"
+  let lfh_extra_len = b2(zipped, 28) // LFH extra_field_length lives at +28
+  let (lfh_has_zip64_id, lfh_has_other) = scan_extra_ids(
+    zipped, lfh_extra_off, lfh_extra_len,
+  )
+  inspect(lfh_has_zip64_id, content="false")
+  inspect(lfh_has_other, content="true")
+  // Same check on the central directory entry.
+  let cd_offset = b4(zipped, zipped.length() - 6).reinterpret_as_int()
+  let cd_extra_off = cd_offset + 46 + 1
+  let cd_extra_len = b2(zipped, cd_offset + 30) // CD extra_field_length at +30
+  let (cd_has_zip64_id, cd_has_other) = scan_extra_ids(
+    zipped, cd_extra_off, cd_extra_len,
+  )
+  inspect(cd_has_zip64_id, content="false")
+  inspect(cd_has_other, content="true")
+}
+
+///|
+/// Walk an extra-field block and report whether 0x0001 and 0x5455 are present.
+fn scan_extra_ids(
+  data : FixedArray[Byte],
+  offset : Int,
+  length : Int,
+) -> (Bool, Bool) raise FzipError {
+  let mut p = offset
+  let end = offset + length
+  let mut has_zip64 = false
+  let mut has_other = false
+  while p + 4 <= end {
+    let id = b2(data, p)
+    let len = b2(data, p + 2)
+    if id == 0x0001 {
+      has_zip64 = true
+    }
+    if id == 0x5455 {
+      has_other = true
+    }
+    p = p + 4 + len
+  }
+  (has_zip64, has_other)
+}
