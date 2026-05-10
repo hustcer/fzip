@@ -237,13 +237,25 @@ fn dbf(l : Int) -> Int {
 
 ///|
 /// Write ZIP file header (local or central directory)
-/// If ce is >= 0, writes central directory header; otherwise local header.
 ///
-/// `version_needed` and `version_made_by_low` are the low ZIP-spec bytes
-/// of the matching APPNOTE §4.4.2 / §4.4.3.2 fields. PR5b passes 20 (the
-/// classic baseline) for both; PR5c will pass 45 for entries that use
-/// ZIP64 sentinels or carry a ZIP64 extra field, while still preserving
-/// `os` in the high byte of `version made by`.
+/// `cd_local_offset` decides which header layout to emit:
+/// * `None` writes a local file header (no central-only fields).
+/// * `Some(off)` writes a central directory entry; `off` is the value to
+///   stamp in the central directory's "relative offset of local header"
+///   field. PR5c writes `0xffffffffU` here when the entry's local-header
+///   offset has been promoted to ZIP64 (the real offset lives in the entry's
+///   ZIP64 extra payload).
+///
+/// `c_size` and `u_size` are pre-computed `UInt` values: callers pass
+/// `0xffffffffU` when the matching field has been promoted to a ZIP64
+/// sentinel and the real value lives in the entry's ZIP64 extra; otherwise
+/// the actual classic-range size.
+///
+/// `version_needed` and `version_made_by_low` are the low ZIP-spec bytes of
+/// the matching APPNOTE §4.4.2 / §4.4.3.2 fields. PR5b stamps them at the
+/// classic baseline of 20; PR5c flips them to 45 for entries that carry
+/// ZIP64 sentinels or a ZIP64 extra field, while still preserving `os` in
+/// the high byte of `version made by`.
 fn wzh(
   d : FixedArray[Byte],
   b : Int,
@@ -252,13 +264,13 @@ fn wzh(
   compression : Int,
   flag : Int,
   crc_val : Int,
-  c_size : Int,
-  u_size : Int,
+  c_size : UInt,
+  u_size : UInt,
   mtime : Int,
   os : Int,
   attrs : Int,
   extra : Array[(Int, FixedArray[Byte])],
-  ce : Int, // central directory entry offset, -1 for local header
+  cd_local_offset : UInt?,
   comment : FixedArray[Byte]?,
   version_needed? : Int = 20,
   version_made_by_low? : Int = 20,
@@ -270,14 +282,15 @@ fn wzh(
     None => 0
   }
   let mut b = b
+  let is_central = cd_local_offset is Some(_)
   // signature
-  if ce >= 0 {
-    wbytes(d, b, zip_cd_signature.reinterpret_as_int())
+  if is_central {
+    w4(d, b, zip_cd_signature)
   } else {
-    wbytes(d, b, zip_local_signature.reinterpret_as_int())
+    w4(d, b, zip_local_signature)
   }
   b += 4
-  if ce >= 0 {
+  if is_central {
     d[b] = version_made_by_low.to_byte() // ZIP-spec byte
     b += 1
     d[b] = os.to_byte() // host OS
@@ -289,32 +302,41 @@ fn wzh(
   d[b] = (flag << 1).to_byte()
   d[b + 1] = if is_utf8 { b'\x08' } else { b'\x00' }
   b += 2
-  d[b] = (compression & 255).to_byte()
-  d[b + 1] = (compression >> 8).to_byte()
+  // compression method
+  w2(d, b, compression)
   b += 2
   // mtime: caller supplies the raw 4-byte value. The Unix-seconds-to-DOS
   // conversion is a separate pre-existing bug tracked outside the ZIP64
-  // work; PR5b only swaps the variable-width `wbytes` for a fixed-width
-  // `w4` so the field always occupies its 4 bytes.
+  // work; this writer only guarantees the field width is invariant.
   w4(d, b, mtime.reinterpret_as_uint())
   b += 4
   // CRC-32
-  wbytes(d, b, crc_val)
-  // compressed size
-  wbytes(d, b + 4, c_size)
-  // uncompressed size
-  wbytes(d, b + 8, u_size)
+  w4(d, b, crc_val.reinterpret_as_uint())
+  b += 4
+  // compressed size (sentinel `0xffffffffU` when promoted to ZIP64)
+  w4(d, b, c_size)
+  b += 4
+  // uncompressed size (sentinel `0xffffffffU` when promoted to ZIP64)
+  w4(d, b, u_size)
+  b += 4
   // filename length
-  wbytes(d, b + 12, fl)
+  w2(d, b, fl)
+  b += 2
   // extra field length
-  wbytes(d, b + 14, exl)
-  b += 16
-  if ce >= 0 {
-    wbytes(d, b, col) // comment length
-    // skip disk number (2 bytes) + internal attrs (2 bytes)
-    wbytes(d, b + 6, attrs) // external attrs
-    wbytes(d, b + 10, ce) // local header offset
-    b += 14
+  w2(d, b, exl)
+  b += 2
+  if is_central {
+    w2(d, b, col) // comment length
+    b += 2
+    // disk number start (2) + internal attrs (2): zero
+    b += 4
+    w4(d, b, attrs.reinterpret_as_uint()) // external attrs
+    b += 4
+    match cd_local_offset {
+      Some(off) => w4(d, b, off)
+      None => ()
+    }
+    b += 4
   }
   // filename
   fn_data.blit_to(d, len=fl, src_offset=0, dst_offset=b)
@@ -324,8 +346,8 @@ fn wzh(
     for i in 0..<extra.length() {
       let (k, exf) = extra[i]
       let l = exf.length()
-      wbytes(d, b, k)
-      wbytes(d, b + 2, l)
+      w2(d, b, k)
+      w2(d, b + 2, l)
       exf.blit_to(d, len=l, src_offset=0, dst_offset=b + 4)
       b += 4 + l
     }
@@ -342,53 +364,137 @@ fn wzh(
 }
 
 ///|
-/// Write ZIP end of central directory record
-fn wzf(o : FixedArray[Byte], b : Int, c : Int, d : Int, e : Int) -> Unit {
-  wbytes(o, b, zip_eocd_signature.reinterpret_as_int())
-  // skip disk numbers (4 bytes = 0)
-  wbytes(o, b + 8, c) // entries on this disk
-  wbytes(o, b + 10, c) // total entries
-  wbytes(o, b + 12, d) // central directory size
-  wbytes(o, b + 16, e) // offset to central directory
+/// Write the classic end-of-central-directory record.
+///
+/// The four 16/32-bit overflow fields (entries on disk + total entries +
+/// central directory size + central directory offset) are independently
+/// promoted to their respective 0xffff / 0xffffffff sentinels when the
+/// real value crosses the classic limit OR when `force_all_sentinels` is
+/// true (test-only forced ZIP64). When any field is sentinel-promoted the
+/// archive must already include a ZIP64 EOCD record + locator immediately
+/// before this classic EOCD; the writer caller is responsible for that
+/// ordering.
+fn wzf(
+  o : FixedArray[Byte],
+  b : Int,
+  entries : Int64,
+  cd_size : Int64,
+  cd_offset : Int64,
+  force_all_sentinels : Bool,
+) -> Unit raise FzipError {
+  w4(o, b, zip_eocd_signature)
+  // disk numbers (4 bytes = 0)
+  let entry_field = if force_all_sentinels ||
+    entries >= zip_uint16_max.to_int64() {
+    zip_uint16_max
+  } else {
+    entries.to_int()
+  }
+  w2(o, b + 8, entry_field) // entries on this disk
+  w2(o, b + 10, entry_field) // total entries
+  let cd_size_field = if force_all_sentinels ||
+    cd_size >= zip_uint32_max.to_int64() {
+    zip_uint32_max
+  } else {
+    let v = zip64_to_int(cd_size, "central directory size")
+    v.reinterpret_as_uint()
+  }
+  w4(o, b + 12, cd_size_field) // central directory size
+  let cd_offset_field = if force_all_sentinels ||
+    cd_offset >= zip_uint32_max.to_int64() {
+    zip_uint32_max
+  } else {
+    let v = zip64_to_int(cd_offset, "central directory offset")
+    v.reinterpret_as_uint()
+  }
+  w4(o, b + 16, cd_offset_field) // offset of central directory
+  // comment length (2 bytes = 0)
 }
 
 ///|
-/// Per-entry layout decision computed during the writer's first pass.
-/// Sizes/offsets are still classic-ZIP `Int` for now; PR5c promotes them
-/// when the entry crosses ZIP64 thresholds. `local_offset` is `Int64`
-/// because the cumulative archive position can in principle exceed
-/// `max_int_val()` even when a single entry doesn't.
+/// Knobs that change `compute_zip_layout` / `build_zip_sync` behavior
+/// independently of the user-facing `ZipEntryOptions`. Today only
+/// `force_zip64` is exposed; tests use it to drive the ZIP64 emission
+/// paths with small inputs, since real archives never hit the 4 GiB / 64 K
+/// thresholds inside the sync API's `Int`-bounded budget.
+priv struct ZipBuildOpts {
+  force_zip64 : Bool
+}
+
+///|
+/// Default writer options: classic emission, ZIP64 only when sizes/offsets
+/// or the entry count actually overflow.
+fn ZipBuildOpts::default() -> ZipBuildOpts {
+  { force_zip64: false }
+}
+
+///|
+/// Pass-A intermediate result: per-entry compressed bytes + CRC + the
+/// `zip64_local` decision (sizes-only, fixed once compression is done).
+/// `zip64_cd` flags depend on the cumulative local-header offset and are
+/// resolved in pass B inside `compute_zip_layout`.
+priv struct ZipEntryComputed {
+  fn_data : FixedArray[Byte]
+  compressed : FixedArray[Byte]
+  is_utf8 : Bool
+  crc_val : Int
+  compressed_size : Int64
+  uncompressed_size : Int64
+  zip64_local : Bool
+}
+
+///|
+/// Per-entry layout decision computed during the writer's two passes.
+///
+/// `zip64_local` is true when the LOCAL file header carries a ZIP64 extra
+/// (16-byte payload with both 8-byte size values, never an offset).
+///
+/// `cd_overflow_*` are the per-field overflow flags for the CENTRAL
+/// directory entry. Each flag independently controls whether the
+/// matching classic field is written as the 32-bit sentinel and whether
+/// its 8-byte value is appended to the central-directory ZIP64 extra
+/// payload. `zip64_cd` (= any of the three) is computed on demand in
+/// the build phase.
 priv struct ZipEntryLayout {
   fn_data : FixedArray[Byte]
   compressed : FixedArray[Byte]
   is_utf8 : Bool
   crc_val : Int
-  compressed_size : Int
-  uncompressed_size : Int
+  compressed_size : Int64
+  uncompressed_size : Int64
   local_offset : Int64
+  zip64_local : Bool
+  cd_overflow_uncompressed : Bool
+  cd_overflow_compressed : Bool
+  cd_overflow_local_offset : Bool
 }
 
 ///|
 /// Aggregate layout for a whole archive. All offsets and sizes are
-/// `Int64` so the writer can detect ZIP64 thresholds (PR5c) without
-/// hitting `Int` overflow during arithmetic. Each `Int64` value gets
-/// range-checked before it is converted back for `FixedArray` indexing.
-/// `sanitized_extra` is the user's `opts.extra` with reserved-id
-/// `0x0001` (ZIP64 extended information) entries removed — fzip owns
-/// that id and will emit its own `0x0001` payload in PR5c.
+/// `Int64` so the writer can detect ZIP64 thresholds without hitting `Int`
+/// overflow during arithmetic. Each `Int64` value gets range-checked
+/// before it is converted back for `FixedArray` indexing.
+///
+/// `archive_zip64` is true when the writer must emit a ZIP64 EOCD record
+/// and locator before the classic EOCD: any per-entry promotion, any
+/// archive-level field overflow, or `build_opts.force_zip64`.
+///
+/// `sanitized_extra` is the user's `opts.extra` with reserved-id `0x0001`
+/// (ZIP64 extended information) entries removed — fzip owns that id.
 priv struct ZipLayout {
   entries : Array[ZipEntryLayout]
   cd_offset : Int64
   cd_size : Int64
   total_size : Int64
+  archive_zip64 : Bool
   sanitized_extra : Array[(Int, FixedArray[Byte])]
 }
 
 ///|
 /// Drop user-provided extra fields whose header id is reserved by fzip
 /// for its own ZIP64 metadata (`0x0001`). PR5b documents the policy and
-/// removes any conflicting entries; PR5c will emit a real ZIP64 extra
-/// field for entries that need one. Other extra fields pass through.
+/// removes any conflicting entries; PR5c emits a real ZIP64 extra field
+/// for entries that need one. Other extra fields pass through.
 fn sanitize_user_extra(
   extra : Array[(Int, FixedArray[Byte])],
 ) -> Array[(Int, FixedArray[Byte])] {
@@ -403,13 +509,24 @@ fn sanitize_user_extra(
 }
 
 ///|
-/// First pass of `zip_sync`: compress every entry, compute its CRC,
-/// determine the local-header size, and accumulate offsets/sizes in
-/// `Int64`. Doesn't allocate the output buffer or write any bytes.
+/// Two-pass layout calculation. Pass A compresses each entry, computes
+/// CRCs, and decides per-entry `zip64_local` from sizes alone. Pass B
+/// walks the computed entries to assign cumulative local offsets,
+/// resolve per-field central-directory overflow flags, validate the
+/// per-header extra-field length, and accumulate the total archive size.
+///
+/// Convergence note: `zip64_local` depends only on per-entry sizes (fixed
+/// after compression), so pass A's local-header sizes are final on first
+/// computation. `zip64_cd` flags depend on the (already final) local
+/// offsets and entry sizes, so pass B is also one-shot. There is no
+/// fixpoint iteration because adding a ZIP64 extra in the central
+/// directory does not shift any local-header offset.
 fn compute_zip_layout(
   files : Array[(String, FixedArray[Byte])],
   opts : ZipEntryOptions,
-) -> ZipLayout {
+  build_opts : ZipBuildOpts,
+) -> ZipLayout raise FzipError {
+  let force = build_opts.force_zip64
   let sanitized_extra = sanitize_user_extra(opts.extra)
   let comment_len_per_entry = if opts.comment.length() > 0 {
     str_to_u8(opts.comment).length()
@@ -417,9 +534,8 @@ fn compute_zip_layout(
     0
   }
   let user_extra_len = exfl(sanitized_extra)
-  let entries : Array[ZipEntryLayout] = []
-  let mut local_offset = 0L
-  let mut cd_size = 0L
+  // Pass A: compress entries; decide zip64_local from sizes alone.
+  let computed : Array[ZipEntryComputed] = []
   for i in 0..<files.length() {
     let (fn_str, file) = files[i]
     let compression = if opts.level == 0 { 0 } else { 8 }
@@ -440,42 +556,125 @@ fn compute_zip_layout(
     }
     let crc_val = crc_c.digest().reinterpret_as_int()
     let is_utf8 = fn_data.length() != fn_str.length()
-    let entry_local_offset = local_offset
-    entries.push({
+    let compressed_size = c_len.to_int64()
+    let uncompressed_size = file.length().to_int64()
+    let zip64_local = force ||
+      compressed_size >= zip_uint32_max.to_int64() ||
+      uncompressed_size >= zip_uint32_max.to_int64()
+    computed.push({
       fn_data,
       compressed,
       is_utf8,
       crc_val,
-      compressed_size: c_len,
-      uncompressed_size: file.length(),
-      local_offset: entry_local_offset,
+      compressed_size,
+      uncompressed_size,
+      zip64_local,
+    })
+  }
+  // Pass B: assign local offsets + cd overflow flags, accumulate sizes.
+  let entries : Array[ZipEntryLayout] = []
+  let mut local_offset = 0L
+  let mut cd_size = 0L
+  let mut any_entry_zip64 = false
+  let max_extra_64 = max_extra_field_length.to_int64()
+  let user_extra_len_64 = user_extra_len.to_int64()
+  let comment_len_per_entry_64 = comment_len_per_entry.to_int64()
+  for c in computed {
+    let cd_overflow_uncompressed = force ||
+      c.uncompressed_size >= zip_uint32_max.to_int64()
+    let cd_overflow_compressed = force ||
+      c.compressed_size >= zip_uint32_max.to_int64()
+    let cd_overflow_local_offset = force ||
+      local_offset >= zip_uint32_max.to_int64()
+    let zip64_cd = cd_overflow_uncompressed ||
+      cd_overflow_compressed ||
+      cd_overflow_local_offset
+    if c.zip64_local || zip64_cd {
+      any_entry_zip64 = true
+    }
+    // Local-header ZIP64 extra: 4-byte field header + 16-byte payload.
+    let local_zip64_bytes = if c.zip64_local { 20L } else { 0L }
+    // Central-header ZIP64 extra: 4-byte header + 8 bytes per overflowing field.
+    let cd_zip64_bytes = if zip64_cd {
+      let mut total = 4L
+      if cd_overflow_uncompressed {
+        total += 8L
+      }
+      if cd_overflow_compressed {
+        total += 8L
+      }
+      if cd_overflow_local_offset {
+        total += 8L
+      }
+      total
+    } else {
+      0L
+    }
+    let total_extra_local = user_extra_len_64 + local_zip64_bytes
+    if total_extra_local > max_extra_64 {
+      raise fzip_err(
+        ExtraFieldTooLong,
+        msg="local-header extra fields exceed maximum",
+      )
+    }
+    let total_extra_cd = user_extra_len_64 + cd_zip64_bytes
+    if total_extra_cd > max_extra_64 {
+      raise fzip_err(
+        ExtraFieldTooLong,
+        msg="central-directory extra fields exceed maximum",
+      )
+    }
+    entries.push({
+      fn_data: c.fn_data,
+      compressed: c.compressed,
+      is_utf8: c.is_utf8,
+      crc_val: c.crc_val,
+      compressed_size: c.compressed_size,
+      uncompressed_size: c.uncompressed_size,
+      local_offset,
+      zip64_local: c.zip64_local,
+      cd_overflow_uncompressed,
+      cd_overflow_compressed,
+      cd_overflow_local_offset,
     })
     let local_total = 30L +
-      fn_data.length().to_int64() +
-      user_extra_len.to_int64() +
-      c_len.to_int64()
+      c.fn_data.length().to_int64() +
+      total_extra_local +
+      c.compressed_size
     let cd_total = 46L +
-      fn_data.length().to_int64() +
-      user_extra_len.to_int64() +
-      comment_len_per_entry.to_int64()
+      c.fn_data.length().to_int64() +
+      total_extra_cd +
+      comment_len_per_entry_64
     local_offset = local_offset + local_total
     cd_size = cd_size + cd_total
   }
   let cd_offset = local_offset
-  let total_size = cd_offset + cd_size + 22L
-  { entries, cd_offset, cd_size, total_size, sanitized_extra }
+  let archive_zip64 = force ||
+    any_entry_zip64 ||
+    entries.length() >= zip_uint16_max ||
+    cd_size >= zip_uint32_max.to_int64() ||
+    cd_offset >= zip_uint32_max.to_int64()
+  // ZIP64 EOCD record (56) + ZIP64 EOCD locator (20) when promoted.
+  let zip64_section = if archive_zip64 { 76L } else { 0L }
+  let total_size = cd_offset + cd_size + zip64_section + 22L
+  // Validate the final archive size fits the sync API's `Int` budget.
+  let _ = zip64_to_int(total_size, "archive total size")
+  { entries, cd_offset, cd_size, total_size, archive_zip64, sanitized_extra }
 }
 
 ///|
-/// Second pass of `zip_sync`: allocate the output buffer and write all
-/// local headers, compressed data, central directory entries, and the
-/// classic EOCD. PR5a only writes classic ZIP metadata; ZIP64 emission
-/// (sentinels, ZIP64 EOCD/locator, ZIP64 extra fields) lands in PR5c.
-fn build_classic_zip(
-  layout : ZipLayout,
+/// Build a complete ZIP archive byte buffer. Shared raising builder used by
+/// both the non-raising `zip_sync` (which traps on raise) and the public
+/// raising `zip_sync_checked`. Emits ZIP64 sentinels, ZIP64 extra fields,
+/// and ZIP64 EOCD record + locator whenever `compute_zip_layout` decides
+/// the archive needs them.
+fn build_zip_sync(
+  files : Array[(String, FixedArray[Byte])],
   opts : ZipEntryOptions,
-) -> FixedArray[Byte] {
-  let total_int = layout.total_size.to_int()
+  build_opts : ZipBuildOpts,
+) -> FixedArray[Byte] raise FzipError {
+  let layout = compute_zip_layout(files, opts, build_opts)
+  let total_int = zip64_to_int(layout.total_size, "archive total size")
   let out = FixedArray::make(total_int, b'\x00')
   let comment_bytes : FixedArray[Byte]? = if opts.comment.length() > 0 {
     Some(str_to_u8(opts.comment))
@@ -487,6 +686,28 @@ fn build_classic_zip(
   // Local headers + compressed data
   for entry in layout.entries {
     let lo = entry.local_offset.to_int()
+    let local_extras : Array[(Int, FixedArray[Byte])] = []
+    for kv in layout.sanitized_extra {
+      local_extras.push(kv)
+    }
+    if entry.zip64_local {
+      let payload = build_zip64_extra_local_payload(
+        entry.uncompressed_size,
+        entry.compressed_size,
+      )
+      local_extras.push((zip64_extra_field_id, payload))
+    }
+    let c_size_field = if entry.zip64_local {
+      zip_uint32_max
+    } else {
+      entry.compressed_size.to_int().reinterpret_as_uint()
+    }
+    let u_size_field = if entry.zip64_local {
+      zip_uint32_max
+    } else {
+      entry.uncompressed_size.to_int().reinterpret_as_uint()
+    }
+    let version_needed = if entry.zip64_local { 45 } else { 20 }
     let end_local = wzh(
       out,
       lo,
@@ -495,18 +716,19 @@ fn build_classic_zip(
       compression,
       flag,
       entry.crc_val,
-      entry.compressed_size,
-      entry.uncompressed_size,
+      c_size_field,
+      u_size_field,
       opts.mtime,
       opts.os,
       opts.attrs,
-      layout.sanitized_extra,
-      -1,
-      None,
+      local_extras,
+      None, // local file header
+      None, // no comment in local header
+      version_needed~,
     )
     entry.compressed.blit_to(
       out,
-      len=entry.compressed_size,
+      len=entry.compressed_size.to_int(),
       src_offset=0,
       dst_offset=end_local,
     )
@@ -514,6 +736,53 @@ fn build_classic_zip(
   // Central directory entries
   let mut cd_off = layout.cd_offset.to_int()
   for entry in layout.entries {
+    let zip64_cd = entry.cd_overflow_uncompressed ||
+      entry.cd_overflow_compressed ||
+      entry.cd_overflow_local_offset
+    let cd_extras : Array[(Int, FixedArray[Byte])] = []
+    for kv in layout.sanitized_extra {
+      cd_extras.push(kv)
+    }
+    if zip64_cd {
+      let u = if entry.cd_overflow_uncompressed {
+        Some(entry.uncompressed_size)
+      } else {
+        None
+      }
+      let c = if entry.cd_overflow_compressed {
+        Some(entry.compressed_size)
+      } else {
+        None
+      }
+      let lo_v = if entry.cd_overflow_local_offset {
+        Some(entry.local_offset)
+      } else {
+        None
+      }
+      let payload = build_zip64_extra_cd_payload(u, c, lo_v)
+      cd_extras.push((zip64_extra_field_id, payload))
+    }
+    let c_size_field = if entry.cd_overflow_compressed {
+      zip_uint32_max
+    } else {
+      entry.compressed_size.to_int().reinterpret_as_uint()
+    }
+    let u_size_field = if entry.cd_overflow_uncompressed {
+      zip_uint32_max
+    } else {
+      entry.uncompressed_size.to_int().reinterpret_as_uint()
+    }
+    let local_offset_field = if entry.cd_overflow_local_offset {
+      zip_uint32_max
+    } else {
+      entry.local_offset.to_int().reinterpret_as_uint()
+    }
+    // version_needed: 45 if the entry's local OR central header carries
+    // ZIP64 metadata. version_made_by low byte: 45 only when this entry
+    // itself is ZIP64 in the central directory; otherwise classic 20 with
+    // opts.os in the high byte.
+    let version_needed = if entry.zip64_local || zip64_cd { 45 } else { 20 }
+    let version_made_by_low = if zip64_cd { 45 } else { 20 }
     cd_off = wzh(
       out,
       cd_off,
@@ -522,23 +791,43 @@ fn build_classic_zip(
       compression,
       flag,
       entry.crc_val,
-      entry.compressed_size,
-      entry.uncompressed_size,
+      c_size_field,
+      u_size_field,
       opts.mtime,
       opts.os,
       opts.attrs,
-      layout.sanitized_extra,
-      entry.local_offset.to_int(),
+      cd_extras,
+      Some(local_offset_field),
       comment_bytes,
+      version_needed~,
+      version_made_by_low~,
     )
   }
-  // Classic EOCD
+  // ZIP64 EOCD record + locator (only when the archive needs ZIP64 metadata)
+  if layout.archive_zip64 {
+    let zip64_eocd_pos = cd_off
+    write_zip64_eocd_record(
+      out,
+      zip64_eocd_pos,
+      layout.entries.length().to_int64(),
+      layout.cd_size,
+      layout.cd_offset,
+    )
+    let locator_pos = zip64_eocd_pos + 56
+    write_zip64_locator(out, locator_pos, zip64_eocd_pos.to_int64())
+    cd_off = locator_pos + 20
+  }
+  // Classic EOCD (always last). When the archive is ZIP64, the writer
+  // sentinel-promotes overflowing entry-count / cd-size / cd-offset
+  // fields so a classic-only reader can locate the record while a ZIP64
+  // reader follows the locator above.
   wzf(
     out,
     cd_off,
-    layout.entries.length(),
-    layout.cd_size.to_int(),
-    layout.cd_offset.to_int(),
+    layout.entries.length().to_int64(),
+    layout.cd_size,
+    layout.cd_offset,
+    build_opts.force_zip64,
   )
   out
 }
@@ -550,13 +839,53 @@ fn build_classic_zip(
 /// encoded as UTF-8 when needed, and `level = 0` stores files without DEFLATE
 /// compression. The returned bytes are a complete ZIP archive containing local
 /// file headers, central directory entries, and the end-of-central-directory
-/// record.
+/// record. ZIP64 metadata (per-entry ZIP64 extras, ZIP64 EOCD record, ZIP64
+/// locator) is emitted automatically when an entry crosses the classic 32-bit
+/// size limit, when the archive carries 65 535 or more entries, or when the
+/// central directory itself crosses the 32-bit size or offset limit.
+///
+/// This function preserves its existing non-raising signature for source
+/// compatibility. The shared raising builder it delegates to may detect
+/// metadata or layout values that exceed the sync API's `Int`/`FixedArray`
+/// budget. When that happens this wrapper traps deterministically with a
+/// stable abort message rather than returning a partial or corrupt archive.
+/// Callers that prefer to recover from such failures should use
+/// `zip_sync_checked`.
 pub fn zip_sync(
   files : Array[(String, FixedArray[Byte])],
   opts? : ZipEntryOptions = ZipEntryOptions::default(),
 ) -> FixedArray[Byte] {
-  let layout = compute_zip_layout(files, opts)
-  build_classic_zip(layout, opts)
+  build_zip_sync(files, opts, ZipBuildOpts::default()) catch {
+    FzipError(message~, ..) =>
+      abort(
+        "fzip.zip_sync failed; use zip_sync_checked for recoverable errors: " +
+        message,
+      )
+  }
+}
+
+///|
+/// Create a ZIP archive from `(filename, data)` entries with recoverable
+/// failure semantics.
+///
+/// Behaves exactly like `zip_sync` but raises `FzipError` instead of trapping
+/// when the writer encounters a value or layout that cannot be represented in
+/// the current sync API. Today this happens for two specific failure modes:
+///
+/// * `Zip64ValueTooLarge` — a metadata count, size, offset, or the final
+///   archive size cannot fit in MoonBit's 32-bit signed `Int` or be safely
+///   indexed in a `FixedArray`.
+/// * `ExtraFieldTooLong` — the user's `opts.extra` plus the writer-generated
+///   ZIP64 extra would exceed `max_extra_field_length` for a local or central
+///   directory entry.
+///
+/// Both APIs share the same underlying builder, so any successful build
+/// produces byte-identical output.
+pub fn zip_sync_checked(
+  files : Array[(String, FixedArray[Byte])],
+  opts? : ZipEntryOptions = ZipEntryOptions::default(),
+) -> FixedArray[Byte] raise FzipError {
+  build_zip_sync(files, opts, ZipBuildOpts::default())
 }
 
 ///|

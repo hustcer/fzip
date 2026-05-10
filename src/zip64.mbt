@@ -172,3 +172,109 @@ fn read_zip64_entry_extra(
   }
   raise fzip_err(InvalidZipData, msg="required ZIP64 extra field not present")
 }
+
+///|
+/// Build the 16-byte payload for a ZIP64 extended information extra field
+/// stored inside a LOCAL file header (PKWARE APPNOTE §4.5.3 + §4.4.8/§4.4.9
+/// notes on local-header interoperability). When either size in the local
+/// header needs the 32-bit sentinel, the local-header ZIP64 extra MUST carry
+/// BOTH 8-byte size values in the spec-fixed order: uncompressed then
+/// compressed. Local headers never include the local header offset — that
+/// belongs to the central directory only.
+///
+/// Returned bytes are the field PAYLOAD only; the surrounding 4-byte
+/// `(header_id, data_size)` pair is stamped in by the writer when this
+/// payload is appended to the entry's extras list.
+fn build_zip64_extra_local_payload(
+  uncompressed : Int64,
+  compressed : Int64,
+) -> FixedArray[Byte] raise FzipError {
+  let _ = zip64_to_int(uncompressed, "ZIP64 local extra uncompressed size")
+  let _ = zip64_to_int(compressed, "ZIP64 local extra compressed size")
+  let buf = FixedArray::make(16, b'\x00')
+  w8(buf, 0, uncompressed)
+  w8(buf, 8, compressed)
+  buf
+}
+
+///|
+/// Build the variable-length payload for a ZIP64 extended information extra
+/// field stored inside a CENTRAL DIRECTORY entry. Each value is included
+/// only when the matching classic field is being written as the 32-bit
+/// sentinel. The order is fixed by APPNOTE §4.5.3: uncompressed, compressed,
+/// local header offset.
+///
+/// `None` for any of the three values means "the classic 32-bit field still
+/// holds the real value, do not include this field in the ZIP64 extra".
+fn build_zip64_extra_cd_payload(
+  uncompressed : Int64?,
+  compressed : Int64?,
+  local_offset : Int64?,
+) -> FixedArray[Byte] raise FzipError {
+  let values : Array[(Int64, String)] = []
+  match uncompressed {
+    Some(v) => values.push((v, "ZIP64 CD extra uncompressed size"))
+    None => ()
+  }
+  match compressed {
+    Some(v) => values.push((v, "ZIP64 CD extra compressed size"))
+    None => ()
+  }
+  match local_offset {
+    Some(v) => values.push((v, "ZIP64 CD extra local offset"))
+    None => ()
+  }
+  let buf = FixedArray::make(values.length() * 8, b'\x00')
+  for i, kv in values {
+    let (v, ctx) = kv
+    let _ = zip64_to_int(v, ctx)
+    w8(buf, i * 8, v)
+  }
+  buf
+}
+
+///|
+/// Write a ZIP64 end-of-central-directory record (PKWARE APPNOTE §4.3.14).
+/// fzip emits the minimum 56-byte form: a 12-byte fixed header (signature +
+/// 8-byte `record size`) followed by the 44-byte field block. The
+/// version_made_by / version_needed bytes are stamped at 45 (low byte) /
+/// 0 (high byte = compatibility OS) per APPNOTE §4.4.3.2. Disk numbers are
+/// zero — multi-disk ZIP is unsupported. Each 64-bit count/size/offset is
+/// validated through `write_zip64_int` so values beyond the sync API's
+/// `Int` ceiling raise `Zip64ValueTooLarge` rather than silently
+/// overflowing.
+fn write_zip64_eocd_record(
+  d : FixedArray[Byte],
+  b : Int,
+  entries : Int64,
+  cd_size : Int64,
+  cd_offset : Int64,
+) -> Unit raise FzipError {
+  w4(d, b, zip64_eocd_signature)
+  // record size = 44 (bytes after this field)
+  w8(d, b + 4, 44L)
+  // version made by (low = 45 spec, high = 0 OS), version needed = 45.
+  w2(d, b + 12, 45)
+  w2(d, b + 14, 45)
+  // disk number (+16) and disk-with-CD (+20): zero for single-disk archives.
+  // entries on this disk == total entries
+  write_zip64_int(d, b + 24, entries, "ZIP64 EOCD entries on disk")
+  write_zip64_int(d, b + 32, entries, "ZIP64 EOCD total entries")
+  write_zip64_int(d, b + 40, cd_size, "ZIP64 EOCD central directory size")
+  write_zip64_int(d, b + 48, cd_offset, "ZIP64 EOCD central directory offset")
+}
+
+///|
+/// Write a 20-byte ZIP64 end-of-central-directory locator (PKWARE APPNOTE
+/// §4.3.15). Single-disk archives only — disk-containing-zip64-EOCD = 0,
+/// total disks = 1.
+fn write_zip64_locator(
+  d : FixedArray[Byte],
+  b : Int,
+  zip64_eocd_offset : Int64,
+) -> Unit raise FzipError {
+  w4(d, b, zip64_locator_signature)
+  // disk-containing-zip64-EOCD at +4: zero.
+  write_zip64_int(d, b + 8, zip64_eocd_offset, "ZIP64 EOCD locator offset")
+  w4(d, b + 16, 1U) // total disks
+}

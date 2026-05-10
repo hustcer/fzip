@@ -67,6 +67,8 @@ pub let zip_local_signature : UInt
 
 pub fn zip_sync(Array[(String, FixedArray[Byte])], opts? : ZipEntryOptions) -> FixedArray[Byte]
 
+pub fn zip_sync_checked(Array[(String, FixedArray[Byte])], opts? : ZipEntryOptions) -> FixedArray[Byte] raise FzipError
+
 pub fn zlib_sync(FixedArray[Byte], opts? : ZlibOptions) -> FixedArray[Byte]
 
 // Errors

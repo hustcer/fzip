@@ -1013,7 +1013,7 @@ test "compute_zip_layout - total_size matches actual zip_sync output length" {
     mtime: 0,
   }
   let zipped = zip_sync(files, opts~)
-  let layout = compute_zip_layout(files, opts)
+  let layout = compute_zip_layout(files, opts, ZipBuildOpts::default())
   inspect(layout.total_size.to_int(), content=zipped.length().to_string())
 }
 
@@ -1191,4 +1191,366 @@ fn scan_extra_ids(
     p = p + 4 + len
   }
   (has_zip64, has_other)
+}
+
+// =============================================================================
+// PR5c (Phase 5c) — ZIP64 writer emission
+// =============================================================================
+//
+// Phase 5c lights up the ZIP64 emission path in the writer. Real archives
+// only need ZIP64 when sizes/offsets cross 4 GiB or the entry count crosses
+// 64 K, both of which are out of reach of the sync API's `Int`-bounded
+// budget. The tests below use the package-private `build_zip_sync` builder
+// with `ZipBuildOpts { force_zip64: true }` so a tiny in-memory input
+// exercises every ZIP64 byte (sentinels, ZIP64 EOCD, locator, version 45,
+// per-entry ZIP64 extras) without allocating gigabytes.
+
+///|
+/// ZIP64 forced round-trip: the package-private writer's output must be
+/// readable by the public `unzip_sync`, with byte-for-byte fidelity. This
+/// catches any drift between writer-side sentinel/extra emission and
+/// reader-side ZIP64 detection.
+test "build_zip_sync (PR5c) - forced ZIP64 round-trips through unzip_sync" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let files : Array[(String, FixedArray[Byte])] = [
+    ("a.txt", [b'X', b'Y']),
+    ("b.bin", [b'\x01', b'\x02', b'\x03']),
+  ]
+  let zipped = build_zip_sync(files, opts, { force_zip64: true })
+  let result = unzip_sync(zipped)
+  assert_eq(result.length(), 2)
+  let (n0, c0) = result[0]
+  assert_eq(n0, "a.txt")
+  assert_eq(c0.length(), 2)
+  assert_eq(c0[0], b'X')
+  assert_eq(c0[1], b'Y')
+  let (n1, c1) = result[1]
+  assert_eq(n1, "b.bin")
+  assert_eq(c1.length(), 3)
+  assert_eq(c1[2], b'\x03')
+}
+
+///|
+test "build_zip_sync (PR5c) - forced ZIP64 round-trips deflated entries" {
+  let opts : ZipEntryOptions = {
+    level: 6,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  // Highly compressible input so deflate produces a different compressed
+  // size — exercises distinct sentinel substitution for compressed and
+  // uncompressed sizes in both LFH and CD ZIP64 extras.
+  let data = FixedArray::make(2048, b'A')
+  let zipped = build_zip_sync([("compressible.bin", data)], opts, {
+    force_zip64: true,
+  })
+  let result = unzip_sync(zipped)
+  assert_eq(result.length(), 1)
+  let (n, c) = result[0]
+  assert_eq(n, "compressible.bin")
+  assert_eq(c.length(), 2048)
+  for i in 0..<2048 {
+    assert_eq(c[i], b'A')
+  }
+}
+
+///|
+/// Layout: classic EOCD at total-22, ZIP64 EOCD locator at total-22-20,
+/// ZIP64 EOCD record at total-22-20-56. All three signatures must be present
+/// in the right order under forced ZIP64.
+test "build_zip_sync (PR5c) - forced ZIP64 emits EOCD record + locator before classic EOCD" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let total = zipped.length()
+  inspect(b4(zipped, total - 22), content=zip_eocd_signature.to_string())
+  inspect(
+    b4(zipped, total - 22 - 20),
+    content=zip64_locator_signature.to_string(),
+  )
+  inspect(
+    b4(zipped, total - 22 - 20 - 56),
+    content=zip64_eocd_signature.to_string(),
+  )
+}
+
+///|
+/// Classic EOCD must carry sentinel values for entry-count, cd-size, and
+/// cd-offset whenever ZIP64 is in effect — that's what tells a classic-only
+/// reader to look for ZIP64 metadata. Forced ZIP64 promotes all three.
+test "build_zip_sync (PR5c) - forced ZIP64 stamps classic-EOCD sentinels for count/size/offset" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let eocd = zipped.length() - 22
+  inspect(b2(zipped, eocd + 8), content=zip_uint16_max.to_string())
+  inspect(b2(zipped, eocd + 10), content=zip_uint16_max.to_string())
+  inspect(b4(zipped, eocd + 12), content=zip_uint32_max.to_string())
+  inspect(b4(zipped, eocd + 16), content=zip_uint32_max.to_string())
+}
+
+///|
+/// version_needed = 45 for any header that carries ZIP64 sentinels OR a
+/// ZIP64 extra; version_made_by low byte is also 45 for entries that are
+/// ZIP64 in the central directory, while the high byte still carries
+/// `opts.os`. Classic-only entries continue to stamp 20 (covered by PR5b).
+test "build_zip_sync (PR5c) - ZIP64 entries stamp version_needed=45 and version_made_by low=45" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 3, // Unix
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  // LFH version_needed at +4 (low byte = ZIP spec, high byte = compatibility OS = 0).
+  inspect(zipped[4].to_int(), content="45")
+  inspect(zipped[5].to_int(), content="0")
+  // The CD offset lives in the ZIP64 EOCD record at +48 (8 bytes).
+  let total = zipped.length()
+  let zip64_eocd_pos = total - 22 - 20 - 56
+  let cd_offset = b8(zipped, zip64_eocd_pos + 48).to_int()
+  // CD version_made_by at +4: low = 45, high = opts.os (3).
+  inspect(zipped[cd_offset + 4].to_int(), content="45")
+  inspect(zipped[cd_offset + 5].to_int(), content="3")
+  // CD version_needed at +6: low = 45.
+  inspect(zipped[cd_offset + 6].to_int(), content="45")
+}
+
+///|
+/// Sanity-checks the four ZIP64-promoted classic fields in both LFH and CD:
+/// compressed/uncompressed sizes (+18/+22 in LFH, +20/+24 in CD) plus the
+/// CD-only "relative offset of local header" at +42.
+test "build_zip_sync (PR5c) - ZIP64 entries write 0xffffffff sentinels in classic LFH/CD fields" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  // LFH classic size fields.
+  inspect(b4(zipped, 18), content=zip_uint32_max.to_string())
+  inspect(b4(zipped, 22), content=zip_uint32_max.to_string())
+  let total = zipped.length()
+  let zip64_eocd_pos = total - 22 - 20 - 56
+  let cd_offset = b8(zipped, zip64_eocd_pos + 48).to_int()
+  // CD classic size fields + local-header-offset field.
+  inspect(b4(zipped, cd_offset + 20), content=zip_uint32_max.to_string())
+  inspect(b4(zipped, cd_offset + 24), content=zip_uint32_max.to_string())
+  inspect(b4(zipped, cd_offset + 42), content=zip_uint32_max.to_string())
+}
+
+///|
+/// Local-header ZIP64 extra: 4-byte field header (`0x0001` + 16) followed
+/// by a 16-byte payload of (uncompressed, compressed). APPNOTE §4.5.3
+/// requires both 8-byte size values to be present in the local header
+/// whenever either size triggers ZIP64; the local extra never includes the
+/// local header offset.
+test "build_zip_sync (PR5c) - local-header ZIP64 extra carries both sizes (16-byte payload)" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let payload : FixedArray[Byte] = [b'X', b'Y', b'Z']
+  let zipped = build_zip_sync([("a", payload)], opts, { force_zip64: true })
+  // Filename "a" is 1 byte; extras start at LFH offset 30 + 1.
+  let extra_off = 30 + 1
+  inspect(b2(zipped, 28), content="20") // 4-byte header + 16-byte payload
+  inspect(b2(zipped, extra_off), content=zip64_extra_field_id.to_string())
+  inspect(b2(zipped, extra_off + 2), content="16")
+  inspect(b8(zipped, extra_off + 4), content="3") // uncompressed
+  inspect(b8(zipped, extra_off + 12), content="3") // compressed (stored)
+}
+
+///|
+/// Central-directory ZIP64 extra under forced ZIP64: 4-byte header followed
+/// by exactly three 8-byte values in spec order (uncompressed, compressed,
+/// local header offset). When only some classic fields use sentinels, only
+/// those fields appear in the payload — covered indirectly by the
+/// round-trip tests, which would fail if the order or selection were wrong.
+test "build_zip_sync (PR5c) - central-header ZIP64 extra carries u/c/local_offset (24-byte payload)" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let total = zipped.length()
+  let zip64_eocd_pos = total - 22 - 20 - 56
+  let cd_offset = b8(zipped, zip64_eocd_pos + 48).to_int()
+  // CD entry: header 46 bytes + filename "a" (1 byte). Extras start at +47.
+  let cd_extra_off = cd_offset + 46 + 1
+  // Total extra bytes = 4-byte field header + 24-byte payload.
+  inspect(b2(zipped, cd_offset + 30), content="28")
+  inspect(b2(zipped, cd_extra_off), content=zip64_extra_field_id.to_string())
+  inspect(b2(zipped, cd_extra_off + 2), content="24")
+  inspect(b8(zipped, cd_extra_off + 4), content="1") // uncompressed
+  inspect(b8(zipped, cd_extra_off + 12), content="1") // compressed (stored)
+  inspect(b8(zipped, cd_extra_off + 20), content="0") // first entry → offset 0
+}
+
+///|
+/// PR5b proved fzip drops user-provided 0x0001 from extras. PR5c adds the
+/// reverse half of the contract: when ZIP64 is actually needed, fzip emits
+/// EXACTLY ONE 0x0001 entry (its own) per header. A forged user payload
+/// must not survive, and the writer must not emit duplicates.
+test "build_zip_sync (PR5c) - user 0x0001 dropped, fzip's own ZIP64 extra emitted exactly once" {
+  let user_zip64 : FixedArray[Byte] = [b'\x99', b'\x88', b'\x77']
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [(0x0001, user_zip64), (0x5455, [b'\xAA'])],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  // Local header extras: should hold ONE 0x0001 (16 bytes) + ONE 0x5455.
+  let lfh_extra_off = 30 + 1
+  let lfh_extra_len = b2(zipped, 28)
+  let mut p = lfh_extra_off
+  let mut zip64_count = 0
+  let mut zip64_payload = 0
+  let mut other_count = 0
+  while p + 4 <= lfh_extra_off + lfh_extra_len {
+    let id = b2(zipped, p)
+    let len = b2(zipped, p + 2)
+    if id == zip64_extra_field_id {
+      zip64_count = zip64_count + 1
+      zip64_payload = len
+    }
+    if id == 0x5455 {
+      other_count = other_count + 1
+    }
+    p = p + 4 + len
+  }
+  inspect(zip64_count, content="1")
+  inspect(zip64_payload, content="16")
+  inspect(other_count, content="1")
+}
+
+///|
+/// The non-raising `zip_sync` shares the raising builder. When the builder
+/// raises a recoverable error, `zip_sync_checked` must surface it; the
+/// surrogate proves the same condition is reachable through the public
+/// raising API. (Triggering the abort wrapper itself would terminate the
+/// test process, so we exercise the checked variant.)
+test "zip_sync_checked (PR5c) - raises ExtraFieldTooLong when user extras overflow per-entry budget" {
+  let huge : FixedArray[Byte] = FixedArray::make(
+    max_extra_field_length + 1,
+    b'\x00',
+  )
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [(0x5455, huge)],
+    comment: "",
+    mtime: 0,
+  }
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked(
+    [("a", [b'X'])],
+    opts~,
+  )
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, ExtraFieldTooLong)
+}
+
+///|
+/// Same input through both APIs must produce byte-identical archives —
+/// `zip_sync` is just `zip_sync_checked` with a trap-on-raise wrapper.
+test "zip_sync_checked (PR5c) - happy-path output is byte-identical to zip_sync" {
+  let files : Array[(String, FixedArray[Byte])] = [
+    ("hi.txt", [b'A', b'B', b'C']),
+  ]
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let a = zip_sync(files, opts~)
+  let b = zip_sync_checked(files, opts~)
+  assert_eq(a.length(), b.length())
+  for i in 0..<a.length() {
+    assert_eq(a[i], b[i])
+  }
+}
+
+///|
+/// Layout-level guarantee: `archive_zip64` is false when no entry, no size,
+/// no offset, and no count threshold has been crossed — and the writer
+/// produces exactly the classic 22-byte EOCD with no ZIP64 prelude. This
+/// is the "do no harm" property: ZIP64 metadata only appears when needed.
+test "compute_zip_layout (PR5c) - classic-sized archive does not promote to ZIP64" {
+  let files : Array[(String, FixedArray[Byte])] = [
+    ("a.txt", [b'X']),
+    ("b.txt", [b'Y']),
+  ]
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let layout = compute_zip_layout(files, opts, ZipBuildOpts::default())
+  assert_false(layout.archive_zip64)
+  let zipped = zip_sync(files, opts~)
+  // Trailing 22 bytes are the classic EOCD; the bytes immediately before
+  // are NOT a ZIP64 locator under classic emission.
+  let eocd = zipped.length() - 22
+  inspect(b4(zipped, eocd), content=zip_eocd_signature.to_string())
+  if eocd >= 20 {
+    let maybe_locator = b4(zipped, eocd - 20)
+    assert_true(maybe_locator != zip64_locator_signature)
+  }
 }
