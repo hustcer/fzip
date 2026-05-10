@@ -102,6 +102,51 @@ for info in infos {
 }
 ```
 
+#### ZIP64 metadata support
+
+`zip_sync`, `unzip_sync`, and `unzip_list` understand ZIP64 metadata for
+archives and entries that fit inside the sync API's `Int`/`FixedArray`
+budget. The writer automatically promotes an archive to ZIP64 when any of
+the classic 4 GiB / 64 K limits is reached:
+
+- entry compressed or uncompressed size ≥ `0xFFFFFFFF`
+- entry local-header offset ≥ `0xFFFFFFFF`
+- entry count ≥ `0xFFFF`
+- central directory size or offset ≥ `0xFFFFFFFF`
+
+When promoted the archive carries the spec-mandated ZIP64 EOCD record,
+ZIP64 EOCD locator, and per-entry ZIP64 extra fields; the existing
+classic EOCD continues to be written last so classic-only readers can
+still locate the central directory.
+
+The reader path validates ZIP64 metadata up front: structurally valid
+ZIP64 archives whose count, size, offset, or layout exceeds what the
+current sync API can safely index raise the new
+`FzipErrorCode::Zip64ValueTooLarge`. Malformed archives, encryption,
+data-descriptor entries (general-purpose bit 3), multi-disk archives,
+and missing required ZIP64 extras continue to raise `InvalidZipData`.
+
+For recoverable writer failures (extras-too-long, ZIP64 layout overflow)
+use the new `zip_sync_checked` API:
+
+```moonbit
+let archive = @fzip.zip_sync_checked(files) catch {
+  FzipError(code~, message~) => {
+    // handle Zip64ValueTooLarge or ExtraFieldTooLong here
+    return
+  }
+}
+```
+
+`zip_sync` itself shares the same builder and traps deterministically
+with a stable abort message when the builder reports a recoverable
+error — it never returns a partial or corrupt archive.
+
+True large-file streaming (entries or archives larger than ~2 GiB) is
+not yet supported; that work is tracked under Phase 2 and depends on a
+streaming DEFLATE engine. See [`docs/zip64.md`](docs/zip64.md) for the
+full plan.
+
 ### Automatic Decompression
 
 ```moonbit
