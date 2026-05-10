@@ -51,15 +51,6 @@ fn b4(d : FixedArray[Byte], b : Int) -> UInt raise FzipError {
 }
 
 ///|
-/// Read 8 bytes (little-endian) from data at offset b
-fn b8(d : FixedArray[Byte], b : Int) -> Int64 raise FzipError {
-  if b + 7 >= d.length() {
-    raise fzip_err(UnexpectedEOF, msg="not enough bytes for b8")
-  }
-  b4(d, b).to_int64() + b4(d, b + 4).to_int64() * 4294967296L
-}
-
-///|
 /// Write bytes (little-endian) to data at offset b
 fn wbytes(d : FixedArray[Byte], b : Int, v : Int) -> Unit {
   let mut v = v.reinterpret_as_uint()
