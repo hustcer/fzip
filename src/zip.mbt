@@ -351,39 +351,56 @@ fn wzf(o : FixedArray[Byte], b : Int, c : Int, d : Int, e : Int) -> Unit {
 }
 
 ///|
-/// Create a ZIP archive from `(filename, data)` entries.
-///
-/// Each entry is written with the same `ZipEntryOptions`. Entry names are
-/// encoded as UTF-8 when needed, and `level = 0` stores files without DEFLATE
-/// compression. The returned bytes are a complete ZIP archive containing local
-/// file headers, central directory entries, and the end-of-central-directory
-/// record.
-pub fn zip_sync(
+/// Per-entry layout decision computed during the writer's first pass.
+/// Sizes/offsets are still classic-ZIP `Int` for now; PR5c promotes them
+/// when the entry crosses ZIP64 thresholds. `local_offset` is `Int64`
+/// because the cumulative archive position can in principle exceed
+/// `max_int_val()` even when a single entry doesn't.
+priv struct ZipEntryLayout {
+  fn_data : FixedArray[Byte]
+  compressed : FixedArray[Byte]
+  is_utf8 : Bool
+  crc_val : Int
+  compressed_size : Int
+  uncompressed_size : Int
+  local_offset : Int64
+}
+
+///|
+/// Aggregate layout for a whole archive. All offsets and sizes are
+/// `Int64` so the writer can detect ZIP64 thresholds (PR5c) without
+/// hitting `Int` overflow during arithmetic. Each `Int64` value gets
+/// range-checked before it is converted back for `FixedArray` indexing.
+priv struct ZipLayout {
+  entries : Array[ZipEntryLayout]
+  cd_offset : Int64
+  cd_size : Int64
+  total_size : Int64
+}
+
+///|
+/// First pass of `zip_sync`: compress every entry, compute its CRC,
+/// determine the local-header size, and accumulate offsets/sizes in
+/// `Int64`. Doesn't allocate the output buffer or write any bytes.
+fn compute_zip_layout(
   files : Array[(String, FixedArray[Byte])],
-  opts? : ZipEntryOptions = ZipEntryOptions::default(),
-) -> FixedArray[Byte] {
-  let entries : Array[
-    (
-      FixedArray[Byte],
-      FixedArray[Byte],
-      FixedArray[Byte],
-      Bool,
-      Int,
-      Int,
-      Int,
-      Int,
-    ),
-  ] = []
-  let mut o = 0
-  let mut tot = 0
+  opts : ZipEntryOptions,
+) -> ZipLayout {
+  let comment_len_per_entry = if opts.comment.length() > 0 {
+    str_to_u8(opts.comment).length()
+  } else {
+    0
+  }
+  let user_extra_len = exfl(opts.extra)
+  let entries : Array[ZipEntryLayout] = []
+  let mut local_offset = 0L
+  let mut cd_size = 0L
   for i in 0..<files.length() {
     let (fn_str, file) = files[i]
     let compression = if opts.level == 0 { 0 } else { 8 }
-    let f = str_to_u8(fn_str)
-    let s = f.length()
-    let exl = exfl(opts.extra)
+    let fn_data = str_to_u8(fn_str)
     let crc_c = CRC32State::new()
-    let (d, c_len) = if compression != 0 {
+    let (compressed, c_len) = if compression != 0 {
       dopt(
         file,
         { level: opts.level, mem: opts.mem, dictionary: None },
@@ -396,34 +413,65 @@ pub fn zip_sync(
       crc_c.push(file)
       (file, file.length())
     }
-    let crc_v = crc_c.digest()
-    let is_utf8 = s != fn_str.length()
-    entries.push(
-      (f, file, d, is_utf8, crc_v.reinterpret_as_int(), file.length(), c_len, o),
-    )
-    o += 30 + s + exl + c_len
-    tot += 76 + 2 * (s + exl) + c_len
+    let crc_val = crc_c.digest().reinterpret_as_int()
+    let is_utf8 = fn_data.length() != fn_str.length()
+    let entry_local_offset = local_offset
+    entries.push({
+      fn_data,
+      compressed,
+      is_utf8,
+      crc_val,
+      compressed_size: c_len,
+      uncompressed_size: file.length(),
+      local_offset: entry_local_offset,
+    })
+    let local_total = 30L +
+      fn_data.length().to_int64() +
+      user_extra_len.to_int64() +
+      c_len.to_int64()
+    let cd_total = 46L +
+      fn_data.length().to_int64() +
+      user_extra_len.to_int64() +
+      comment_len_per_entry.to_int64()
+    local_offset = local_offset + local_total
+    cd_size = cd_size + cd_total
   }
-  let out = FixedArray::make(tot + 22, b'\x00')
-  let oe = o
-  let cdl = tot - o
-  let mut cd_offset = o
-  for i in 0..<entries.length() {
-    let (fn_data, _file, compressed, is_utf8, crc_val, u_size, c_size, local_off
-    ) = entries[i]
-    let flag = dbf(opts.level)
-    let compression = if opts.level == 0 { 0 } else { 8 }
-    // Write local header
+  let cd_offset = local_offset
+  let total_size = cd_offset + cd_size + 22L
+  { entries, cd_offset, cd_size, total_size }
+}
+
+///|
+/// Second pass of `zip_sync`: allocate the output buffer and write all
+/// local headers, compressed data, central directory entries, and the
+/// classic EOCD. PR5a only writes classic ZIP metadata; ZIP64 emission
+/// (sentinels, ZIP64 EOCD/locator, ZIP64 extra fields) lands in PR5c.
+fn build_classic_zip(
+  layout : ZipLayout,
+  opts : ZipEntryOptions,
+) -> FixedArray[Byte] {
+  let total_int = layout.total_size.to_int()
+  let out = FixedArray::make(total_int, b'\x00')
+  let comment_bytes : FixedArray[Byte]? = if opts.comment.length() > 0 {
+    Some(str_to_u8(opts.comment))
+  } else {
+    None
+  }
+  let flag = dbf(opts.level)
+  let compression = if opts.level == 0 { 0 } else { 8 }
+  // Local headers + compressed data
+  for entry in layout.entries {
+    let lo = entry.local_offset.to_int()
     let end_local = wzh(
       out,
-      local_off,
-      fn_data,
-      is_utf8,
+      lo,
+      entry.fn_data,
+      entry.is_utf8,
       compression,
       flag,
-      crc_val,
-      c_size,
-      u_size,
+      entry.crc_val,
+      entry.compressed_size,
+      entry.uncompressed_size,
       opts.mtime,
       opts.os,
       opts.attrs,
@@ -431,34 +479,59 @@ pub fn zip_sync(
       -1,
       None,
     )
-    // Copy compressed data after local header
-    compressed.blit_to(out, len=c_size, src_offset=0, dst_offset=end_local)
-    // Write central directory entry
-    let comment_bytes : FixedArray[Byte]? = if opts.comment.length() > 0 {
-      Some(str_to_u8(opts.comment))
-    } else {
-      None
-    }
-    cd_offset = wzh(
+    entry.compressed.blit_to(
       out,
-      cd_offset,
-      fn_data,
-      is_utf8,
+      len=entry.compressed_size,
+      src_offset=0,
+      dst_offset=end_local,
+    )
+  }
+  // Central directory entries
+  let mut cd_off = layout.cd_offset.to_int()
+  for entry in layout.entries {
+    cd_off = wzh(
+      out,
+      cd_off,
+      entry.fn_data,
+      entry.is_utf8,
       compression,
       flag,
-      crc_val,
-      c_size,
-      u_size,
+      entry.crc_val,
+      entry.compressed_size,
+      entry.uncompressed_size,
       opts.mtime,
       opts.os,
       opts.attrs,
       opts.extra,
-      local_off,
+      entry.local_offset.to_int(),
       comment_bytes,
     )
   }
-  wzf(out, cd_offset, entries.length(), cdl, oe)
+  // Classic EOCD
+  wzf(
+    out,
+    cd_off,
+    layout.entries.length(),
+    layout.cd_size.to_int(),
+    layout.cd_offset.to_int(),
+  )
   out
+}
+
+///|
+/// Create a ZIP archive from `(filename, data)` entries.
+///
+/// Each entry is written with the same `ZipEntryOptions`. Entry names are
+/// encoded as UTF-8 when needed, and `level = 0` stores files without DEFLATE
+/// compression. The returned bytes are a complete ZIP archive containing local
+/// file headers, central directory entries, and the end-of-central-directory
+/// record.
+pub fn zip_sync(
+  files : Array[(String, FixedArray[Byte])],
+  opts? : ZipEntryOptions = ZipEntryOptions::default(),
+) -> FixedArray[Byte] {
+  let layout = compute_zip_layout(files, opts)
+  build_classic_zip(layout, opts)
 }
 
 ///|

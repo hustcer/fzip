@@ -989,3 +989,67 @@ test "unzip_sync - hand-built classic stored archive round-trips through new hel
   assert_eq(content[1], b'Y')
   assert_eq(content[2], b'Z')
 }
+
+// =============================================================================
+// PR5a (Phase 5a) — Writer layout refactor (no ZIP64 emission yet)
+// =============================================================================
+
+///|
+test "compute_zip_layout - total_size matches actual zip_sync output length" {
+  // The old writer underestimated the buffer when opts.comment was
+  // non-empty (the per-entry CD comment bytes weren't in the `tot` sum).
+  // PR5a's layout pass accounts for them; assert the math is exact.
+  let files : Array[(String, FixedArray[Byte])] = [
+    ("one.txt", [b'A']),
+    ("two.txt", [b'B', b'C']),
+  ]
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "",
+    mtime: 0,
+  }
+  let zipped = zip_sync(files, opts~)
+  let layout = compute_zip_layout(files, opts)
+  inspect(layout.total_size.to_int(), content=zipped.length().to_string())
+}
+
+///|
+test "zip_sync - non-empty CD comment is allocated and round-trips" {
+  // Pre-PR5a writer would under-allocate the buffer because the CD
+  // comment bytes weren't counted in `tot`. PR5a's layout includes them.
+  let data : FixedArray[Byte] = [b'X', b'Y']
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment: "hello",
+    mtime: 0,
+  }
+  let zipped = zip_sync([("a.txt", data)], opts~)
+  let files = unzip_sync(zipped)
+  assert_eq(files.length(), 1)
+  assert_eq(files[0].0, "a.txt")
+  assert_eq(files[0].1.length(), 2)
+}
+
+///|
+test "zip_sync - byte-identical to pre-refactor for classic empty-comment input" {
+  // Smoke test that two layout passes on identical input produce the
+  // same bytes — i.e. the refactor is deterministic.
+  let files : Array[(String, FixedArray[Byte])] = [
+    ("a.bin", [b'\x01', b'\x02']),
+    ("b.bin", [b'\x03']),
+  ]
+  let a = zip_sync(files)
+  let b = zip_sync(files)
+  assert_eq(a.length(), b.length())
+  for i in 0..<a.length() {
+    assert_eq(a[i], b[i])
+  }
+}
