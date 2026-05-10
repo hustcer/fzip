@@ -67,28 +67,25 @@ which is APPNOTE.txt's marker for ZIP64.
 
 ## Verifying with fzip locally
 
-After regenerating the fixtures and running `moon test`, you can
-sanity-check fzip against them out of band. The simplest path is to
-load the bytes in a small MoonBit driver:
+The canonical SHA-256s above are mirrored in `src/zip64_fixtures_wbtest.mbt`,
+which embeds both fixtures as `FixedArray[Byte]` literals and asserts
+that fzip's `unzip_list` and `unzip_sync` round-trip them correctly.
+That means `moon test` already exercises both fixtures every run — you
+do not need to keep generated `.zip` files on disk for CI to catch
+regressions.
 
-```moonbit
-// tools/zip64-fixtures/check_local.mbt — not committed; create on demand
-fn main {
-  // Read the bytes through whatever IO path your platform provides
-  // (the hustcer/fzip core is target-agnostic; the host harness reads
-  // the file into a `FixedArray[Byte]` and hands it to unzip_sync).
-  let bytes : FixedArray[Byte] = ... // read tools/zip64-fixtures/output/...
-  let files = @fzip.unzip_sync(bytes)
-  for entry in files {
-    let (name, content) = entry
-    println("\{name}: \{content.length()}")
-  }
-}
-```
+If you change the generators or want to refresh the embedded copies:
 
-The forced-ZIP64 round-trip already lives in `src/zip_wbtest.mbt` and
-proves writer/reader self-consistency — the cross-tool fixtures here
-are an additional independence check beyond that.
+1. Regenerate locally with the scripts above.
+2. Confirm the printed SHA-256s match the comment header at the top of
+   each `let ..._fixture` block in `src/zip64_fixtures_wbtest.mbt`.
+3. If they differ, re-embed the new bytes (a small helper script can
+   convert binary to MoonBit byte-array literal form) and update the
+   `SHA-256:` comment lines in lockstep.
+
+The forced-ZIP64 round-trip in `src/zip_wbtest.mbt` covers
+writer/reader self-consistency; the cross-tool fixtures here add the
+independence check on top of that.
 
 ## Recording provenance
 

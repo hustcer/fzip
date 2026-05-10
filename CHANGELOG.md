@@ -73,6 +73,21 @@ that need streaming continue to be deferred to Phase 2.
   attacker-supplied or accidentally-set `0x0001` cannot collide with
   fzip's metadata. This is documented as reserved-id behavior.
 
+#### Cross-tool fixture coverage
+
+The `moon test` suite now exercises fzip's reader against ZIP64
+archives written by independent tools — both byte literals are
+embedded in `src/zip64_fixtures_wbtest.mbt` so they run in CI without
+requiring Python or Info-ZIP on the host:
+
+- Python `zipfile.ZipFile.open(..., force_zip64=True)` (278 bytes,
+  SHA-256 `3e15b0ee932b51a4...`).
+- Info-ZIP `zip -X -fz` (378 bytes, SHA-256 `94463df34e356968b...`).
+
+The deterministic generator scripts under `tools/zip64-fixtures/`
+reproduce the canonical bytes; SHA-256 comments next to the literals
+catch silent drift if anyone re-embeds without regenerating.
+
 #### Public API additions
 
 - **`pub fn zip_sync_checked(files, opts?) -> FixedArray[Byte] raise
