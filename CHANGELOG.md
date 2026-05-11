@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.2 - 2026-05-11
+
+### Performance
+
+- **Speed up small DEFLATE blocks**: For blocks up to 1024 bytes, skip dynamic Huffman tree construction and use the smaller of stored or fixed-Huffman encoding, yielding a 48.1% compression speedup for small fixed-block cases.
+
 ## v0.6.1 - 2026-05-09
 
 ### Performance
