@@ -89,6 +89,23 @@ test "deflate level 1 - fast" {
 }
 
 ///|
+test "deflate small block uses fixed huffman fast path" {
+  let size = 1024
+  let data : FixedArray[Byte] = FixedArray::make(size, b'\x00')
+  for i in 0..<size {
+    data[i] = (i % 256).to_byte()
+  }
+  let compressed = deflate_sync(data)
+  // BFINAL=1 and BTYPE=01, encoded in the first three low bits.
+  assert_eq(compressed[0].to_int() & 7, 3)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), data.length())
+  for i in 0..<data.length() {
+    assert_eq(decompressed[i], data[i])
+  }
+}
+
+///|
 test "deflate level 9 - best" {
   let data : FixedArray[Byte] = FixedArray::make(200, b'\x00')
   for i in 0..<200 {

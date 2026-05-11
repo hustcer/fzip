@@ -55,6 +55,9 @@ fn grown_out_capacity(cur : Int, need : Int) -> Int {
 }
 
 ///|
+let small_fixed_block_threshold : Int = 1024
+
+///|
 /// Write a stored (uncompressed) block
 /// Returns new bit position
 fn wfblk(
@@ -131,6 +134,16 @@ fn wblk(
   wbits(out, p, final_)
   p += 1
   lf[256] = lf[256] + 1
+  if bl <= small_fixed_block_threshold {
+    let flen = (bl + 5) << 3
+    let ftlen = clen(lf, flt) + clen(df, fdt) + eb
+    if bs >= 0 && flen <= ftlen {
+      return wfblk(out, p, dat, bs, bl)
+    }
+    wbits(out, p, 1) // fixed
+    p += 2
+    return write_syms(out, flm, flt, fdm, fdt, syms, li, p)
+  }
   let (dlt, mlb) = h_tree(lf, 15)
   let (ddt, mdb) = h_tree(df, 15)
   let (lclt, nlc) = lc_gen(dlt)
