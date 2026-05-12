@@ -1,4 +1,15 @@
 ///|
+fn assert_bytes_eq(
+  actual : FixedArray[Byte],
+  expected : FixedArray[Byte],
+) -> Unit raise {
+  assert_eq(actual.length(), expected.length())
+  for i in 0..<actual.length() {
+    assert_eq(actual[i], expected[i])
+  }
+}
+
+///|
 /// Test inflate roundtrip for very small input (1 byte)
 test "inflate/small_buffer/1_byte" {
   let data : FixedArray[Byte] = [0x42]
@@ -527,7 +538,7 @@ test "inflt/backref/rle_zeros_16k" {
   let data = FixedArray::make(16384, b'\x00')
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -537,7 +548,7 @@ test "inflt/backref/rle_0xff" {
   let data = FixedArray::make(4096, b'\xFF')
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -550,7 +561,7 @@ test "inflt/backref/overlap_2byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -563,7 +574,7 @@ test "inflt/backref/overlap_3byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -576,7 +587,7 @@ test "inflt/backref/overlap_4byte_pattern" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -599,7 +610,7 @@ test "inflt/backref/non_overlapping" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -621,7 +632,7 @@ test "inflt/backref/mixed_paths" {
   }
   let compressed = deflate_sync(data)
   let decompressed = inflate_sync(compressed)
-  assert_eq(decompressed, data)
+  assert_bytes_eq(decompressed, data)
 }
 
 ///|
@@ -637,5 +648,5 @@ test "inflt/backref/gzip_rle_pattern" {
   }
   let gz = gzip_sync(data)
   let result = gunzip_sync(gz)
-  assert_eq(result, data)
+  assert_bytes_eq(result, data)
 }
