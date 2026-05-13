@@ -113,6 +113,7 @@ fn local_data_offset(
 /// of the sizes — they're all `Int`).
 priv struct ZipEntryHeader {
   compression : Int
+  crc : UInt
   compressed_size : Int
   uncompressed_size : Int
   name : String
@@ -156,6 +157,7 @@ fn read_central_directory_entry(
   }
   let flag = b2(data, offset + 8)
   let compression = b2(data, offset + 10)
+  let crc = b4(data, offset + 16)
   let comp_size_classic = b4(data, offset + 20)
   let uncomp_size_classic = b4(data, offset + 24)
   let filename_len = b2(data, offset + 28)
@@ -229,6 +231,7 @@ fn read_central_directory_entry(
   }
   {
     compression,
+    crc,
     compressed_size,
     uncompressed_size,
     name,
@@ -253,6 +256,57 @@ fn exfl(ex : Array[(Int, FixedArray[Byte])]) -> Int {
 fn validate_zip_u16(value : Int, context : String) -> Unit raise FzipError {
   if value < 0 || value > zip_uint16_max {
     raise fzip_err(InvalidZipData, msg=context + " exceeds 16-bit ZIP field")
+  }
+}
+
+///|
+/// Validate sync ZIP input size before scanning metadata.
+fn validate_zip_input_len(len : Int) -> Unit raise FzipError {
+  if len > default_max_input_size {
+    raise fzip_err(
+      InvalidZipData,
+      msg="ZIP input exceeds default_max_input_size",
+    )
+  }
+}
+
+///|
+/// Validate entry count before allocating result arrays or writer layout state.
+fn validate_zip_entry_count(entries : Int) -> Unit raise FzipError {
+  if entries > max_zip_entries {
+    raise fzip_err(
+      InvalidZipData,
+      msg="ZIP entry count exceeds max_zip_entries",
+    )
+  }
+}
+
+///|
+/// Add an entry's uncompressed size to the sync extraction budget.
+fn add_zip_output_budget(total : Int, entry_size : Int) -> Int raise FzipError {
+  if entry_size < 0 {
+    raise fzip_err(InvalidZipData, msg="negative ZIP entry output size")
+  }
+  if entry_size > default_max_output_size {
+    raise fzip_err(
+      InvalidZipData,
+      msg="entry uncompressed size exceeds default_max_output_size",
+    )
+  }
+  if total > max_zip_total_output_size - entry_size {
+    raise fzip_err(
+      InvalidZipData,
+      msg="total ZIP output exceeds max_zip_total_output_size",
+    )
+  }
+  total + entry_size
+}
+
+///|
+/// Validate extracted ZIP entry content against the central-directory CRC-32.
+fn validate_zip_crc(actual : UInt, expected : UInt) -> Unit raise FzipError {
+  if actual != expected {
+    raise fzip_err(InvalidChecksum, msg="ZIP entry CRC-32 mismatch")
   }
 }
 
@@ -579,10 +633,17 @@ fn compute_zip_layout(
   let user_extra_len = exfl(sanitized_extra)
   // Pass A: compress entries; decide zip64_local from sizes alone.
   let computed : Array[ZipEntryComputed] = []
+  validate_zip_entry_count(files.length())
   for i in 0..<files.length() {
     let (fn_str, file) = files[i]
     let compression = if opts.level == 0 { 0 } else { 8 }
     let fn_data = str_to_u8(fn_str)
+    if fn_data.length() > max_filename_length {
+      raise fzip_err(
+        FilenameTooLong,
+        msg="ZIP filename exceeds max_filename_length",
+      )
+    }
     if fn_data.length() > zip_uint16_max {
       raise fzip_err(
         FilenameTooLong,
@@ -982,6 +1043,7 @@ fn read_classic_cd_info(
       msg="central directory bounds exceed archive",
     )
   }
+  validate_zip_entry_count(entries_total)
   { entries: entries_total, size, offset, zip64: false }
 }
 
@@ -1086,6 +1148,7 @@ fn read_zip64_cd_info(
       msg="ZIP64 central directory bounds exceed archive",
     )
   }
+  validate_zip_entry_count(z64_entries_total)
   {
     entries: z64_entries_total,
     size: z64_size,
@@ -1215,6 +1278,7 @@ fn read_central_directory_info(
 pub fn unzip_sync(
   data : FixedArray[Byte],
 ) -> Array[(String, FixedArray[Byte])] raise FzipError {
+  validate_zip_input_len(data.length())
   let files : Array[(String, FixedArray[Byte])] = []
   let eocd = find_eocd(data)
   let cd = read_central_directory_info(data, eocd)
@@ -1223,6 +1287,7 @@ pub fn unzip_sync(
   }
   let cd_end = cd.offset + cd.size
   let mut o = cd.offset
+  let mut total_output = 0
   for _i in 0..<cd.entries {
     if o >= cd_end {
       raise fzip_err(
@@ -1240,18 +1305,15 @@ pub fn unzip_sync(
     o = header.next_offset
     let sc = header.compressed_size
     let su = header.uncompressed_size
-    // Cap output size before allocating, regardless of compression method.
-    if su > default_max_output_size {
-      raise fzip_err(
-        InvalidZipData,
-        msg="entry uncompressed size exceeds default_max_output_size",
-      )
-    }
+    total_output = add_zip_output_budget(total_output, su)
     let b_off = local_data_offset(data, header.local_offset, sc)
     if header.compression == 0 {
       if sc != su {
         raise fzip_err(InvalidZipData, msg="stored ZIP entry size mismatch")
       }
+      let crc_state = CRC32State::new()
+      crc_state.push_range(data, b_off, sc)
+      validate_zip_crc(crc_state.digest(), header.crc)
       files.push((header.name, slc(data, b_off, e=b_off + sc)))
     } else if header.compression == 8 {
       // Check compression ratio to detect potential zip bombs
@@ -1263,7 +1325,8 @@ pub fn unzip_sync(
         )
       }
       let out = FixedArray::make(su, b'\x00')
-      let (buf, _len) = inflt(
+      let crc_state = CRC32State::new()
+      let (buf, len) = inflt(
         data,
         InflateState::new(2),
         Some(out),
@@ -1272,7 +1335,12 @@ pub fn unzip_sync(
         default_max_output_size,
         dat_off=b_off,
         dat_end=b_off + sc,
+        crc_state=Some(crc_state),
       )
+      if len != su {
+        raise fzip_err(InvalidZipData, msg="inflated ZIP entry size mismatch")
+      }
+      validate_zip_crc(crc_state.digest(), header.crc)
       files.push((header.name, buf))
     } else {
       raise fzip_err(
@@ -1299,6 +1367,7 @@ pub fn unzip_sync(
 pub fn unzip_list(
   data : FixedArray[Byte],
 ) -> Array[UnzipFileInfo] raise FzipError {
+  validate_zip_input_len(data.length())
   let infos : Array[UnzipFileInfo] = []
   let eocd = find_eocd(data)
   let cd = read_central_directory_info(data, eocd)

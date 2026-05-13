@@ -145,7 +145,9 @@ fn read_zip64_entry_extra(
         fp = fp + 8
         v
       } else {
-        classic_uncompressed.reinterpret_as_int()
+        zip32_to_int(
+          classic_uncompressed, "ZIP64 entry classic uncompressed size",
+        )
       }
       let compressed = if need_comp {
         if fp + 8 > field_end {
@@ -158,7 +160,7 @@ fn read_zip64_entry_extra(
         fp = fp + 8
         v
       } else {
-        classic_compressed.reinterpret_as_int()
+        zip32_to_int(classic_compressed, "ZIP64 entry classic compressed size")
       }
       let local_offset = if need_local {
         if fp + 8 > field_end {
@@ -171,7 +173,9 @@ fn read_zip64_entry_extra(
         fp = fp + 8
         v
       } else {
-        classic_local_offset.reinterpret_as_int()
+        zip32_to_int(
+          classic_local_offset, "ZIP64 entry classic local header offset",
+        )
       }
       // The 4-byte disk-start-number is optional; if present, it must be 0.
       // Any other trailing byte count means the ZIP64 payload is malformed.

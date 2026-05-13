@@ -34,6 +34,10 @@ that need streaming continue to be deferred to Phase 2.
   local file header signature, the general-purpose bit flag (rejects
   encryption / data-descriptor entries), filename + extra bounds, and
   data range bounds before any extraction.
+- **ZIP integrity and resource caps**: `unzip_sync` validates each
+  extracted entry against the central-directory CRC-32 and caps total
+  sync output. ZIP listing/extraction also rejects oversized sync input
+  and excessive entry fan-out before allocating result arrays.
 - **Decompression cap fix**: `unzip_sync` now passes
   `default_max_output_size` (not `default_max_input_size`) to the
   inflater for the output cap, and applies the same cap to stored

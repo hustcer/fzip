@@ -770,6 +770,54 @@ test "read_zip64_entry_extra - Zip64ValueTooLarge for huge values" {
 }
 
 ///|
+test "read_zip64_entry_extra - rejects oversized classic fallback compressed size" {
+  let extra = make_zip64_extra(uncompressed=1L)
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=0x80000000U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=0U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("compressed size"))
+}
+
+///|
+test "read_zip64_entry_extra - rejects oversized classic fallback uncompressed size" {
+  let extra = make_zip64_extra(compressed=1L)
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=zip_uint32_max,
+    classic_uncompressed=0x80000000U,
+    classic_local_offset=0U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("uncompressed size"))
+}
+
+///|
+test "read_zip64_entry_extra - rejects oversized classic fallback local offset" {
+  let extra = make_zip64_extra(uncompressed=1L)
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=1U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=0x80000000U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("local header offset"))
+}
+
+///|
 /// Build a synthetic central directory file header (no following entries)
 /// for use with `read_central_directory_entry`.
 fn make_cd_entry(
@@ -781,6 +829,7 @@ fn make_cd_entry(
   extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
   flag? : Int = 0,
   comment? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  crc? : UInt = 0U,
 ) -> FixedArray[Byte] {
   let name_len = name.length()
   let extra_len = extra.length()
@@ -792,7 +841,7 @@ fn make_cd_entry(
   w2(buf, 8, flag)
   w2(buf, 10, compression)
   // mtime/mdate: 0
-  // crc-32: 0 (not validated by read_central_directory_entry)
+  w4(buf, 16, crc)
   w4(buf, 20, comp_size)
   w4(buf, 24, uncomp_size)
   w2(buf, 28, name_len)
@@ -1090,7 +1139,7 @@ fn build_classic_archive(
 ) -> FixedArray[Byte] {
   let comp = data.length().reinterpret_as_uint()
   let lh = make_local_file_header(name, 0, comp, comp, flag=local_flag, data~)
-  let cd = make_cd_entry(name, 0, comp, comp, 0U)
+  let cd = make_cd_entry(name, 0, comp, comp, 0U, crc=crc32(data))
   let cd_size = cd.length().reinterpret_as_uint()
   let cd_offset = lh.length().reinterpret_as_uint()
   let eocd = make_classic_eocd(1, cd_size, cd_offset)
@@ -1213,6 +1262,34 @@ test "unzip_sync - hand-built classic stored archive round-trips through new hel
 }
 
 ///|
+test "unzip_sync - rejects stored entry with central-directory CRC mismatch" {
+  let arc = build_classic_archive([b'a'], [b'X'])
+  let eocd = find_eocd(arc)
+  let cd_offset = b4(arc, eocd + 16).reinterpret_as_int()
+  w4(arc, cd_offset + 16, 0U)
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidChecksum)
+  assert_true(message.contains("CRC-32"))
+}
+
+///|
+test "unzip_sync - rejects deflated entry with central-directory CRC mismatch" {
+  let zipped = zip_sync([("crc.txt", [b'a', b'b', b'c'])])
+  let eocd = find_eocd(zipped)
+  let cd_offset = b4(zipped, eocd + 16).reinterpret_as_int()
+  w4(zipped, cd_offset + 16, 0U)
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    zipped,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidChecksum)
+  assert_true(message.contains("CRC-32"))
+}
+
+///|
 /// Defensive overflow guard for `local_data_offset`. A malformed central
 /// directory could declare a 32-bit local-header offset of `0x7FFFFFFF`,
 /// which reinterprets to `Int` `2^31 - 1`. The original additive bounds
@@ -1269,6 +1346,57 @@ test "local_data_offset - happy path returns expected data offset" {
   w2(data, 26, 3)
   w2(data, 28, 0)
   inspect(local_data_offset(data, 0, 5), content="33")
+}
+
+///|
+test "validate_zip_input_len - rejects oversized sync ZIP input" {
+  let r : Result[Unit, FzipError] = try? validate_zip_input_len(
+    default_max_input_size + 1,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("default_max_input_size"))
+}
+
+///|
+test "validate_zip_entry_count - rejects excessive ZIP metadata fan-out" {
+  let r : Result[Unit, FzipError] = try? validate_zip_entry_count(
+    max_zip_entries + 1,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("max_zip_entries"))
+}
+
+///|
+test "unzip_list - rejects ZIP64 entry count above sync cap" {
+  let zip64_eocd = make_zip64_eocd_record(
+    entries=(max_zip_entries + 1).to_int64(),
+    cd_size=0L,
+    cd_offset=0L,
+  )
+  let locator = make_zip64_locator(0L)
+  let eocd = make_classic_eocd(zip_uint16_max, 0U, 0U)
+  let arc = concat_bytes([zip64_eocd, locator, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("max_zip_entries"))
+}
+
+///|
+test "add_zip_output_budget - rejects cumulative zip output over budget" {
+  inspect(
+    add_zip_output_budget(default_max_output_size - 1, 1),
+    content=default_max_output_size.to_string(),
+  )
+  let r : Result[Int, FzipError] = try? add_zip_output_budget(
+    default_max_output_size - 1,
+    2,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("total ZIP output"))
 }
 
 // =============================================================================
@@ -1790,6 +1918,21 @@ test "zip_sync_checked - rejects filename length that cannot fit ZIP u16 field" 
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, FilenameTooLong)
   assert_true(message.contains("filename"))
+}
+
+///|
+test "zip_sync_checked - rejects filename length above fzip reader limit" {
+  let name_bytes : FixedArray[Byte] = FixedArray::make(
+    max_filename_length + 1,
+    b'a',
+  )
+  let name = str_from_u8(name_bytes)
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked([
+    (name, [b'X']),
+  ])
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, FilenameTooLong)
+  assert_true(message.contains("max_filename_length"))
 }
 
 ///|

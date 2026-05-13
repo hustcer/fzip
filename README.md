@@ -176,8 +176,8 @@ Available streams: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream
 
 `fzip` includes built-in protections against common compression attacks:
 
-- **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes prevent zip bombs
-- **Checksum verification**: CRC-32 (GZIP) and Adler-32 (Zlib) checksums are verified by default to detect corrupted data
+- **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes prevent zip bombs; ZIP extraction also caps total sync output and entry fan-out
+- **Checksum verification**: CRC-32 (GZIP and ZIP entries) and Adler-32 (Zlib) checksums are verified by default to detect corrupted data
   - Can be disabled via `verify_checksum: false` for better performance when data integrity is guaranteed
   - Default is `true` (security-first approach)
 - **Compression ratio check**: ZIP files with compression ratios > 1000:1 are rejected

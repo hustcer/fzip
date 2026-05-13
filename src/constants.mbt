@@ -60,6 +60,15 @@ let max_extra_field_length : Int = 4096
 /// Maximum filename length accepted while reading ZIP central directory entries.
 pub let max_filename_length : Int = 4096
 
+///|
+/// Maximum number of ZIP entries accepted by the sync ZIP reader/writer.
+/// This keeps archive metadata from driving unbounded result-array growth.
+let max_zip_entries : Int = 100000
+
+///|
+/// Maximum total uncompressed output bytes returned by one `unzip_sync` call.
+let max_zip_total_output_size : Int = default_max_output_size
+
 // Compressibility detection thresholds
 
 ///|
