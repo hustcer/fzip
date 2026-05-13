@@ -36,9 +36,19 @@ fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
   let flg = d[3].to_int()
+  if (flg & 0xE0) != 0 {
+    raise fzip_err(InvalidHeader, msg="invalid gzip data")
+  }
   let mut st = 10
   if (flg & 4) != 0 {
-    st += (d[10].to_int() | (d[11].to_int() << 8)) + 2
+    if st > d.length() - 2 {
+      raise fzip_err(InvalidHeader, msg="invalid gzip data")
+    }
+    let extra_len = d[st].to_int() | (d[st + 1].to_int() << 8)
+    st += extra_len + 2
+    if st > d.length() {
+      raise fzip_err(InvalidHeader, msg="invalid gzip data")
+    }
   }
   // skip FNAME and FCOMMENT
   let mut zs = ((flg >> 3) & 1) + ((flg >> 4) & 1)
@@ -56,15 +66,13 @@ fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
 }
 
 ///|
-/// Read GZIP original (uncompressed) size from footer
-fn gzl(d : FixedArray[Byte]) -> Int {
-  let l = d.length()
-  (d[l - 4].to_int() |
-  (d[l - 3].to_int() << 8) |
-  (d[l - 2].to_int() << 16) |
-  (d[l - 1].to_int() << 24))
-  .reinterpret_as_uint()
-  .reinterpret_as_int()
+/// Read a sync-API-safe GZIP ISIZE footer value.
+fn gzl(d : FixedArray[Byte]) -> Int raise FzipError {
+  let raw = b4(d, d.length() - 4)
+  if raw > max_int_val().reinterpret_as_uint() {
+    raise fzip_err(InvalidZipData, msg="gzip ISIZE exceeds Int range")
+  }
+  raw.reinterpret_as_int()
 }
 
 ///|
@@ -116,16 +124,20 @@ pub fn gunzip_sync(
   if st + 8 > data.length() {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
+  let isize = gzl(data)
+  if isize > opts.max_output_size {
+    raise fzip_err(InvalidZipData, msg="gzip ISIZE exceeds max_output_size")
+  }
   let out = match opts.out {
     Some(o) => o
-    None => FixedArray::make(gzl(data), b'\x00')
+    None => FixedArray::make(isize, b'\x00')
   }
   let crc_st : CRC32State? = if opts.verify_checksum {
     Some(CRC32State::new())
   } else {
     None
   }
-  let (buf, _len) = inflt(
+  let (buf, len) = inflt(
     data,
     InflateState::new(2),
     Some(out),
@@ -145,5 +157,8 @@ pub fn gunzip_sync(
     }
     None => ()
   }
-  buf
+  if len != isize {
+    raise fzip_err(InvalidZipData, msg="gzip ISIZE mismatch")
+  }
+  trim_buf(buf, len)
 }

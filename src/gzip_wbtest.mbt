@@ -91,6 +91,61 @@ test "gunzip with verify_checksum=true detects corruption" {
 }
 
 ///|
+test "gunzip - rejects ISIZE above max_output_size before allocation" {
+  let data : FixedArray[Byte] = [b'H', b'i']
+  let compressed = gzip_sync(data)
+  w4(compressed, compressed.length() - 4, 1000U)
+  let result : Result[FixedArray[Byte], FzipError] = try? gunzip_sync(
+    compressed,
+    opts={
+      out: None,
+      dictionary: None,
+      max_output_size: 16,
+      max_input_size: default_max_input_size,
+      verify_checksum: true,
+    },
+  )
+  guard result is Err(FzipError(code~, message~)) else {
+    fail("expected error")
+  }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("ISIZE exceeds max_output_size"))
+}
+
+///|
+test "gunzip - rejects ISIZE mismatch after successful inflate" {
+  let data : FixedArray[Byte] = [b'H', b'e', b'l', b'l', b'o']
+  let compressed = gzip_sync(data)
+  w4(compressed, compressed.length() - 4, 8U)
+  let result : Result[FixedArray[Byte], FzipError] = try? gunzip_sync(
+    compressed,
+  )
+  guard result is Err(FzipError(code~, message~)) else {
+    fail("expected error")
+  }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("ISIZE mismatch"))
+}
+
+///|
+test "gunzip - trims oversized caller output buffer" {
+  let data : FixedArray[Byte] = [b'H', b'e', b'l', b'l', b'o']
+  let compressed = gzip_sync(data)
+  let out = FixedArray::make(32, b'\x00')
+  let result = gunzip_sync(compressed, opts={
+    out: Some(out),
+    dictionary: None,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+    verify_checksum: true,
+  })
+  assert_eq(result.length(), data.length())
+  for i in 0..<data.length() {
+    assert_eq(result[i], data[i])
+  }
+}
+
+///|
 test "gzip level 9" {
   let data : FixedArray[Byte] = [1, 2, 3, 4, 5]
   let compressed = gzip_sync(data, opts={

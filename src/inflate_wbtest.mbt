@@ -372,6 +372,28 @@ test "inflate - truncated data error" {
 }
 
 ///|
+test "inflate - rejects code length repeat 16 at start" {
+  let malformed : FixedArray[Byte] = [b'\x05', b'\x00', b'\x02', b'\x00']
+  let result : Result[FixedArray[Byte], FzipError] = try? inflate_sync(
+    malformed,
+  )
+  guard result is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, InvalidLengthLiteral)
+}
+
+///|
+test "inflate - rejects code length repeat overflow" {
+  let malformed : FixedArray[Byte] = [
+    b'\x05', b'\x00', b'\x80', b'\xC0', b'\xDF', b'\x1F',
+  ]
+  let result : Result[FixedArray[Byte], FzipError] = try? inflate_sync(
+    malformed,
+  )
+  guard result is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, InvalidLengthLiteral)
+}
+
+///|
 test "inflate - custom max_output_size limit" {
   // Test that max_output_size is enforced
   let data = FixedArray::make(1000, b'A')

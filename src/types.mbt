@@ -84,14 +84,14 @@ pub fn GzipOptions::default() -> GzipOptions {
 /// By default fzip verifies the CRC-32 footer to detect corrupted data. Disable
 /// `verify_checksum` only when data integrity is already guaranteed elsewhere
 /// and decompression speed is more important. When `out` is not supplied,
-/// `gunzip_sync` allocates its output from the GZIP ISIZE footer; callers that
-/// need a strict output cap should provide an appropriately sized `out` buffer.
+/// `gunzip_sync` allocates its output from the GZIP ISIZE footer after checking
+/// it against `max_output_size`.
 pub(all) struct GunzipOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
   /// Optional preset dictionary used by the inner DEFLATE stream.
   dictionary : FixedArray[Byte]?
-  /// Output size limit used only when the inner inflater grows its buffer.
+  /// Maximum allowed uncompressed output size.
   max_output_size : Int
   /// Maximum allowed compressed input size.
   max_input_size : Int

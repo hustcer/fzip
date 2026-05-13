@@ -33,6 +33,36 @@ test "security/gzip - FNAME flag but truncated" {
 }
 
 ///|
+test "security/gzip - FEXTRA flag but truncated length" {
+  let truncated : FixedArray[Byte] = [
+    b'\x1F', b'\x8B', b'\x08', b'\x04', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x03',
+  ]
+  let result = try? gunzip_sync(truncated)
+  assert_true(result is Err(_))
+}
+
+///|
+test "security/gzip - FEXTRA length exceeds input" {
+  let truncated : FixedArray[Byte] = [
+    b'\x1F', b'\x8B', b'\x08', b'\x04', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x03', b'\x10', b'\x00',
+  ]
+  let result = try? gunzip_sync(truncated)
+  assert_true(result is Err(_))
+}
+
+///|
+test "security/gzip - reserved flags rejected" {
+  let invalid : FixedArray[Byte] = [
+    b'\x1F', b'\x8B', b'\x08', b'\xE0', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x03', b'\x03', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+  ]
+  let result = try? gunzip_sync(invalid)
+  assert_true(result is Err(_))
+}
+
+///|
 test "security/zlib - empty input" {
   let empty : FixedArray[Byte] = []
   let result = try? unzlib_sync(empty)

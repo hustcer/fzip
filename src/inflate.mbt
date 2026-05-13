@@ -229,6 +229,9 @@ fn inflt(
             let mut c = 0
             let mut n = 0
             if s == 16 {
+              if i == 0 {
+                raise fzip_err(InvalidLengthLiteral)
+              }
               while bcnt < 2 && bpos < dat_end {
                 bbuf = bbuf | (dat[bpos].to_int() << bcnt)
                 bpos += 1
@@ -256,6 +259,9 @@ fn inflt(
               n = 11 + (bbuf & 127)
               bbuf = bbuf >> 7
               bcnt -= 7
+            }
+            if n > tl - i {
+              raise fzip_err(InvalidLengthLiteral)
             }
             while n > 0 {
               ldt[i] = c.to_byte()
