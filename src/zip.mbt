@@ -157,6 +157,12 @@ fn read_central_directory_entry(
     )
   }
   let flag = b2(data, offset + 8)
+  if (flag & 1) != 0 {
+    raise fzip_err(
+      InvalidZipData,
+      msg="encrypted ZIP entries are not supported",
+    )
+  }
   let compression = b2(data, offset + 10)
   let crc = b4(data, offset + 16)
   let comp_size_classic = b4(data, offset + 20)
@@ -248,22 +254,40 @@ fn read_central_directory_entry(
 }
 
 ///|
-/// Calculate extra field length
-fn exfl(ex : Array[(Int, FixedArray[Byte])]) -> Int {
-  let mut le = 0
-  for i in 0..<ex.length() {
-    let (_, data) = ex[i]
-    le += data.length() + 4
-  }
-  le
-}
-
-///|
 /// Validate a value that will be written to a 16-bit ZIP metadata field.
 fn validate_zip_u16(value : Int, context : String) -> Unit raise FzipError {
   if value < 0 || value > zip_uint16_max {
     raise fzip_err(InvalidZipData, msg=context + " exceeds 16-bit ZIP field")
   }
+}
+
+///|
+/// Calculate and validate total ZIP extra-field length.
+///
+/// The total is accumulated in `Int64` and capped as it grows, so many small
+/// caller-provided fields cannot wrap the `Int` sum and later make `wzh` write
+/// past the allocated output buffer.
+fn exfl(
+  ex : Array[(Int, FixedArray[Byte])],
+  context? : String = "ZIP extra fields",
+) -> Int raise FzipError {
+  let mut total = 0L
+  let max_extra = max_extra_field_length.to_int64()
+  for i in 0..<ex.length() {
+    let (id, data) = ex[i]
+    validate_zip_u16(id, context + " id")
+    if data.length() > zip_uint16_max {
+      raise fzip_err(
+        ExtraFieldTooLong,
+        msg=context + " payload exceeds 16-bit ZIP field",
+      )
+    }
+    total += data.length().to_int64() + 4L
+    if total > max_extra {
+      raise fzip_err(ExtraFieldTooLong, msg=context + " exceeds maximum")
+    }
+  }
+  total.to_int()
 }
 
 ///|
@@ -307,6 +331,39 @@ fn add_zip_output_budget(total : Int, entry_size : Int) -> Int raise FzipError {
     )
   }
   total + entry_size
+}
+
+///|
+/// Validate a deflated ZIP entry's declared compression ratio without using
+/// multiplication that can overflow `Int`.
+fn validate_zip_compression_ratio(
+  compressed_size : Int,
+  uncompressed_size : Int,
+) -> Unit raise FzipError {
+  if compressed_size < 0 || uncompressed_size < 0 {
+    raise fzip_err(InvalidZipData, msg="negative ZIP entry size")
+  }
+  if compressed_size == 0 {
+    if uncompressed_size > 0 {
+      raise fzip_err(
+        InvalidZipData,
+        msg="zip compressed size is zero for non-empty deflated entry",
+      )
+    }
+    return
+  }
+  let max_ratio = 1000
+  let limit = if compressed_size > max_int_val() / max_ratio {
+    max_int_val()
+  } else {
+    compressed_size * max_ratio
+  }
+  if uncompressed_size > limit {
+    raise fzip_err(
+      InvalidZipData,
+      msg="zip compression ratio too high (potential zip bomb)",
+    )
+  }
 }
 
 ///|
@@ -370,7 +427,7 @@ fn wzh(
   comment : FixedArray[Byte]?,
   version_needed? : Int = 20,
   version_made_by_low? : Int = 20,
-) -> Int {
+) -> Int raise FzipError {
   let fl = fn_data.length()
   let exl = exfl(extra)
   let col = match comment {
@@ -1384,12 +1441,7 @@ pub fn unzip_sync(
     } else if header.compression == 8 {
       // Check compression ratio to detect potential zip bombs
       // Reject if uncompressed size > 1000x compressed size
-      if sc > 0 && su / sc > 1000 {
-        raise fzip_err(
-          InvalidZipData,
-          msg="zip compression ratio too high (potential zip bomb)",
-        )
-      }
+      validate_zip_compression_ratio(sc, su)
       let out = FixedArray::make(su, b'\x00')
       let crc_state = CRC32State::new()
       let (buf, len) = inflt(

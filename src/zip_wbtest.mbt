@@ -1213,6 +1213,24 @@ test "unzip_sync - rejects encrypted entry (general-purpose bit 0)" {
 }
 
 ///|
+test "unzip_list - rejects encrypted central-directory entry" {
+  let name : FixedArray[Byte] = [b'a']
+  let data : FixedArray[Byte] = [b'X']
+  let lh = make_local_file_header(name, 0, 1U, 1U, data~)
+  let cd = make_cd_entry(name, 0, 1U, 1U, 0U, flag=1, crc=crc32(data))
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("encrypted"))
+}
+
+///|
 test "unzip_sync - accepts stored entry with data descriptor" {
   let name : FixedArray[Byte] = [b'a']
   let data : FixedArray[Byte] = [b'X', b'Y', b'Z']
@@ -1332,6 +1350,47 @@ test "unzip_sync - rejects deflated entry whose uncompressed size exceeds cap" {
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
   assert_true(message.contains("default_max_output_size"))
+}
+
+///|
+test "unzip_sync - rejects deflated entry above ratio boundary before inflate" {
+  // 2001 / 2 truncates to 1000, so the old integer-division check missed this
+  // >1000:1 ratio and reached the inflater. The new check rejects it directly.
+  let name : FixedArray[Byte] = [b'r']
+  let payload : FixedArray[Byte] = [b'\x00', b'\x00']
+  let lh = make_local_file_header(name, 8, 2U, 2001U, data=payload)
+  let cd = make_cd_entry(name, 8, 2U, 2001U, 0U)
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("compression ratio too high"))
+}
+
+///|
+test "unzip_sync - rejects zero compressed size for non-empty deflated entry" {
+  let name : FixedArray[Byte] = [b'z']
+  let lh = make_local_file_header(name, 8, 0U, 1U)
+  let cd = make_cd_entry(name, 8, 0U, 1U, 0U)
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("compressed size is zero"))
 }
 
 ///|
@@ -2032,6 +2091,30 @@ test "zip_sync_checked (PR5c) - raises ExtraFieldTooLong when user extras overfl
   )
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, ExtraFieldTooLong)
+}
+
+///|
+test "zip_sync_checked - rejects many small extra fields before length overflow" {
+  let extras : Array[(Int, FixedArray[Byte])] = []
+  for _i in 0..<820 {
+    extras.push((0x5455, [b'\x00']))
+  }
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: extras,
+    comment: "",
+    mtime: 0,
+  }
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked(
+    [("a", [b'X'])],
+    opts~,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, ExtraFieldTooLong)
+  assert_true(message.contains("maximum"))
 }
 
 ///|
