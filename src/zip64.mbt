@@ -157,7 +157,15 @@ fn read_zip64_entry_extra(
         classic_local_offset.reinterpret_as_int()
       }
       // The 4-byte disk-start-number is optional; if present, it must be 0.
-      if fp + 4 <= field_end {
+      // Any other trailing byte count means the ZIP64 payload is malformed.
+      let remaining = field_end - fp
+      if remaining != 0 && remaining != 4 {
+        raise fzip_err(
+          InvalidZipData,
+          msg="ZIP64 extra has invalid trailing bytes",
+        )
+      }
+      if remaining == 4 {
         let disk = b4(data, fp)
         if disk != 0U {
           raise fzip_err(

@@ -401,6 +401,28 @@ test "read_central_directory_info - reads ZIP64 EOCD/locator" {
 }
 
 ///|
+test "unzip_list - ZIP64 locator enables entry ZIP64 extras even when classic EOCD fields fit" {
+  // Some tools emit ZIP64 per-entry metadata while the classic EOCD count,
+  // size, and offset fields are still representable. The reader must honor
+  // the valid locator instead of classifying the archive as classic and
+  // rejecting the entry sentinel before parsing its ZIP64 extra.
+  let huge = max_int_val().to_int64() + 1L
+  let extra = make_zip64_extra(uncompressed=huge)
+  let cd = make_cd_entry([b'a'], 0, 1U, zip_uint32_max, 0U, extra~)
+  let z64_record = make_zip64_eocd_record(
+    entries=1L,
+    cd_size=cd.length().to_int64(),
+    cd_offset=0L,
+  )
+  let z64_loc = make_zip64_locator(cd.length().to_int64())
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd, z64_record, z64_loc, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+}
+
+///|
 test "read_central_directory_info - rejects ZIP64 EOCD with wrong record signature" {
   let z64_record = make_zip64_eocd_record()
   // Corrupt the ZIP64 EOCD record signature.
@@ -662,6 +684,26 @@ test "read_zip64_entry_extra - truncated ZIP64 extra raises" {
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
   assert_true(message.contains("truncated"))
+}
+
+///|
+test "read_zip64_entry_extra - rejects invalid trailing bytes in ZIP64 payload" {
+  // One required 8-byte value plus one extra byte is neither a complete
+  // optional disk-start-number nor a valid end of payload.
+  let extra : FixedArray[Byte] = FixedArray::make(13, b'\x00')
+  w2(extra, 0, zip64_extra_field_id)
+  w2(extra, 2, 9)
+  let r : Result[ZipEntrySizes, FzipError] = try? read_zip64_entry_extra(
+    extra,
+    0,
+    extra.length(),
+    classic_compressed=10U,
+    classic_uncompressed=zip_uint32_max,
+    classic_local_offset=20U,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("trailing bytes"))
 }
 
 ///|
@@ -1021,6 +1063,29 @@ test "unzip_sync - rejects deflated entry whose uncompressed size exceeds cap" {
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
   assert_true(message.contains("default_max_output_size"))
+}
+
+///|
+test "unzip_sync - rejects stored entry whose compressed and uncompressed sizes disagree" {
+  // Stored entries are copied directly from the archive, so trusting only the
+  // declared uncompressed size lets the compressed-size field control the
+  // actual output bytes. Reject mismatches before slicing.
+  let name : FixedArray[Byte] = [b's']
+  let payload : FixedArray[Byte] = [b'a', b'b', b'c', b'd', b'e']
+  let lh = make_local_file_header(name, 0, 5U, 1U, data=payload)
+  let cd = make_cd_entry(name, 0, 5U, 1U, 0U)
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("stored ZIP entry size mismatch"))
 }
 
 ///|
@@ -1604,6 +1669,63 @@ test "zip_sync_checked (PR5c) - raises ExtraFieldTooLong when user extras overfl
   )
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, ExtraFieldTooLong)
+}
+
+///|
+test "zip_sync_checked - rejects filename length that cannot fit ZIP u16 field" {
+  let name_bytes : FixedArray[Byte] = FixedArray::make(zip_uint16_max + 1, b'a')
+  let name = str_from_u8(name_bytes)
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked([
+    (name, [b'X']),
+  ])
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, FilenameTooLong)
+  assert_true(message.contains("filename"))
+}
+
+///|
+test "zip_sync_checked - rejects comment length that cannot fit ZIP u16 field" {
+  let comment_bytes : FixedArray[Byte] = FixedArray::make(
+    zip_uint16_max + 1,
+    b'c',
+  )
+  let comment = str_from_u8(comment_bytes)
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [],
+    comment,
+    mtime: 0,
+  }
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked(
+    [("a", [b'X'])],
+    opts~,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("comment length"))
+}
+
+///|
+test "zip_sync_checked - rejects extra field id that cannot fit ZIP u16 field" {
+  let opts : ZipEntryOptions = {
+    level: 0,
+    mem: 0,
+    os: 0,
+    attrs: 0,
+    extra: [(zip_uint16_max + 1, [b'\x00'])],
+    comment: "",
+    mtime: 0,
+  }
+  let r : Result[FixedArray[Byte], FzipError] = try? zip_sync_checked(
+    [("a", [b'X'])],
+    opts~,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("extra field id"))
 }
 
 ///|

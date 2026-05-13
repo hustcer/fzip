@@ -249,6 +249,14 @@ fn exfl(ex : Array[(Int, FixedArray[Byte])]) -> Int {
 }
 
 ///|
+/// Validate a value that will be written to a 16-bit ZIP metadata field.
+fn validate_zip_u16(value : Int, context : String) -> Unit raise FzipError {
+  if value < 0 || value > zip_uint16_max {
+    raise fzip_err(InvalidZipData, msg=context + " exceeds 16-bit ZIP field")
+  }
+}
+
+///|
 /// Deflate bit flag for ZIP
 fn dbf(l : Int) -> Int {
   if l == 1 {
@@ -524,10 +532,17 @@ priv struct ZipLayout {
 /// for entries that need one. Other extra fields pass through.
 fn sanitize_user_extra(
   extra : Array[(Int, FixedArray[Byte])],
-) -> Array[(Int, FixedArray[Byte])] {
+) -> Array[(Int, FixedArray[Byte])] raise FzipError {
   let result : Array[(Int, FixedArray[Byte])] = []
   for kv in extra {
-    let (id, _) = kv
+    let (id, data) = kv
+    validate_zip_u16(id, "ZIP extra field id")
+    if data.length() > zip_uint16_max {
+      raise fzip_err(
+        ExtraFieldTooLong,
+        msg="ZIP extra field payload exceeds 16-bit ZIP field",
+      )
+    }
     if id != zip64_extra_field_id {
       result.push(kv)
     }
@@ -560,6 +575,7 @@ fn compute_zip_layout(
   } else {
     0
   }
+  validate_zip_u16(comment_len_per_entry, "ZIP entry comment length")
   let user_extra_len = exfl(sanitized_extra)
   // Pass A: compress entries; decide zip64_local from sizes alone.
   let computed : Array[ZipEntryComputed] = []
@@ -567,6 +583,12 @@ fn compute_zip_layout(
     let (fn_str, file) = files[i]
     let compression = if opts.level == 0 { 0 } else { 8 }
     let fn_data = str_to_u8(fn_str)
+    if fn_data.length() > zip_uint16_max {
+      raise fzip_err(
+        FilenameTooLong,
+        msg="ZIP filename exceeds 16-bit ZIP field",
+      )
+    }
     let crc_c = CRC32State::new()
     let (compressed, c_len) = if compression != 0 {
       dopt(
@@ -1002,7 +1024,9 @@ fn read_central_directory_info(
   let size_sentinel = cd_size_classic == zip_uint32_max
   let offset_sentinel = cd_offset_classic == zip_uint32_max
   let any_sentinel = count_sentinel || size_sentinel || offset_sentinel
-  if !any_sentinel {
+  let locator_present = eocd >= 20 &&
+    b4(data, eocd - 20) == zip64_locator_signature
+  if !any_sentinel && !locator_present {
     if entries_disk != entries_total {
       raise fzip_err(
         InvalidZipData,
@@ -1019,10 +1043,8 @@ fn read_central_directory_info(
     }
     return { entries: entries_total, size, offset, zip64: false }
   }
-  // Sentinel set — try to find a valid ZIP64 locator immediately before EOCD.
-  let locator_present = eocd >= 20 &&
-    b4(data, eocd - 20) == zip64_locator_signature
   if !locator_present {
+    // Sentinel set — try to find a valid ZIP64 locator immediately before EOCD.
     // Compatibility: a classic archive with exactly 65535 entries (and no
     // other sentinel) is valid even without ZIP64 metadata.
     if count_sentinel && !size_sentinel && !offset_sentinel {
@@ -1191,6 +1213,9 @@ pub fn unzip_sync(
     }
     let b_off = local_data_offset(data, header.local_offset, sc)
     if header.compression == 0 {
+      if sc != su {
+        raise fzip_err(InvalidZipData, msg="stored ZIP entry size mismatch")
+      }
       files.push((header.name, slc(data, b_off, e=b_off + sc)))
     } else if header.compression == 8 {
       // Check compression ratio to detect potential zip bombs
