@@ -1,9 +1,9 @@
 # fzip Benchmark Report
 
 - Platform: Darwin arm64
-- MoonBit: moon 0.1.20260427 (48d7def 2026-04-27)
+- MoonBit: moon 0.1.20260512 (81d40e3 2026-05-12)
 - Target: wasm-gc
-- Date: 2026-05-11
+- Date: 2026-05-13
 
 > **Note**:
 >
@@ -12,14 +12,14 @@
 
 ## DEFLATE Compress
 
-| Pattern | Size | fzip      | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner   | Max-Min Ratio | fzip Ratio | moonzip Ratio | [zlib](https://github.com/mizchi/zlib.mbt) Ratio | [compress](https://github.com/bikallem/compress) Ratio |
-| ------- | ---- | --------- | --------- | ------------------------------------------ | ------------------------------------------------ | -------- | ------------- | ---------- | ------------- | ------------------------------------------------ | ------------------------------------------------------ |
-| zeros   | 1K   | 3.95 µs   | 106.03 µs | 45.17 µs                                   | 61.71 µs                                         | fzip     | 26.8x         | 1.2%       | 1.0%          | 1.2%                                             | 1.4%                                                   |
-| zeros   | 100K | 118.1 µs  | 431.72 µs | 723.64 µs                                  | 115.89 µs                                        | compress | 6.2x          | 0.5%       | 0.1%          | 0.4%                                             | 0.1%                                                   |
-| seq     | 1K   | 7.89 µs   | 105.23 µs | 247.82 µs                                  | 51.43 µs                                         | fzip     | 31.4x         | 27.3%      | 27.2%         | 27.4%                                            | 27.7%                                                  |
-| seq     | 100K | 134.94 µs | 435.91 µs | 937.7 µs                                   | 261.51 µs                                        | fzip     | 6.9x          | 1.1%       | 0.7%          | 0.9%                                             | 0.7%                                                   |
-| random  | 1K   | 2.79 µs   | 183.73 µs | 281.99 µs                                  | 87.14 µs                                         | fzip     | 101.1x        | 100.5% ⚠️  | 105.2% ⚠️     | 105.1% ⚠️                                        | 105.5% ⚠️                                              |
-| random  | 100K | 12.69 µs  | 44080 µs  | 8710 µs                                    | 3550 µs                                          | fzip     | 3473.6x       | 100.0% ⚠️  | 100.1% ⚠️     | 100.1% ⚠️                                        | 100.2% ⚠️                                              |
+| Pattern | Size | fzip      | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio | fzip Ratio | moonzip Ratio | [zlib](https://github.com/mizchi/zlib.mbt) Ratio | [compress](https://github.com/bikallem/compress) Ratio |
+| ------- | ---- | --------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- | ---------- | ------------- | ------------------------------------------------ | ------------------------------------------------------ |
+| zeros   | 1K   | 1.03 µs   | 104.18 µs | 46.41 µs                                   | 58.18 µs                                         | fzip   | 101.1x        | 1.0%       | 1.0%          | 1.2%                                             | 1.4%                                                   |
+| zeros   | 100K | 65.36 µs  | 430.97 µs | 726.36 µs                                  | 114.59 µs                                        | fzip   | 11.1x         | 0.1%       | 0.1%          | 0.4%                                             | 0.1%                                                   |
+| seq     | 1K   | 7.89 µs   | 107.9 µs  | 248.79 µs                                  | 52.17 µs                                         | fzip   | 31.5x         | 27.3%      | 27.2%         | 27.4%                                            | 27.7%                                                  |
+| seq     | 100K | 138.26 µs | 432.33 µs | 941.12 µs                                  | 262.78 µs                                        | fzip   | 6.8x          | 1.1%       | 0.7%          | 0.9%                                             | 0.7%                                                   |
+| random  | 1K   | 2.77 µs   | 181.57 µs | 278.68 µs                                  | 88.82 µs                                         | fzip   | 100.6x        | 100.5% ⚠️  | 105.2% ⚠️     | 105.1% ⚠️                                        | 105.5% ⚠️                                              |
+| random  | 100K | 12.33 µs  | 42650 µs  | 8700 µs                                    | 3560 µs                                          | fzip   | 3459.0x       | 100.0% ⚠️  | 100.1% ⚠️     | 100.1% ⚠️                                        | 100.2% ⚠️                                              |
 
 > **⚠️ Note**:
 >
@@ -27,10 +27,10 @@
 
 ## DEFLATE Decompress
 
-| Size | fzip     | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio |
-| ---- | -------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- |
-| 1K   | 1.5 µs   | 4.28 µs   | 27.33 µs                                   | 4.04 µs                                          | fzip   | 18.2x         |
-| 100K | 20.28 µs | 304.54 µs | 882.74 µs                                  | 43.51 µs                                         | fzip   | 43.5x         |
+| Size | fzip    | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio |
+| ---- | ------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- |
+| 1K   | 1.52 µs | 4.31 µs   | 27.56 µs                                   | 16.25 µs                                         | fzip   | 18.1x         |
+| 100K | 20.7 µs | 307.76 µs | 891.64 µs                                  | 48.12 µs                                         | fzip   | 43.1x         |
 
 > **Note**: Decompress benchmarks use self-produced streams: each library decompresses data produced by its own compressor for that format.
 
@@ -38,10 +38,10 @@
 
 | Operation  | Size | fzip      | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner      | Max-Min Ratio | fzip Ratio | moonzip Ratio | [zlib](https://github.com/mizchi/zlib.mbt) Ratio | [compress](https://github.com/bikallem/compress) Ratio |
 | ---------- | ---- | --------- | --------- | ------------------------------------------ | ------------------------------------------------ | ----------- | ------------- | ---------- | ------------- | ------------------------------------------------ | ------------------------------------------------------ |
-| compress   | 1K   | 8.59 µs   | 110.3 µs  | 5.87 µs                                    | 53.37 µs                                         | mizchi/zlib | 18.8x         | 29.1%      | 29.0%         | 102.2% ⚠️                                        | 29.5%                                                  |
-| compress   | 100K | 207.86 µs | 794.1 µs  | 587.44 µs                                  | 341.09 µs                                        | fzip        | 3.8x          | 1.1%       | 0.7%          | 100.0% ⚠️                                        | 0.7%                                                   |
-| decompress | 1K   | 1.94 µs   | 8.03 µs   | 9.92 µs                                    | 3.98 µs                                          | fzip        | 5.1x          | -          | -             | -                                                | -                                                      |
-| decompress | 100K | 87.49 µs  | 656.34 µs | 992.63 µs                                  | 121.37 µs                                        | fzip        | 11.3x         | -          | -             | -                                                | -                                                      |
+| compress   | 1K   | 8.71 µs   | 110.71 µs | 5.93 µs                                    | 53.86 µs                                         | mizchi/zlib | 18.7x         | 29.1%      | 29.0%         | 102.2% ⚠️                                        | 29.5%                                                  |
+| compress   | 100K | 211.66 µs | 797.79 µs | 594.2 µs                                   | 343.84 µs                                        | fzip        | 3.8x          | 1.1%       | 0.7%          | 100.0% ⚠️                                        | 0.7%                                                   |
+| decompress | 1K   | 1.94 µs   | 8.08 µs   | 10.11 µs                                   | 3.62 µs                                          | fzip        | 5.2x          | -          | -             | -                                                | -                                                      |
+| decompress | 100K | 90.55 µs  | 700.4 µs  | 1010 µs                                    | 120.87 µs                                        | fzip        | 11.2x         | -          | -             | -                                                | -                                                      |
 
 > **Note**:
 >
@@ -50,12 +50,12 @@
 
 ## Zlib
 
-| Operation  | Size | fzip      | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio | fzip Ratio | moonzip Ratio | [zlib](https://github.com/mizchi/zlib.mbt) Ratio | [compress](https://github.com/bikallem/compress) Ratio |
-| ---------- | ---- | --------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- | ---------- | ------------- | ------------------------------------------------ | ------------------------------------------------------ |
-| compress   | 1K   | 8.25 µs   | 108.38 µs | 262.72 µs                                  | 66.53 µs                                         | fzip   | 31.8x         | 27.9%      | 27.8%         | 28.0%                                            | 28.3%                                                  |
-| compress   | 100K | 176.72 µs | 523.78 µs | 1060 µs                                    | 328.04 µs                                        | fzip   | 6.0x          | 1.1%       | 0.7%          | 0.9%                                             | 0.7%                                                   |
-| decompress | 1K   | 1.92 µs   | 5.09 µs   | 26.56 µs                                   | 3.75 µs                                          | fzip   | 13.8x         | -          | -             | -                                                | -                                                      |
-| decompress | 100K | 58.51 µs  | 366.97 µs | 735.22 µs                                  | 98.73 µs                                         | fzip   | 12.6x         | -          | -             | -                                                | -                                                      |
+| Operation  | Size | fzip     | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio | fzip Ratio | moonzip Ratio | [zlib](https://github.com/mizchi/zlib.mbt) Ratio | [compress](https://github.com/bikallem/compress) Ratio |
+| ---------- | ---- | -------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- | ---------- | ------------- | ------------------------------------------------ | ------------------------------------------------------ |
+| compress   | 1K   | 8.36 µs  | 107.86 µs | 253.87 µs                                  | 52.95 µs                                         | fzip   | 30.4x         | 27.9%      | 27.8%         | 28.0%                                            | 28.3%                                                  |
+| compress   | 100K | 177.2 µs | 504.59 µs | 1080 µs                                    | 329.49 µs                                        | fzip   | 6.1x          | 1.1%       | 0.7%          | 0.9%                                             | 0.7%                                                   |
+| decompress | 1K   | 1.92 µs  | 5.15 µs   | 27.21 µs                                   | 3.06 µs                                          | fzip   | 14.2x         | -          | -             | -                                                | -                                                      |
+| decompress | 100K | 59.5 µs  | 368.76 µs | 736.21 µs                                  | 98.18 µs                                         | fzip   | 12.4x         | -          | -             | -                                                | -                                                      |
 
 > **Note**: Decompress benchmarks use self-produced streams: each library decompresses data produced by its own compressor for that format.
 
@@ -63,8 +63,8 @@
 
 | Operation  | fzip     | moonzip   | Winner | Max-Min Ratio | fzip Ratio | moonzip Ratio |
 | ---------- | -------- | --------- | ------ | ------------- | ---------- | ------------- |
-| compress   | 17.84 µs | 582.31 µs | fzip   | 32.6x         | 73.7%      | 74.8%         |
-| decompress | 1.79 µs  | 38.4 µs   | fzip   | 21.5x         | -          | -             |
+| compress   | 15.04 µs | 559.74 µs | fzip   | 37.2x         | 73.7%      | 74.8%         |
+| decompress | 1.79 µs  | 38.32 µs  | fzip   | 21.4x         | -          | -             |
 
 > **Note**: `mizchi/zlib` and `bikallem/compress` do not provide ZIP APIs, so they are omitted from this table.
 
@@ -72,14 +72,14 @@
 
 | Algorithm | Size | fzip     | moonzip   | [zlib](https://github.com/mizchi/zlib.mbt) | [compress](https://github.com/bikallem/compress) | Winner | Max-Min Ratio |
 | --------- | ---- | -------- | --------- | ------------------------------------------ | ------------------------------------------------ | ------ | ------------- |
-| CRC32     | 1K   | 0.73 µs  | 3.5 µs    | 3.5 µs                                     | 0.76 µs                                          | fzip   | 4.8x          |
-| CRC32     | 100K | 71.96 µs | 355.25 µs | 359.3 µs                                   | 75.59 µs                                         | fzip   | 5.0x          |
-| ADLER32   | 1K   | 0.4 µs   | 0.62 µs   | 0.69 µs                                    | 0.54 µs                                          | fzip   | 1.7x          |
-| ADLER32   | 100K | 38.51 µs | 60.23 µs  | 67.46 µs                                   | 51.98 µs                                         | fzip   | 1.8x          |
+| CRC32     | 1K   | 0.74 µs  | 3.49 µs   | 3.52 µs                                    | 0.78 µs                                          | fzip   | 4.8x          |
+| CRC32     | 100K | 72.08 µs | 352.69 µs | 353.57 µs                                  | 76.36 µs                                         | fzip   | 4.9x          |
+| ADLER32   | 1K   | 0.4 µs   | 0.64 µs   | 0.7 µs                                     | 0.53 µs                                          | fzip   | 1.7x          |
+| ADLER32   | 100K | 38.26 µs | 60.7 µs   | 66.58 µs                                   | 52.25 µs                                         | fzip   | 1.7x          |
 
 ## Auto-detect Decompress
 
 | Size | fzip     | moonzip   | Winner | Max-Min Ratio |
 | ---- | -------- | --------- | ------ | ------------- |
-| 1K   | 1.94 µs  | 8.08 µs   | fzip   | 4.2x          |
-| 100K | 86.94 µs | 683.62 µs | fzip   | 7.9x          |
+| 1K   | 1.96 µs  | 8.59 µs   | fzip   | 4.4x          |
+| 100K | 88.36 µs | 661.54 µs | fzip   | 7.5x          |

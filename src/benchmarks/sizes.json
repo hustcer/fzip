@@ -1,7 +1,7 @@
 [
   {
     "name": "deflate/compress/zeros_1k/fzip",
-    "compressed": 12.0,
+    "compressed": 10.0,
     "original": 1024.0
   },
   {
@@ -21,7 +21,7 @@
   },
   {
     "name": "deflate/compress/zeros_100k/fzip",
-    "compressed": 462.0,
+    "compressed": 115.0,
     "original": 102400.0
   },
   {
@@ -201,7 +201,7 @@
   },
   {
     "name": "zip/compress/fzip",
-    "compressed": 2642.0,
+    "compressed": 2640.0,
     "original": 3584.0
   },
   {
