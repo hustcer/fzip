@@ -465,6 +465,29 @@ test "unzip_list - ZIP64 locator enables entry ZIP64 extras even when classic EO
 }
 
 ///|
+test "unzip_list - rejects ZIP64 locator whose CD offset disagrees with classic EOCD" {
+  // Parser-differential guard: classic readers would follow the classic EOCD
+  // to the first central directory, while a ZIP64-aware reader could otherwise
+  // follow the locator to a different directory.
+  let classic_cd = make_cd_entry([b'a'], 0, 0U, 0U, 0U)
+  let zip64_cd = make_cd_entry([b'b'], 0, 0U, 0U, 0U)
+  let z64_record = make_zip64_eocd_record(
+    entries=1L,
+    cd_size=zip64_cd.length().to_int64(),
+    cd_offset=classic_cd.length().to_int64(),
+  )
+  let z64_loc = make_zip64_locator(
+    (classic_cd.length() + zip64_cd.length()).to_int64(),
+  )
+  let eocd = make_classic_eocd(1, classic_cd.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([classic_cd, zip64_cd, z64_record, z64_loc, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("disagrees with classic EOCD"))
+}
+
+///|
 test "read_central_directory_info - rejects ZIP64 EOCD with wrong record signature" {
   let z64_record = make_zip64_eocd_record()
   // Corrupt the ZIP64 EOCD record signature.
@@ -1040,6 +1063,18 @@ test "read_central_directory_entry - ZIP64 entry resolves via extra" {
 }
 
 ///|
+test "unzip_list - rejects central-directory extra length above max cap" {
+  let extra = FixedArray::make(max_extra_field_length + 1, b'\x00')
+  let cd = make_cd_entry([b'a'], 0, 0U, 0U, 0U, extra~)
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, ExtraFieldTooLong)
+  assert_true(message.contains("central-directory extra field length"))
+}
+
+///|
 test "read_central_directory_entry - ZIP64 sentinel rejected when archive isn't ZIP64" {
   // Same entry but the caller passes zip64=false, simulating an archive
   // whose EOCD doesn't advertise ZIP64. Without the locator we cannot
@@ -1245,6 +1280,27 @@ test "unzip_sync - rejects entry with bad local file header signature" {
 }
 
 ///|
+test "unzip_sync - rejects local-header extra length above max cap" {
+  let name : FixedArray[Byte] = [b'a']
+  let data : FixedArray[Byte] = [b'X']
+  let extra = FixedArray::make(max_extra_field_length + 1, b'\x00')
+  let lh = make_local_file_header(name, 0, 1U, 1U, extra~, data~)
+  let cd = make_cd_entry(name, 0, 1U, 1U, 0U, crc=crc32(data))
+  let eocd = make_classic_eocd(
+    1,
+    cd.length().reinterpret_as_uint(),
+    lh.length().reinterpret_as_uint(),
+  )
+  let arc = concat_bytes([lh, cd, eocd])
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    arc,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, ExtraFieldTooLong)
+  assert_true(message.contains("local-header extra field length"))
+}
+
+///|
 test "unzip_sync - rejects entry whose uncompressed size exceeds default_max_output_size" {
   // CD claims a stored entry larger than the configured cap; the cap check
   // fires before we even look at the local file header data.
@@ -1388,19 +1444,17 @@ test "local_data_offset - rejects local_offset > data.length() - 30" {
 }
 
 ///|
-/// `data_off = local_offset + 30 + fnl + exl` previously used straight `Int`
-/// arithmetic and could wrap when `fnl + exl` approaches `2 * 65535`. Build a
-/// hand-rolled LFH with both fields maxed out so the implied data range
-/// extends past the archive — the Int64 path catches it whether or not the
-/// addition would have wrapped.
-test "local_data_offset - rejects oversized fnl/exl that overflow data_off" {
+/// `data_off = local_offset + 30 + fnl + exl` must still be range-checked
+/// after the extra-field cap. A hand-rolled LFH can claim a very large
+/// filename length, so the implied data range extends past the archive.
+test "local_data_offset - rejects oversized filename length that exceeds data_off" {
   let data : FixedArray[Byte] = FixedArray::make(100, b'\x00')
   // Place a valid local file header signature at offset 0 so we get past the
   // signature check and exercise the bounds check on `data_off`.
   w4(data, 0, zip_local_signature)
-  // Set fnl and exl in the 26/28 fields to 65535 each.
+  // Set fnl to 65535 and leave exl below the max-extra cap.
   w2(data, 26, 65535)
-  w2(data, 28, 65535)
+  w2(data, 28, 0)
   let r : Result[Int, FzipError] = try? local_data_offset(data, 0, 0)
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)

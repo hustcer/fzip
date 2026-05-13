@@ -77,6 +77,12 @@ fn local_data_offset(
   }
   let fnl = b2(data, local_offset + 26)
   let exl = b2(data, local_offset + 28)
+  if exl > max_extra_field_length {
+    raise fzip_err(
+      ExtraFieldTooLong,
+      msg="local-header extra field length exceeds maximum",
+    )
+  }
   // `fnl` and `exl` are 16-bit values so each fits in `Int`, but their sum
   // with `local_offset + 30` can overflow when `local_offset` is close to
   // `Int` max. Compute in `Int64`, then range-check against the archive
@@ -162,6 +168,12 @@ fn read_central_directory_entry(
   let local_offset_classic = b4(data, offset + 42)
   if filename_len > max_filename_length {
     raise fzip_err(InvalidZipData, msg="zip filename too long")
+  }
+  if extra_len > max_extra_field_length {
+    raise fzip_err(
+      ExtraFieldTooLong,
+      msg="central-directory extra field length exceeds maximum",
+    )
   }
   if disk_number_start != 0 {
     raise fzip_err(
@@ -1153,6 +1165,59 @@ fn read_zip64_cd_info(
 }
 
 ///|
+/// Validate that ZIP64 central-directory metadata does not contradict any
+/// classic EOCD field that was still representable without a sentinel. This
+/// prevents parser-differential archives where classic readers use one central
+/// directory while fzip follows a valid but inconsistent ZIP64 locator.
+fn validate_zip64_cd_matches_classic(
+  info : ZipCdInfo,
+  entries_disk : Int,
+  entries_total : Int,
+  cd_size_classic : UInt,
+  cd_offset_classic : UInt,
+  count_sentinel : Bool,
+  size_sentinel : Bool,
+  offset_sentinel : Bool,
+) -> Unit raise FzipError {
+  if !count_sentinel {
+    if entries_disk != entries_total {
+      raise fzip_err(
+        InvalidZipData,
+        msg="multi-disk ZIP archives are not supported",
+      )
+    }
+    if info.entries != entries_total {
+      raise fzip_err(
+        InvalidZipData,
+        msg="ZIP64 EOCD entry count disagrees with classic EOCD",
+      )
+    }
+  }
+  if !size_sentinel {
+    let classic_size = zip32_to_int(
+      cd_size_classic, "classic central directory size",
+    )
+    if info.size != classic_size {
+      raise fzip_err(
+        InvalidZipData,
+        msg="ZIP64 EOCD central directory size disagrees with classic EOCD",
+      )
+    }
+  }
+  if !offset_sentinel {
+    let classic_offset = zip32_to_int(
+      cd_offset_classic, "classic central directory offset",
+    )
+    if info.offset != classic_offset {
+      raise fzip_err(
+        InvalidZipData,
+        msg="ZIP64 EOCD central directory offset disagrees with classic EOCD",
+      )
+    }
+  }
+}
+
+///|
 /// Locate the End-Of-Central-Directory record by scanning back from the end
 /// of the input.
 ///
@@ -1248,7 +1313,13 @@ fn read_central_directory_info(
     data, eocd,
   )
   match z64_result {
-    Ok(info) => info
+    Ok(info) => {
+      validate_zip64_cd_matches_classic(
+        info, entries_disk, entries_total, cd_size_classic, cd_offset_classic, count_sentinel,
+        size_sentinel, offset_sentinel,
+      )
+      info
+    }
     Err(err) => {
       if !any_sentinel {
         // A classic central-directory comment or other trailing CD data can
