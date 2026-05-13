@@ -122,9 +122,11 @@ still locate the central directory.
 The reader path validates ZIP64 metadata up front: structurally valid
 ZIP64 archives whose count, size, offset, or layout exceeds what the
 current sync API can safely index raise the new
-`FzipErrorCode::Zip64ValueTooLarge`. Malformed archives, encryption,
-data-descriptor entries (general-purpose bit 3), multi-disk archives,
-and missing required ZIP64 extras continue to raise `InvalidZipData`.
+`FzipErrorCode::Zip64ValueTooLarge`. Data-descriptor entries
+(general-purpose bit 3) are accepted using the central directory's
+authoritative sizes and CRC. Malformed archives, encryption, multi-disk
+archives, and missing required ZIP64 extras continue to raise
+`InvalidZipData`.
 
 For recoverable writer failures (ZIP64 layout overflow, oversized extras,
 filenames/comments that do not fit ZIP fields, or invalid extra-field ids)
@@ -183,6 +185,7 @@ Available streams: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream
 - **Compression ratio check**: ZIP files with compression ratios > 1000:1 are rejected
 - **Path traversal protection**: ZIP entries with unsafe paths (`../`, absolute paths) are rejected
 - **Filename length validation**: ZIP filenames are limited to 4096 bytes
+- **Data descriptor support**: ZIP entries with general-purpose bit 3 are bounded by central-directory sizes and verified with CRC-32
 
 Configure security options per operation:
 

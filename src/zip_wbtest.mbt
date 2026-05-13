@@ -1129,6 +1129,26 @@ fn make_local_file_header(
 }
 
 ///|
+fn make_data_descriptor(
+  crc : UInt,
+  comp_size : UInt,
+  uncomp_size : UInt,
+  signature? : Bool = true,
+) -> FixedArray[Byte] {
+  let sig_len = if signature { 4 } else { 0 }
+  let buf = FixedArray::make(sig_len + 12, b'\x00')
+  let mut offset = 0
+  if signature {
+    w4(buf, 0, 0x08074B50U)
+    offset = 4
+  }
+  w4(buf, offset, crc)
+  w4(buf, offset + 4, comp_size)
+  w4(buf, offset + 8, uncomp_size)
+  buf
+}
+
+///|
 /// Glue helper: complete archive (local header + central directory entry +
 /// classic EOCD) for one stored entry. Computes lengths/offsets so the
 /// cd_size and cd_offset fields are internally consistent.
@@ -1158,14 +1178,49 @@ test "unzip_sync - rejects encrypted entry (general-purpose bit 0)" {
 }
 
 ///|
-test "unzip_sync - rejects data-descriptor entry (general-purpose bit 3)" {
-  let arc = build_classic_archive([b'a'], [b'X'], local_flag=8)
-  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
-    arc,
-  )
-  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
-  assert_eq(code, InvalidZipData)
-  assert_true(message.contains("data descriptor"))
+test "unzip_sync - accepts stored entry with data descriptor" {
+  let name : FixedArray[Byte] = [b'a']
+  let data : FixedArray[Byte] = [b'X', b'Y', b'Z']
+  let crc = crc32(data)
+  let size = data.length().reinterpret_as_uint()
+  let lh = make_local_file_header(name, 0, 0U, 0U, flag=8, data~)
+  let dd = make_data_descriptor(crc, size, size)
+  let cd_offset = (lh.length() + dd.length()).reinterpret_as_uint()
+  let cd = make_cd_entry(name, 0, size, size, 0U, flag=8, crc~)
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), cd_offset)
+  let arc = concat_bytes([lh, dd, cd, eocd])
+  let files = unzip_sync(arc)
+  assert_eq(files.length(), 1)
+  let (entry_name, content) = files[0]
+  assert_eq(entry_name, "a")
+  assert_eq(content.length(), data.length())
+  for i in 0..<data.length() {
+    assert_eq(content[i], data[i])
+  }
+}
+
+///|
+test "unzip_sync - accepts deflated entry with data descriptor without signature" {
+  let name : FixedArray[Byte] = [b'd']
+  let data = FixedArray::make(2048, b'A')
+  let compressed = deflate_sync(data)
+  let crc = crc32(data)
+  let comp_size = compressed.length().reinterpret_as_uint()
+  let uncomp_size = data.length().reinterpret_as_uint()
+  let lh = make_local_file_header(name, 8, 0U, 0U, flag=8, data=compressed)
+  let dd = make_data_descriptor(crc, comp_size, uncomp_size, signature=false)
+  let cd_offset = (lh.length() + dd.length()).reinterpret_as_uint()
+  let cd = make_cd_entry(name, 8, comp_size, uncomp_size, 0U, flag=8, crc~)
+  let eocd = make_classic_eocd(1, cd.length().reinterpret_as_uint(), cd_offset)
+  let arc = concat_bytes([lh, dd, cd, eocd])
+  let files = unzip_sync(arc)
+  assert_eq(files.length(), 1)
+  let (entry_name, content) = files[0]
+  assert_eq(entry_name, "d")
+  assert_eq(content.length(), data.length())
+  for i in 0..<data.length() {
+    assert_eq(content[i], data[i])
+  }
 }
 
 ///|
@@ -1287,6 +1342,23 @@ test "unzip_sync - rejects deflated entry with central-directory CRC mismatch" {
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidChecksum)
   assert_true(message.contains("CRC-32"))
+}
+
+///|
+test "unzip_sync - rejects deflated entry whose actual output exceeds declared size" {
+  let data = FixedArray::make(2048, b'A')
+  let zipped = zip_sync([("too-small-size.txt", data)])
+  let eocd = find_eocd(zipped)
+  let cd_offset = b4(zipped, eocd + 16).reinterpret_as_int()
+  let local_offset = b4(zipped, cd_offset + 42).reinterpret_as_int()
+  w4(zipped, local_offset + 22, 1U)
+  w4(zipped, cd_offset + 24, 1U)
+  let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
+    zipped,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("output buffer too small"))
 }
 
 ///|

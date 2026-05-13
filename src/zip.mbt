@@ -44,9 +44,10 @@ fn is_unsafe_path(path : String) -> Bool {
 /// * The 4-byte signature equals `zip_local_signature`.
 /// * General-purpose bit 0 (encryption) is not set — fzip does not implement
 ///   ZIP encryption.
-/// * General-purpose bit 3 (data descriptor) is not set — Phase 1 defers
-///   data descriptor support to Phase 2; the user explicitly opted for the
-///   "reject and document" path. Reader streaming will revisit this.
+/// * General-purpose bit 3 (data descriptor) is accepted. The sync reader
+///   already has the authoritative compressed size, uncompressed size, and CRC
+///   from the central directory, so it can locate and verify the entry data
+///   without scanning the post-data descriptor.
 /// * Filename and extra lengths fit inside `data`.
 /// * `data_offset + compressed_size <= data.length()`, so slicing or
 ///   inflating the entry's bytes never reads past the archive.
@@ -72,12 +73,6 @@ fn local_data_offset(
     raise fzip_err(
       InvalidZipData,
       msg="encrypted ZIP entries are not supported",
-    )
-  }
-  if (flag & 8) != 0 {
-    raise fzip_err(
-      InvalidZipData,
-      msg="ZIP data descriptors (bit 3) are deferred to Phase 2",
     )
   }
   let fnl = b2(data, local_offset + 26)

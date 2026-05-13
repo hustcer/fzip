@@ -32,8 +32,11 @@ that need streaming continue to be deferred to Phase 2.
   out as real sizes.
 - **Local-header validation**: the new `local_data_offset` checks the
   local file header signature, the general-purpose bit flag (rejects
-  encryption / data-descriptor entries), filename + extra bounds, and
-  data range bounds before any extraction.
+  encryption), filename + extra bounds, and data range bounds before any
+  extraction.
+- **Data-descriptor entries** (general-purpose bit 3) are accepted by the
+  sync reader using central-directory sizes and CRC-32 for bounds and
+  integrity checks, including both stored and deflated entries.
 - **ZIP integrity and resource caps**: `unzip_sync` validates each
   extracted entry against the central-directory CRC-32 and caps total
   sync output. ZIP listing/extraction also rejects oversized sync input
@@ -124,9 +127,6 @@ catch silent drift if anyone re-embeds without regenerating.
   ZIP64 extra disk-start-number).
 - **General-purpose bit 0 (encryption)** is rejected; fzip does not
   implement ZIP encryption.
-- **General-purpose bit 3 (data descriptor)** is rejected with
-  `InvalidZipData`; data-descriptor entries are deferred to Phase 2's
-  streaming reader, where they are needed.
 - **True large-file streaming** (>2 GiB entries or archives) remains
   Phase 2 work. The sync APIs continue to require both the input and
   output to fit in `FixedArray[Byte]`, indexed by `Int`.

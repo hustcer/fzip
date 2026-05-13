@@ -151,6 +151,8 @@ fn inflt(
         }
         if resize {
           buf = ensure_buf(buf, bt + l, max_output_size)
+        } else {
+          ensure_fixed_output_capacity(buf, bt + l)
         }
         dat.blit_to(buf, len=l, src_offset=s, dst_offset=bt)
         match crc_state {
@@ -321,6 +323,9 @@ fn inflt(
         raise fzip_err(InvalidLengthLiteral)
       }
       if sym < 256 {
+        if !resize {
+          ensure_fixed_output_capacity(buf, bt + 1)
+        }
         buf[bt] = sym.to_byte()
         bt += 1
       } else if sym == 256 {
@@ -391,6 +396,9 @@ fn inflt(
           buf = ensure_buf(buf, bt + grow, max_output_size)
         }
         let end = bt + add
+        if !resize {
+          ensure_fixed_output_capacity(buf, end)
+        }
         // dictionary reference
         if bt < dt_val {
           let shift = dl - dt_val
@@ -465,6 +473,19 @@ fn inflt(
     }
   }
   (buf, bt)
+}
+
+///|
+/// Ensure a caller-owned output buffer is large enough for a fixed-buffer
+/// inflate. Dynamic-buffer inflates use `ensure_buf`; fixed-buffer inflates
+/// must raise a controlled `FzipError` before any array write would trap.
+fn ensure_fixed_output_capacity(
+  buf : FixedArray[Byte],
+  need : Int,
+) -> Unit raise FzipError {
+  if need < 0 || need > buf.length() {
+    raise fzip_err(InvalidZipData, msg="output buffer too small")
+  }
 }
 
 ///|

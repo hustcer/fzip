@@ -19,8 +19,9 @@ ZIP APIs are synchronous and in-memory.
 
 - Do not claim true 4GiB+ file processing through the current sync APIs.
 - Do not add multi-disk ZIP support.
-- Do not add ZIP encryption, data descriptors, unsupported compression methods,
-  or filesystem extraction APIs.
+- Do not add ZIP encryption, unsupported compression methods, or filesystem
+  extraction APIs. Sync reading may accept data descriptors when central
+  directory metadata is sufficient for bounds and checksum safety.
 - Do not refactor the DEFLATE engine unless needed for a later streaming ZIP
   writer/reader.
 - Do not fix the existing `mtime` timestamp semantics. `wzh` currently stores
@@ -526,18 +527,14 @@ Checks:
 - Local header signature is `zip_local_signature`.
 - Filename and extra lengths fit inside `data`.
 - Data range `data_offset + compressed_size` fits inside `data`.
-- For entries without data descriptors, local-header CRC and classic size fields
-  should agree with the central directory when those local fields are not ZIP64
-  sentinels. If this is deferred, document it as an existing metadata
-  consistency gap and add a regression test before accepting ZIP64 data
-  descriptors.
+- Local-header CRC and classic size fields are not authoritative when
+  general-purpose bit 3 is set. The central directory supplies the bounds and
+  CRC used by the sync reader.
 - General-purpose bit flag bit 0 (encryption) is not set.
 - General-purpose bit flag bit 3 (data descriptor) is handled deliberately:
-  for Phase 1, the reader may still extract such entries using central
-  directory sizes because it starts from the central directory, but tests must
-  cover the case. If implementation complexity grows, explicitly reject bit 3
-  with `InvalidZipData` and document that data descriptors are deferred to
-  Phase 2; do not accidentally accept them without tests.
+  the sync reader extracts such entries using central directory sizes because
+  it starts from the central directory, and tests cover both stored and
+  deflated entries.
 
 This prevents malformed ZIP64 metadata from creating invalid slices or inflater
 range errors later.
@@ -788,9 +785,8 @@ Required tests:
   as untrusted metadata and should have a separate compatibility test covering
   this behavior.
 - Encrypted ZIP entry (general-purpose bit 0) raises `InvalidZipData`.
-- Data-descriptor entry (general-purpose bit 3) follows the Phase 1 decision:
-  either extracts/lists correctly using central-directory metadata with tests,
-  or raises `InvalidZipData` consistently.
+- Data-descriptor entry (general-purpose bit 3) extracts/lists correctly using
+  central-directory metadata.
 - Central directory header with bad signature or truncated filename/extra/comment
   raises `InvalidZipData` or `UnexpectedEOF` instead of panicking.
 - `unzip_sync` rejects stored and deflated entries whose uncompressed size
@@ -965,10 +961,9 @@ error handling, and memory behavior.
 - Add explicit checks for `offset + size` overflow before slicing or inflating.
 - Reject multi-disk archives.
 - Reject encrypted entries unless support is intentionally added.
-- Make the data-descriptor policy explicit for Phase 1 and test it. Do not
-  silently accept bit 3 without either parsing the descriptor or proving the
-  central-directory-first reader does not need it for bounds and checksum
-  safety.
+- Make the data-descriptor policy explicit and keep regression tests proving
+  the central-directory-first reader does not need the descriptor for bounds
+  and checksum safety.
 - Reject unsupported compression methods as today.
 - Consider adding ZIP-specific options later:
   - `max_entries`

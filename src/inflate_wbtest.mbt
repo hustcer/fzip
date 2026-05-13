@@ -333,6 +333,26 @@ test "inflt/tuple_return/oversized_buf" {
 }
 
 ///|
+test "inflt/tuple_return/too_small_buf_returns_error" {
+  let data = FixedArray::make(512, b'A')
+  let compressed = deflate_sync(data)
+  let out = FixedArray::make(8, b'\x00')
+  let result : Result[(FixedArray[Byte], Int), FzipError] = try? inflt(
+    compressed,
+    InflateState::new(2),
+    Some(out),
+    None,
+    default_max_input_size,
+    default_max_input_size,
+  )
+  guard result is Err(FzipError(code~, message~)) else {
+    fail("expected error")
+  }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("output buffer too small"))
+}
+
+///|
 test "inflate - corrupted data error" {
   // Test error handling with corrupted data
   let corrupted = FixedArray::make(10, b'\xff')
