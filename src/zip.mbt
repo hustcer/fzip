@@ -222,9 +222,9 @@ fn read_central_directory_entry(
     (sizes.compressed, sizes.uncompressed, sizes.local_offset)
   } else {
     (
-      comp_size_classic.reinterpret_as_int(),
-      uncomp_size_classic.reinterpret_as_int(),
-      local_offset_classic.reinterpret_as_int(),
+      zip32_to_int(comp_size_classic, "classic entry compressed size"),
+      zip32_to_int(uncomp_size_classic, "classic entry uncompressed size"),
+      zip32_to_int(local_offset_classic, "classic entry local header offset"),
     )
   }
   {
@@ -919,7 +919,8 @@ pub fn zip_sync(
 ///
 /// Behaves exactly like `zip_sync` but raises `FzipError` instead of trapping
 /// when the writer encounters a value or layout that cannot be represented in
-/// the current sync API. Today this happens for two specific failure modes:
+/// the current sync API, or when caller-provided ZIP metadata cannot be encoded
+/// safely. Common failure modes include:
 ///
 /// * `Zip64ValueTooLarge` — a metadata count, size, offset, or the final
 ///   archive size cannot fit in MoonBit's 32-bit signed `Int` or be safely
@@ -927,6 +928,8 @@ pub fn zip_sync(
 /// * `ExtraFieldTooLong` — the user's `opts.extra` plus the writer-generated
 ///   ZIP64 extra would exceed `max_extra_field_length` for a local or central
 ///   directory entry.
+/// * `FilenameTooLong` / `InvalidZipData` — filename, comment, or extra-field
+///   metadata cannot fit in the ZIP format's fixed-width fields.
 ///
 /// Both APIs share the same underlying builder, so any successful build
 /// produces byte-identical output.
@@ -954,120 +957,42 @@ priv struct ZipCdInfo {
 }
 
 ///|
-/// Locate the End-Of-Central-Directory record by scanning back from the end
-/// of the input.
-///
-/// The record may carry up to 65535 bytes of comment between the EOCD
-/// signature and the end of the input, so the search window is
-/// `22 + 65535 + 1` bytes (the `+1` is the loop sentinel from the original
-/// implementation).
-///
-/// A matching signature is only treated as a real EOCD when its declared
-/// comment length is consistent with the candidate's distance from the end
-/// of `data`. Without that check, a `0x06054B50` byte sequence inside the
-/// EOCD comment or earlier payload could be mistaken for the record itself.
-fn find_eocd(data : FixedArray[Byte]) -> Int raise FzipError {
-  if data.length() < 22 {
-    raise fzip_err(InvalidZipData, msg="data too short for zip archive")
-  }
-  let mut e = data.length() - 22
-  while e >= 0 {
-    if b4(data, e) == zip_eocd_signature {
-      let comment_length = b2(data, e + 20)
-      if e + 22 + comment_length == data.length() {
-        return e
-      }
-    }
-    e -= 1
-    if data.length() - e > 65558 {
-      break
-    }
-  }
-  raise fzip_err(InvalidZipData, msg="EOCD signature not found")
-}
-
-///|
-/// Parse the End-Of-Central-Directory record (and ZIP64 EOCD when present)
-/// into a unified `ZipCdInfo`.
-///
-/// Multi-disk archives are rejected. ZIP64 metadata is parsed via
-/// `read_zip64_int`, so adversarial size/offset/count values that cannot be
-/// represented by the sync API are rejected with `Zip64ValueTooLarge` before
-/// any allocation happens.
-///
-/// Compatibility note: a classic archive whose only sentinel-like value is
-/// the entry-count field hitting exactly `0xffff` is treated as a regular
-/// 65535-entry classic archive when no valid ZIP64 locator precedes the EOCD.
-/// If any other classic field is a sentinel, ZIP64 metadata is required.
-fn read_central_directory_info(
+/// Build classic central-directory metadata after all EOCD disk/sentinel
+/// decisions have been made.
+fn read_classic_cd_info(
   data : FixedArray[Byte],
-  eocd : Int,
+  entries_disk : Int,
+  entries_total : Int,
+  cd_size_classic : UInt,
+  cd_offset_classic : UInt,
 ) -> ZipCdInfo raise FzipError {
-  // Classic EOCD layout (offsets relative to the signature):
-  //   +0   signature (4)        +4   disk number (2)
-  //   +6   start-disk-of-CD (2) +8   entries on this disk (2)
-  //   +10  total entries (2)    +12  CD size (4)
-  //   +16  CD offset (4)        +20  comment length (2)
-  let disk_num = b2(data, eocd + 4)
-  let cd_disk = b2(data, eocd + 6)
-  let entries_disk = b2(data, eocd + 8)
-  let entries_total = b2(data, eocd + 10)
-  let cd_size_classic = b4(data, eocd + 12)
-  let cd_offset_classic = b4(data, eocd + 16)
-  if disk_num != 0 || cd_disk != 0 {
+  if entries_disk != entries_total {
     raise fzip_err(
       InvalidZipData,
       msg="multi-disk ZIP archives are not supported",
     )
   }
-  let count_sentinel = entries_total == zip_uint16_max
-  let size_sentinel = cd_size_classic == zip_uint32_max
-  let offset_sentinel = cd_offset_classic == zip_uint32_max
-  let any_sentinel = count_sentinel || size_sentinel || offset_sentinel
-  let locator_present = eocd >= 20 &&
-    b4(data, eocd - 20) == zip64_locator_signature
-  if !any_sentinel && !locator_present {
-    if entries_disk != entries_total {
-      raise fzip_err(
-        InvalidZipData,
-        msg="multi-disk ZIP archives are not supported",
-      )
-    }
-    let size = cd_size_classic.reinterpret_as_int()
-    let offset = cd_offset_classic.reinterpret_as_int()
-    if offset > data.length() || size > data.length() - offset {
-      raise fzip_err(
-        InvalidZipData,
-        msg="central directory bounds exceed archive",
-      )
-    }
-    return { entries: entries_total, size, offset, zip64: false }
-  }
-  if !locator_present {
-    // Sentinel set — try to find a valid ZIP64 locator immediately before EOCD.
-    // Compatibility: a classic archive with exactly 65535 entries (and no
-    // other sentinel) is valid even without ZIP64 metadata.
-    if count_sentinel && !size_sentinel && !offset_sentinel {
-      if entries_disk != entries_total {
-        raise fzip_err(
-          InvalidZipData,
-          msg="multi-disk ZIP archives are not supported",
-        )
-      }
-      let size = cd_size_classic.reinterpret_as_int()
-      let offset = cd_offset_classic.reinterpret_as_int()
-      if offset > data.length() || size > data.length() - offset {
-        raise fzip_err(
-          InvalidZipData,
-          msg="central directory bounds exceed archive",
-        )
-      }
-      return { entries: zip_uint16_max, size, offset, zip64: false }
-    }
+  let size = zip32_to_int(cd_size_classic, "classic central directory size")
+  let offset = zip32_to_int(
+    cd_offset_classic, "classic central directory offset",
+  )
+  if offset > data.length() || size > data.length() - offset {
     raise fzip_err(
       InvalidZipData,
-      msg="ZIP64 sentinel set but no valid ZIP64 locator",
+      msg="central directory bounds exceed archive",
     )
+  }
+  { entries: entries_total, size, offset, zip64: false }
+}
+
+///|
+/// Parse the ZIP64 EOCD locator + record immediately before a classic EOCD.
+fn read_zip64_cd_info(
+  data : FixedArray[Byte],
+  eocd : Int,
+) -> ZipCdInfo raise FzipError {
+  if eocd < 20 || b4(data, eocd - 20) != zip64_locator_signature {
+    raise fzip_err(InvalidZipData, msg="ZIP64 locator missing")
   }
   // Locator layout:
   //   +0   signature (4) = 0x07064B50
@@ -1166,6 +1091,117 @@ fn read_central_directory_info(
     size: z64_size,
     offset: z64_offset,
     zip64: true,
+  }
+}
+
+///|
+/// Locate the End-Of-Central-Directory record by scanning back from the end
+/// of the input.
+///
+/// The record may carry up to 65535 bytes of comment between the EOCD
+/// signature and the end of the input, so the search window is
+/// `22 + 65535 + 1` bytes (the `+1` is the loop sentinel from the original
+/// implementation).
+///
+/// A matching signature is only treated as a real EOCD when its declared
+/// comment length is consistent with the candidate's distance from the end
+/// of `data`. Without that check, a `0x06054B50` byte sequence inside the
+/// EOCD comment or earlier payload could be mistaken for the record itself.
+fn find_eocd(data : FixedArray[Byte]) -> Int raise FzipError {
+  if data.length() < 22 {
+    raise fzip_err(InvalidZipData, msg="data too short for zip archive")
+  }
+  let mut e = data.length() - 22
+  while e >= 0 {
+    if b4(data, e) == zip_eocd_signature {
+      let comment_length = b2(data, e + 20)
+      if e + 22 + comment_length == data.length() {
+        return e
+      }
+    }
+    e -= 1
+    if data.length() - e > 65558 {
+      break
+    }
+  }
+  raise fzip_err(InvalidZipData, msg="EOCD signature not found")
+}
+
+///|
+/// Parse the End-Of-Central-Directory record (and ZIP64 EOCD when present)
+/// into a unified `ZipCdInfo`.
+///
+/// Multi-disk archives are rejected. ZIP64 metadata is parsed via
+/// `read_zip64_int`, so adversarial size/offset/count values that cannot be
+/// represented by the sync API are rejected with `Zip64ValueTooLarge` before
+/// any allocation happens.
+///
+/// Compatibility note: a classic archive whose only sentinel-like value is
+/// the entry-count field hitting exactly `0xffff` is treated as a regular
+/// 65535-entry classic archive when no valid ZIP64 locator precedes the EOCD.
+/// If any other classic field is a sentinel, ZIP64 metadata is required.
+fn read_central_directory_info(
+  data : FixedArray[Byte],
+  eocd : Int,
+) -> ZipCdInfo raise FzipError {
+  // Classic EOCD layout (offsets relative to the signature):
+  //   +0   signature (4)        +4   disk number (2)
+  //   +6   start-disk-of-CD (2) +8   entries on this disk (2)
+  //   +10  total entries (2)    +12  CD size (4)
+  //   +16  CD offset (4)        +20  comment length (2)
+  let disk_num = b2(data, eocd + 4)
+  let cd_disk = b2(data, eocd + 6)
+  let entries_disk = b2(data, eocd + 8)
+  let entries_total = b2(data, eocd + 10)
+  let cd_size_classic = b4(data, eocd + 12)
+  let cd_offset_classic = b4(data, eocd + 16)
+  if disk_num != 0 || cd_disk != 0 {
+    raise fzip_err(
+      InvalidZipData,
+      msg="multi-disk ZIP archives are not supported",
+    )
+  }
+  let count_sentinel = entries_total == zip_uint16_max
+  let size_sentinel = cd_size_classic == zip_uint32_max
+  let offset_sentinel = cd_offset_classic == zip_uint32_max
+  let any_sentinel = count_sentinel || size_sentinel || offset_sentinel
+  let locator_candidate = eocd >= 20 &&
+    b4(data, eocd - 20) == zip64_locator_signature
+  if !any_sentinel && !locator_candidate {
+    return read_classic_cd_info(
+      data, entries_disk, entries_total, cd_size_classic, cd_offset_classic,
+    )
+  }
+  if !locator_candidate {
+    // Sentinel set — try to find a valid ZIP64 locator immediately before EOCD.
+    // Compatibility: a classic archive with exactly 65535 entries (and no
+    // other sentinel) is valid even without ZIP64 metadata.
+    if count_sentinel && !size_sentinel && !offset_sentinel {
+      return read_classic_cd_info(
+        data, entries_disk, zip_uint16_max, cd_size_classic, cd_offset_classic,
+      )
+    }
+    raise fzip_err(
+      InvalidZipData,
+      msg="ZIP64 sentinel set but no valid ZIP64 locator",
+    )
+  }
+  let z64_result : Result[ZipCdInfo, FzipError] = try? read_zip64_cd_info(
+    data, eocd,
+  )
+  match z64_result {
+    Ok(info) => info
+    Err(err) => {
+      if !any_sentinel {
+        // A classic central-directory comment or other trailing CD data can
+        // legitimately place `0x07064B50` immediately before EOCD. Treat it
+        // as ZIP64 only if the full locator + EOCD record validates.
+        return read_classic_cd_info(
+          data, entries_disk, entries_total, cd_size_classic, cd_offset_classic,
+        )
+      }
+      raise err
+    }
   }
 }
 

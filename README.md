@@ -126,13 +126,15 @@ current sync API can safely index raise the new
 data-descriptor entries (general-purpose bit 3), multi-disk archives,
 and missing required ZIP64 extras continue to raise `InvalidZipData`.
 
-For recoverable writer failures (extras-too-long, ZIP64 layout overflow)
+For recoverable writer failures (ZIP64 layout overflow, oversized extras,
+filenames/comments that do not fit ZIP fields, or invalid extra-field ids)
 use the new `zip_sync_checked` API:
 
 ```moonbit
 let archive = @fzip.zip_sync_checked(files) catch {
   FzipError(code~, message~) => {
-    // handle Zip64ValueTooLarge or ExtraFieldTooLong here
+    // handle Zip64ValueTooLarge, ExtraFieldTooLong, FilenameTooLong,
+    // InvalidZipData, or other writer validation errors here
     return
   }
 }

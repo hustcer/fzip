@@ -49,6 +49,23 @@ fn read_zip64_int(
 }
 
 ///|
+/// Convert a classic ZIP 32-bit unsigned size/offset field to a sync-API-safe
+/// `Int`.
+///
+/// Classic ZIP fields can legally describe values above MoonBit's signed
+/// `Int` ceiling. Reject those before reinterpretation so a value like
+/// `0x80000000` cannot become negative and bypass later bounds checks.
+fn zip32_to_int(v : UInt, context : String) -> Int raise FzipError {
+  if v > max_int_val().reinterpret_as_uint() {
+    raise fzip_err(
+      Zip64ValueTooLarge,
+      msg=context + ": value exceeds Int range",
+    )
+  }
+  v.reinterpret_as_int()
+}
+
+///|
 /// Writer-side checked helper: validates the ZIP64 value fits the sync API's
 /// `Int` range, then writes it as a fixed 8-byte little-endian value via `w8`.
 fn write_zip64_int(

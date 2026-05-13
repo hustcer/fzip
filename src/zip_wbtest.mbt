@@ -359,6 +359,30 @@ test "read_central_directory_info - rejects CD bounds beyond archive" {
 }
 
 ///|
+test "read_central_directory_info - rejects classic CD size above Int range" {
+  let arc = make_classic_eocd(0, 0x80000000U, 0U)
+  let eocd = find_eocd(arc)
+  let r : Result[ZipCdInfo, FzipError] = try? read_central_directory_info(
+    arc, eocd,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("central directory size"))
+}
+
+///|
+test "read_central_directory_info - rejects classic CD offset above Int range" {
+  let arc = make_classic_eocd(0, 0U, 0x80000000U)
+  let eocd = find_eocd(arc)
+  let r : Result[ZipCdInfo, FzipError] = try? read_central_directory_info(
+    arc, eocd,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("central directory offset"))
+}
+
+///|
 test "read_central_directory_info - 65535 entries without locator stays classic" {
   // Classic archive with exactly 65535 entries and no ZIP64 metadata is
   // legal and must NOT be misclassified as ZIP64.
@@ -380,6 +404,24 @@ test "read_central_directory_info - sentinel CD offset without locator raises" {
   )
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
+}
+
+///|
+test "unzip_list - false ZIP64 locator in CD comment falls back to classic" {
+  // The 20 bytes immediately before EOCD are still part of the central
+  // directory entry comment. They are not a ZIP64 locator unless the whole
+  // locator + ZIP64 EOCD record validates.
+  let name : FixedArray[Byte] = [b'a']
+  let comment : FixedArray[Byte] = FixedArray::make(20, b'\x00')
+  w4(comment, 0, zip64_locator_signature)
+  let cd_entry = make_cd_entry(name, 0, 0U, 0U, 0U, comment~)
+  let eocd = make_classic_eocd(1, cd_entry.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd_entry, eocd])
+  let infos = unzip_list(arc)
+  inspect(infos.length(), content="1")
+  inspect(infos[0].name, content="a")
+  inspect(infos[0].size, content="0")
+  inspect(infos[0].original_size, content="0")
 }
 
 ///|
@@ -738,10 +780,12 @@ fn make_cd_entry(
   local_offset : UInt,
   extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
   flag? : Int = 0,
+  comment? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
 ) -> FixedArray[Byte] {
   let name_len = name.length()
   let extra_len = extra.length()
-  let total = 46 + name_len + extra_len
+  let comment_len = comment.length()
+  let total = 46 + name_len + extra_len + comment_len
   let buf = FixedArray::make(total, b'\x00')
   w4(buf, 0, zip_cd_signature)
   // version made by, version needed: 0 — irrelevant for this parser
@@ -753,7 +797,7 @@ fn make_cd_entry(
   w4(buf, 24, uncomp_size)
   w2(buf, 28, name_len)
   w2(buf, 30, extra_len)
-  w2(buf, 32, 0) // comment length
+  w2(buf, 32, comment_len)
   w2(buf, 34, 0) // disk number start
   w2(buf, 36, 0) // internal attrs
   w4(buf, 38, 0U) // external attrs
@@ -761,6 +805,14 @@ fn make_cd_entry(
   name.blit_to(buf, len=name_len, src_offset=0, dst_offset=46)
   if extra_len > 0 {
     extra.blit_to(buf, len=extra_len, src_offset=0, dst_offset=46 + name_len)
+  }
+  if comment_len > 0 {
+    comment.blit_to(
+      buf,
+      len=comment_len,
+      src_offset=0,
+      dst_offset=46 + name_len + extra_len,
+    )
   }
   buf
 }
@@ -860,6 +912,63 @@ test "read_central_directory_entry - classic entry resolves classic fields" {
   inspect(header.local_offset, content="50")
   inspect(header.name, content="hi")
   inspect(header.next_offset, content=entry.length().to_string())
+}
+
+///|
+test "read_central_directory_entry - rejects classic compressed size above Int range" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 8, 0x80000000U, 1U, 0U)
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("compressed size"))
+}
+
+///|
+test "read_central_directory_entry - rejects classic uncompressed size above Int range" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 8, 1U, 0x80000000U, 0U)
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("uncompressed size"))
+}
+
+///|
+test "read_central_directory_entry - rejects classic local offset above Int range" {
+  let name : FixedArray[Byte] = [b'a']
+  let entry = make_cd_entry(name, 8, 1U, 1U, 0x80000000U)
+  let r : Result[ZipEntryHeader, FzipError] = try? read_central_directory_entry(
+    entry,
+    0,
+    entry.length(),
+    false,
+  )
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("local header offset"))
+}
+
+///|
+test "unzip_list - rejects classic entry size above Int range" {
+  let name : FixedArray[Byte] = [b'a']
+  let cd_entry = make_cd_entry(name, 0, 0x80000000U, 0x80000000U, 0U)
+  let eocd = make_classic_eocd(1, cd_entry.length().reinterpret_as_uint(), 0U)
+  let arc = concat_bytes([cd_entry, eocd])
+  let r : Result[Array[UnzipFileInfo], FzipError] = try? unzip_list(arc)
+  guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
+  assert_eq(code, Zip64ValueTooLarge)
+  assert_true(message.contains("size"))
 }
 
 ///|
