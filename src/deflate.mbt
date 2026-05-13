@@ -343,6 +343,72 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
 }
 
 ///|
+fn is_all_same(dat : FixedArray[Byte], len : Int) -> Bool {
+  if len <= 1 {
+    return true
+  }
+  let first = dat[0]
+  for i in 1..<len {
+    if dat[i] != first {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn dflt_rle_block(
+  dat : FixedArray[Byte],
+  pre : Int,
+  post : Int,
+  st : DeflateState,
+  crc_state? : CRC32State? = None,
+  adler_state? : AdlerState? = None,
+) -> (FixedArray[Byte], Int) {
+  let s = if st.z != 0 { st.z } else { dat.length() }
+  let o_size = sat_add(sat_add(pre, s), sat_add(16, post))
+  let mut o = FixedArray::make(o_size, b'\x00')
+  let syms_size = s / 258 + 4
+  let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
+  let lf : FixedArray[Int] = FixedArray::make(288, 0)
+  let df : FixedArray[Int] = FixedArray::make(32, 0)
+  let mut li = 0
+  let b = dat[0].to_int()
+  syms[li] = b
+  li += 1
+  lf[b] += 1
+  let mut rem = s - 1
+  while rem >= 3 {
+    let l = if rem > 258 { 258 } else { rem }
+    let lc = revfl[l]
+    let dc = revfd[1]
+    syms[li] = 268435456 | (lc << 18) | dc
+    li += 1
+    lf[257 + (lc & 31)] += 1
+    df[dc & 31] += 1
+    rem -= l
+  }
+  while rem > 0 {
+    syms[li] = b
+    li += 1
+    lf[b] += 1
+    rem -= 1
+  }
+  o = ensure_out(o, out_capacity_need(pre, 0, s, post))
+  let pos = wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8) - pre * 8
+  match crc_state {
+    Some(cs) => cs.push_range(dat, 0, s)
+    None => ()
+  }
+  match adler_state {
+    Some(a_s) => a_s.push_range(dat, 0, s)
+    None => ()
+  }
+  st.i = s
+  (o, pre + shft(pos) + post)
+}
+
+///|
 /// Ensure output buffer has enough capacity, growing if needed
 fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
   let need = if need < 0 { max_int_val() } else { need }
@@ -392,6 +458,9 @@ fn dflt(
   let lst = st.l
   let mut pos = st.r & 7
   if lvl > 0 {
+    if s >= 3 && st.w == 0 && st.i == 0 && st.r == 0 && is_all_same(dat, s) {
+      return dflt_rle_block(dat, pre, post, st, crc_state~, adler_state~)
+    }
     // Fast incompressible data detection (方案 1)
     if !is_compressible(dat, 0, s) {
       return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)

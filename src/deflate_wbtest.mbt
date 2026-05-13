@@ -163,6 +163,26 @@ test "deflate/inflate roundtrip - 100KB zeros" {
 }
 
 ///|
+test "deflate rle fast path - large single byte run" {
+  let size = 100000
+  let data : FixedArray[Byte] = FixedArray::make(size, b'\x7A')
+  assert_true(is_all_same(data, data.length()))
+  let compressed = deflate_sync(data)
+  assert_true(compressed.length() < size / 100)
+  let decompressed = inflate_sync(compressed)
+  assert_eq(decompressed.length(), size)
+  for i in 0..<size {
+    assert_eq(decompressed[i], b'\x7A')
+  }
+}
+
+///|
+test "deflate rle fast path - rejects mixed data" {
+  let data : FixedArray[Byte] = [b'\x00', b'\x00', b'\x01']
+  assert_false(is_all_same(data, data.length()))
+}
+
+///|
 test "deflate/inflate roundtrip - 100KB sequential" {
   let size = 100000
   let data : FixedArray[Byte] = FixedArray::make(size, b'\x00')
