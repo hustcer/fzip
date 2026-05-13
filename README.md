@@ -1,6 +1,6 @@
 # fzip – High-performance compression library for MoonBit
 
-`fzip` (short for *fast zip*) is a high-performance, in-memory compression library for MoonBit, ported from the [fflate](https://github.com/101arrowz/fflate) JavaScript library.
+`fzip` (short for _fast zip_) is a high-performance, in-memory compression library for MoonBit, ported from the [fflate](https://github.com/101arrowz/fflate) JavaScript library.
 
 This library provides:
 
@@ -32,7 +32,7 @@ Or add this to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/fzip": "0.6.2"
+    "hustcer/fzip": "0.6.3"
   }
 }
 ```

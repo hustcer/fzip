@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.3 - 2026-05-13
+
+### Performance
+
+- **RLE fast path for single-byte runs**: Detect all-same-byte inputs before LZ77 hashing and emit a dedicated RLE block (`dflt_rle_block`) that encodes the run as one literal plus repeated length/distance symbols, skipping the full hash-chain scan entirely. Yields a **74.1% compression speedup** for single-byte run inputs.
+
+### Chores
+
+- **Fix `moon check` for moon 0.9.2**: Updated `inflate_wbtest.mbt` to resolve type-check errors introduced by changes in moon 0.9.2.
+
 ## v0.6.2 - 2026-05-11
 
 ### Performance
