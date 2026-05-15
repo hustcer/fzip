@@ -41,7 +41,7 @@
   },
   {
     "name": "deflate/compress/seq_1k/fzip",
-    "compressed": 280.0,
+    "compressed": 279.0,
     "original": 1024.0
   },
   {
@@ -61,7 +61,7 @@
   },
   {
     "name": "deflate/compress/seq_100k/fzip",
-    "compressed": 1127.0,
+    "compressed": 1263.0,
     "original": 102400.0
   },
   {
@@ -121,7 +121,7 @@
   },
   {
     "name": "gzip/compress/1k/fzip",
-    "compressed": 298.0,
+    "compressed": 297.0,
     "original": 1024.0
   },
   {
@@ -141,7 +141,7 @@
   },
   {
     "name": "gzip/compress/100k/fzip",
-    "compressed": 1145.0,
+    "compressed": 1281.0,
     "original": 102400.0
   },
   {
@@ -161,7 +161,7 @@
   },
   {
     "name": "zlib/compress/1k/fzip",
-    "compressed": 286.0,
+    "compressed": 285.0,
     "original": 1024.0
   },
   {
@@ -181,7 +181,7 @@
   },
   {
     "name": "zlib/compress/100k/fzip",
-    "compressed": 1133.0,
+    "compressed": 1269.0,
     "original": 102400.0
   },
   {
