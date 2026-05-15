@@ -58,7 +58,10 @@ fn grown_out_capacity(cur : Int, need : Int) -> Int {
 let small_fixed_block_threshold : Int = 1024
 
 ///|
-let periodic_fast_block_limit : Int = 4096
+let periodic_dynamic_block_limit : Int = 4096
+
+///|
+let periodic_non_overlap_distance : Int = 258
 
 ///|
 /// Write a stored (uncompressed) block
@@ -222,6 +225,22 @@ fn wblk(
     p += 2
     write_syms(out, flm, flt, fdm, fdt, syms, li, p)
   }
+}
+
+///|
+fn wblk_fixed(
+  out : FixedArray[Byte],
+  final_ : Int,
+  syms : FixedArray[Int],
+  li : Int,
+  p : Int,
+) -> Int {
+  let mut p = p
+  wbits(out, p, final_)
+  p += 1
+  wbits(out, p, 1)
+  p += 2
+  write_syms(out, flm, flt, fdm, fdt, syms, li, p)
 }
 
 ///|
@@ -447,21 +466,56 @@ fn dflt_periodic_block(
   adler_state? : AdlerState? = None,
 ) -> (FixedArray[Byte], Int) {
   let s = if st.z != 0 { st.z } else { dat.length() }
+  let use_fixed = s > periodic_dynamic_block_limit
+  let main_dist = if !use_fixed {
+    period
+  } else if period >= periodic_non_overlap_distance {
+    period
+  } else {
+    let rem = periodic_non_overlap_distance % period
+    if rem == 0 {
+      periodic_non_overlap_distance
+    } else {
+      periodic_non_overlap_distance + period - rem
+    }
+  }
   let o_size = sat_add(sat_add(pre, s), sat_add(16, post))
   let mut o = FixedArray::make(o_size, b'\x00')
-  let syms_size = period + (s - period) / 258 + 4
+  let seed_syms = if !use_fixed {
+    period
+  } else if period < 3 {
+    main_dist
+  } else {
+    period + (main_dist - period + period - 1) / period
+  }
+  let syms_size = seed_syms + (s - main_dist + 257) / 258 + 4
   let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
   let lf : FixedArray[Int] = FixedArray::make(288, 0)
   let df : FixedArray[Int] = FixedArray::make(32, 0)
   let mut li = 0
-  for i in 0..<period {
+  let literal_seed = if use_fixed && period < 3 { main_dist } else { period }
+  for i in 0..<literal_seed {
     let b = dat[i].to_int()
     syms[li] = b
     li += 1
     lf[b] += 1
   }
-  let dc = revfd[period]
-  let mut rem = s - period
+  if use_fixed {
+    let period_dc = revfd[period]
+    let mut produced = literal_seed
+    while produced < main_dist {
+      let rem_seed = main_dist - produced
+      let l = if rem_seed > period { period } else { rem_seed }
+      let lc = revfl[l]
+      syms[li] = 268435456 | (lc << 18) | period_dc
+      li += 1
+      lf[257 + (lc & 31)] += 1
+      df[period_dc & 31] += 1
+      produced += l
+    }
+  }
+  let dc = revfd[main_dist]
+  let mut rem = s - main_dist
   while rem >= 3 {
     let l = if rem > 258 { 258 } else { rem }
     let lc = revfl[l]
@@ -481,7 +535,12 @@ fn dflt_periodic_block(
     rem -= 1
   }
   o = ensure_out(o, out_capacity_need(pre, 0, s, post))
-  let pos = wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8) - pre * 8
+  let block_pos = if use_fixed {
+    wblk_fixed(o, st.l, syms, li, pre * 8)
+  } else {
+    wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8)
+  }
+  let pos = block_pos - pre * 8
   match crc_state {
     Some(cs) => cs.push_range(dat, 0, s)
     None => ()
@@ -551,11 +610,7 @@ fn dflt(
     if !is_compressible(dat, 0, s) {
       return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)
     }
-    if s >= 1024 &&
-      s <= periodic_fast_block_limit &&
-      st.w == 0 &&
-      st.i == 0 &&
-      st.r == 0 {
+    if s >= 1024 && st.w == 0 && st.i == 0 && st.r == 0 {
       let period = detect_period(dat, s)
       if period != 0 {
         return dflt_periodic_block(
