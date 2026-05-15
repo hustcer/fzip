@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.0 - 2026-05-16
+
+### Performance
+
+- **Periodic DEFLATE fast path**: Detect periodic inputs and emit specialized LZ77 streams. In the `feature/bench` v0.7.0 benchmark diff, sequential fzip compression improves across raw DEFLATE **7.89 µs -> 4.59 µs (41.83% faster)** for 1K and **138.26 µs -> 84.96 µs (38.55% faster)** for 100K; GZIP **8.71 µs -> 5.28 µs (39.38% faster)** for 1K and **211.66 µs -> 156.19 µs (26.21% faster)** for 100K; Zlib **8.36 µs -> 4.95 µs (40.79% faster)** for 1K and **177.20 µs -> 124.35 µs (29.83% faster)** for 100K.
+- **Inflate-friendly large periodic output**: Large periodic streams now use fixed-Huffman, non-overlapping matches to avoid the decompression regression from the initial fast path. The same benchmark diff shows 100K fzip decompression improvements for raw DEFLATE **20.70 µs -> 16.22 µs (21.64% faster)**, GZIP **90.55 µs -> 84.13 µs (7.09% faster)**, Zlib **59.50 µs -> 55.36 µs (6.96% faster)**, and auto-detect **88.36 µs -> 83.16 µs (5.89% faster)**.
+- **Compression-size tradeoff**: The fixed-Huffman large-periodic path improves runtime while increasing 100K sequential output size from **1127 -> 1263 bytes** for raw DEFLATE, **1145 -> 1281 bytes** for GZIP, and **1133 -> 1269 bytes** for Zlib.
+
 ## v0.6.3 - 2026-05-13
 
 ### Performance
