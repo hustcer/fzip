@@ -409,6 +409,89 @@ fn dflt_rle_block(
 }
 
 ///|
+fn is_periodic(dat : FixedArray[Byte], len : Int, period : Int) -> Bool {
+  if period <= 0 || period >= len {
+    return false
+  }
+  for i in period..<len {
+    if dat[i] != dat[i - period] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn detect_period(dat : FixedArray[Byte], len : Int) -> Int {
+  let periods : FixedArray[Int] = [2, 4, 8, 16, 32, 64, 128, 256, 512]
+  for i in 0..<periods.length() {
+    let p = periods[i]
+    if p * 2 <= len && is_periodic(dat, len, p) {
+      return p
+    }
+  }
+  0
+}
+
+///|
+fn dflt_periodic_block(
+  dat : FixedArray[Byte],
+  period : Int,
+  pre : Int,
+  post : Int,
+  st : DeflateState,
+  crc_state? : CRC32State? = None,
+  adler_state? : AdlerState? = None,
+) -> (FixedArray[Byte], Int) {
+  let s = if st.z != 0 { st.z } else { dat.length() }
+  let o_size = sat_add(sat_add(pre, s), sat_add(16, post))
+  let mut o = FixedArray::make(o_size, b'\x00')
+  let syms_size = period + (s - period) / 258 + 4
+  let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
+  let lf : FixedArray[Int] = FixedArray::make(288, 0)
+  let df : FixedArray[Int] = FixedArray::make(32, 0)
+  let mut li = 0
+  for i in 0..<period {
+    let b = dat[i].to_int()
+    syms[li] = b
+    li += 1
+    lf[b] += 1
+  }
+  let dc = revfd[period]
+  let mut rem = s - period
+  while rem >= 3 {
+    let l = if rem > 258 { 258 } else { rem }
+    let lc = revfl[l]
+    syms[li] = 268435456 | (lc << 18) | dc
+    li += 1
+    lf[257 + (lc & 31)] += 1
+    df[dc & 31] += 1
+    rem -= l
+  }
+  let mut tail = s - rem
+  while rem > 0 {
+    let b = dat[tail].to_int()
+    syms[li] = b
+    li += 1
+    lf[b] += 1
+    tail += 1
+    rem -= 1
+  }
+  o = ensure_out(o, out_capacity_need(pre, 0, s, post))
+  let pos = wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8) - pre * 8
+  match crc_state {
+    Some(cs) => cs.push_range(dat, 0, s)
+    None => ()
+  }
+  match adler_state {
+    Some(a_s) => a_s.push_range(dat, 0, s)
+    None => ()
+  }
+  st.i = s
+  (o, pre + shft(pos) + post)
+}
+
+///|
 /// Ensure output buffer has enough capacity, growing if needed
 fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
   let need = if need < 0 { max_int_val() } else { need }
@@ -464,6 +547,20 @@ fn dflt(
     // Fast incompressible data detection (方案 1)
     if !is_compressible(dat, 0, s) {
       return dflt(dat, 0, plvl, pre, post, st, crc_state~, adler_state~)
+    }
+    if s >= 1024 && st.w == 0 && st.i == 0 && st.r == 0 {
+      let period = detect_period(dat, s)
+      if period != 0 {
+        return dflt_periodic_block(
+          dat,
+          period,
+          pre,
+          post,
+          st,
+          crc_state~,
+          adler_state~,
+        )
+      }
     }
     if pos != 0 {
       o[w_start] = (st.r >> 3).to_byte()
