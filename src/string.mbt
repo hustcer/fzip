@@ -60,11 +60,23 @@ pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
 ///|
 /// Decode bytes into a `String`.
 ///
-/// By default the selected byte range is decoded as UTF-8. Truncated multi-byte
-/// sequences raise `FzipError`; other malformed byte patterns are decoded
-/// permissively by the current implementation. When `latin1` is `true`, each
-/// byte is mapped directly to the same Unicode code point. `offset` and `len`
-/// select the range to decode.
+/// The selected byte range is decoded as strict UTF-8 per RFC 3629. Any of the
+/// following raise `InvalidUTF8`:
+///
+/// * continuation bytes (`0x80`-`0xBF`) appearing as a sequence start;
+/// * overlong encodings (`0xC0 0x80` → U+0000, etc.);
+/// * a continuation byte without the `10xxxxxx` prefix;
+/// * surrogate code points (`U+D800`-`U+DFFF`);
+/// * code points above `U+10FFFF`;
+/// * 5- or 6-byte legacy UTF-8 sequences (start byte `>= 0xF5`).
+///
+/// Earlier versions of this function silently accepted these patterns, which
+/// produced fzip-specific decoder output that disagreed with standard
+/// libraries — a parser-differential risk for ZIP filenames where strict
+/// rejection is preferred over silent corruption.
+///
+/// When `latin1` is `true`, every byte is mapped directly to the same Unicode
+/// code point. `offset` and `len` select the input range.
 pub fn str_from_u8(
   data : FixedArray[Byte],
   latin1? : Bool = false,
@@ -84,38 +96,71 @@ pub fn str_from_u8(
   let mut i = offset
   while i < end {
     let c = data[i].to_int()
-    let eb = (if c > 127 { 1 } else { 0 }) +
-      (if c > 223 { 1 } else { 0 }) +
-      (if c > 239 { 1 } else { 0 })
-    if i + eb >= end && eb > 0 {
-      raise fzip_err(InvalidUTF8)
-    }
-    if eb == 0 {
+    if c < 0x80 {
+      // ASCII
       buf.write_char(c.unsafe_to_char())
       i += 1
-    } else if eb == 3 {
-      let v = (
-          ((c & 15) << 18) |
-          ((data[i + 1].to_int() & 63) << 12) |
-          ((data[i + 2].to_int() & 63) << 6) |
-          (data[i + 3].to_int() & 63)
-        ) -
-        65536
-      buf.write_char((55296 | (v >> 10)).unsafe_to_char())
-      buf.write_char((56320 | (v & 1023)).unsafe_to_char())
-      i += 4
-    } else if eb == 1 {
-      buf.write_char(
-        (((c & 31) << 6) | (data[i + 1].to_int() & 63)).unsafe_to_char(),
-      )
+    } else if c < 0xC2 {
+      // 0x80-0xBF: continuation bytes cannot start a sequence.
+      // 0xC0, 0xC1: would be overlong encodings of <= U+007F.
+      raise fzip_err(InvalidUTF8)
+    } else if c < 0xE0 {
+      // 2-byte sequence: 0xC2-0xDF.
+      if i + 1 >= end {
+        raise fzip_err(InvalidUTF8)
+      }
+      let c1 = data[i + 1].to_int()
+      if (c1 & 0xC0) != 0x80 {
+        raise fzip_err(InvalidUTF8)
+      }
+      let cp = ((c & 0x1F) << 6) | (c1 & 0x3F)
+      buf.write_char(cp.unsafe_to_char())
       i += 2
-    } else {
-      buf.write_char(
-        (((c & 15) << 12) |
-        ((data[i + 1].to_int() & 63) << 6) |
-        (data[i + 2].to_int() & 63)).unsafe_to_char(),
-      )
+    } else if c < 0xF0 {
+      // 3-byte sequence: 0xE0-0xEF.
+      if i + 2 >= end {
+        raise fzip_err(InvalidUTF8)
+      }
+      let c1 = data[i + 1].to_int()
+      let c2 = data[i + 2].to_int()
+      if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 {
+        raise fzip_err(InvalidUTF8)
+      }
+      let cp = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F)
+      // Reject overlong encodings (codepoint < U+0800) and UTF-16 surrogate
+      // code points (U+D800 .. U+DFFF) which are not valid Unicode scalars.
+      if cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF) {
+        raise fzip_err(InvalidUTF8)
+      }
+      buf.write_char(cp.unsafe_to_char())
       i += 3
+    } else if c < 0xF5 {
+      // 4-byte sequence: 0xF0-0xF4.
+      if i + 3 >= end {
+        raise fzip_err(InvalidUTF8)
+      }
+      let c1 = data[i + 1].to_int()
+      let c2 = data[i + 2].to_int()
+      let c3 = data[i + 3].to_int()
+      if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 {
+        raise fzip_err(InvalidUTF8)
+      }
+      let cp = ((c & 0x07) << 18) |
+        ((c1 & 0x3F) << 12) |
+        ((c2 & 0x3F) << 6) |
+        (c3 & 0x3F)
+      // 4-byte minimum is U+10000; max is U+10FFFF.
+      if cp < 0x10000 || cp > 0x10FFFF {
+        raise fzip_err(InvalidUTF8)
+      }
+      // Emit as a UTF-16 surrogate pair.
+      let v = cp - 0x10000
+      buf.write_char((0xD800 | (v >> 10)).unsafe_to_char())
+      buf.write_char((0xDC00 | (v & 0x3FF)).unsafe_to_char())
+      i += 4
+    } else {
+      // 0xF5-0xFF: outside RFC 3629 (legacy 5/6-byte starts or invalid).
+      raise fzip_err(InvalidUTF8)
     }
   }
   buf.to_string()
