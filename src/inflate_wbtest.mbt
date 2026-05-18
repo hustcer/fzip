@@ -692,3 +692,110 @@ test "inflt/backref/gzip_rle_pattern" {
   let result = gunzip_sync(gz)
   assert_bytes_eq(result, data)
 }
+
+///|
+/// F-INF-001 regression: a hand-built DEFLATE bit stream that emits one
+/// fixed-Huffman LZ77 reference of length=3 / distance=5 followed by
+/// end-of-block. Combined with a 5-byte dictionary, this drives `bt < dt_val`
+/// AND `dt_val > end` simultaneously.
+///
+/// Before the fix, the dict branch wrote `buf[0..3]` from the dictionary,
+/// advanced `bt` to `end = 3`, and then the LZ77 fall-through invoked
+/// `blit_to(src_offset = 3 - 5 = -2)` and trapped. After the fix, the
+/// `if bt < end` guard skips the LZ77 copy entirely because the dict branch
+/// already produced all the requested bytes.
+///
+/// Bit stream layout (LSB-first within each byte, bit 0 of byte 0 first):
+///   bit 0      = 1   (BFINAL)
+///   bits 1..2  = 01  (BTYPE = fixed huffman, read as LSB-first value 1)
+///   bits 3..9  = length code 257 = LSB-first 0000001
+///                (canonical 7-bit fixed code 0000001 reversed)
+///   bits 10..14 = distance code 4 = LSB-first 00100
+///                (canonical 5-bit fixed code 00100 reversed)
+///   bit 15     = 0   (1 distance extra bit, decodes to distance 5)
+///   bits 16..22 = end-of-block code 256 = LSB-first 0000000
+///   bit 23     = 0   (padding to byte boundary)
+///
+/// Packed bytes:
+///   byte 0 = 0b00000011 = 0x03 (BFINAL + BTYPE + 5 LSBs of length code)
+///   byte 1 = 0b00010010 = 0x12 (2 MSBs of length code + distance code 4 at bit 12)
+///   byte 2 = 0b00000000 = 0x00 (distance extra bit + end-of-block + padding)
+test "inflt/backref/dict_short_lookback_f_inf_001" {
+  // Dictionary of 5 distinct bytes; the LZ77 reference of length 3 at
+  // distance 5 maps to `dict[0..3]`.
+  let dict : FixedArray[Byte] = [b'a', b'b', b'c', b'd', b'e']
+  // Hand-crafted DEFLATE payload described above.
+  let payload : FixedArray[Byte] = [b'\x03', b'\x12', b'\x00']
+  let decompressed = inflate_sync(payload, opts={
+    out: None,
+    dictionary: Some(dict),
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+  })
+  // Expected output: 3 bytes from the start of the dictionary.
+  assert_eq(decompressed.length(), 3)
+  assert_eq(decompressed[0], b'a')
+  assert_eq(decompressed[1], b'b')
+  assert_eq(decompressed[2], b'c')
+}
+
+///|
+/// F-INF-001 companion: also exercise the `dt_val == 1` RLE path when the
+/// reference starts in the dictionary region. Encodes length=4 / distance=1
+/// from a 1-byte dictionary: the dict branch writes one byte, then the RLE
+/// fall-through fills the remaining 3 bytes from `buf[bt-1]`.
+///
+/// Bit stream:
+///   bit 0      = 1   (BFINAL)
+///   bits 1..2  = 01  (BTYPE fixed)
+///   bits 3..9  = length code 258 = LSB-first 0100000
+///   bits 10..14 = distance code 0 = 00000  (distance 1, no extra bits)
+///   bits 15..21 = end-of-block code 256 = 0000000
+///   bits 22..23 = 00 (padding)
+///
+/// Packed bytes:
+///   byte 0 = 0b00000011 = 0x03 (BFINAL + BTYPE + low 5 bits of length code)
+///   byte 1 = 0b00000001 = 0x01 (high 2 bits of length code at bit 9 + distance code + padding)
+///   byte 2 = 0b00000000 = 0x00 (end-of-block + padding)
+test "inflt/backref/dict_rle_then_rle_path" {
+  let dict : FixedArray[Byte] = [b'z']
+  let payload : FixedArray[Byte] = [b'\x03', b'\x01', b'\x00']
+  let decompressed = inflate_sync(payload, opts={
+    out: None,
+    dictionary: Some(dict),
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+  })
+  // Expected output: 4 copies of 'z' (one from the dict, three from RLE fill).
+  assert_eq(decompressed.length(), 4)
+  for i in 0..<4 {
+    assert_eq(decompressed[i], b'z')
+  }
+}
+
+///|
+/// F-INF-001 companion: round-trip with `dt_val < add` overlap path mixed
+/// with a dict reference. Pattern starts inside the dict and continues via
+/// overlapping doubling once `bt >= dt_val`.
+test "inflt/backref/dict_overlap_then_doubling" {
+  // 2-byte dictionary that, when the data starts with the same 2 bytes
+  // and continues with the alternating pattern, the deflater emits a
+  // dict-spanning back-reference plus overlapping copies.
+  let dict : FixedArray[Byte] = [b'X', b'Y']
+  let data_arr : FixedArray[Byte] = FixedArray::make(20, b'\x00')
+  for i in 0..<20 {
+    data_arr[i] = if i % 2 == 0 { b'X' } else { b'Y' }
+  }
+  let compressed = deflate_sync(data_arr, opts={
+    level: 6,
+    mem: 0,
+    dictionary: Some(dict),
+  })
+  let decompressed = inflate_sync(compressed, opts={
+    out: None,
+    dictionary: Some(dict),
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+  })
+  assert_bytes_eq(decompressed, data_arr)
+}

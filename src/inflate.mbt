@@ -405,7 +405,9 @@ fn inflt(
         if !resize {
           ensure_fixed_output_capacity(buf, end)
         }
-        // dictionary reference
+        // dictionary reference: fill from the preset dictionary when the
+        // back-reference distance reaches into the dictionary region. Stops at
+        // `min(dt_val, end)` so the writer never overruns the requested length.
         if bt < dt_val {
           let shift = dl - dt_val
           let dend = if dt_val < end { dt_val } else { end }
@@ -421,33 +423,46 @@ fn inflt(
             None => raise fzip_err(InvalidDistance)
           }
         }
-        // copy from output (LZ77 back-reference)
-        if dt_val == 1 {
-          // RLE: fill with single repeated byte
-          buf.fill(buf[bt - 1], start=bt, end~)
-          bt = end
-        } else if dt_val >= add {
-          // Non-overlapping: block copy
-          buf.blit_to(buf, len=add, src_offset=bt - dt_val, dst_offset=bt)
-          bt = end
-        } else {
-          // Overlapping pattern: copy with doubling strategy
-          buf.blit_to(buf, len=dt_val, src_offset=bt - dt_val, dst_offset=bt)
-          let copied = for copied = dt_val; copied + copied <= add; {
-            buf.blit_to(buf, len=copied, src_offset=bt, dst_offset=bt + copied)
-            continue copied + copied
-          } nobreak {
-            copied
+        // Copy the remaining bytes from the output buffer (LZ77 back-reference).
+        // Skip when the dict branch already produced all `add` bytes — otherwise
+        // `bt - dt_val` would be negative (when `dt_val > end`) and `blit_to`
+        // would trap on a negative `src_offset`. Using `need = end - bt`
+        // (instead of the original `add`) keeps the slice math correct after
+        // the dict branch advanced `bt`.
+        if bt < end {
+          let need = end - bt
+          if dt_val == 1 {
+            // RLE: fill with single repeated byte
+            buf.fill(buf[bt - 1], start=bt, end~)
+            bt = end
+          } else if dt_val >= need {
+            // Non-overlapping: block copy
+            buf.blit_to(buf, len=need, src_offset=bt - dt_val, dst_offset=bt)
+            bt = end
+          } else {
+            // Overlapping pattern: copy with doubling strategy
+            buf.blit_to(buf, len=dt_val, src_offset=bt - dt_val, dst_offset=bt)
+            let copied = for copied = dt_val; copied + copied <= need; {
+              buf.blit_to(
+                buf,
+                len=copied,
+                src_offset=bt,
+                dst_offset=bt + copied,
+              )
+              continue copied + copied
+            } nobreak {
+              copied
+            }
+            if copied < need {
+              buf.blit_to(
+                buf,
+                len=need - copied,
+                src_offset=bt,
+                dst_offset=bt + copied,
+              )
+            }
+            bt = end
           }
-          if copied < add {
-            buf.blit_to(
-              buf,
-              len=add - copied,
-              src_offset=bt,
-              dst_offset=bt + copied,
-            )
-          }
-          bt = end
         }
       }
     }
