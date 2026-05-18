@@ -799,3 +799,59 @@ test "inflt/backref/dict_overlap_then_doubling" {
   })
   assert_bytes_eq(decompressed, data_arr)
 }
+
+///|
+/// F-INF-002 regression: a dynamic-Huffman block whose HLIT field encodes
+/// `h_lit = 287` (raw 30). RFC 1951 §3.2.7 caps the length/literal alphabet
+/// at 286 symbols (sym 0..285); accepting larger HLIT would let a crafted
+/// length tree decode symbols 286/287 into `fl[29]` / `fl[30]` — derived
+/// freb values that are spec-meaningless. The fix rejects HLIT > 286
+/// before allocating any tree.
+///
+/// Bit stream (LSB-first within byte):
+///   bit 0      = 1   (BFINAL)
+///   bits 1..2  = 01  (BTYPE = 2, dynamic huffman)
+///   bits 3..7  = HLIT = 0b11110 (LSB-first 01111)  → h_lit = 30 + 257 = 287
+///   bits 8..12 = HDIST = 0       → h_dist = 1 (don't-care)
+///   bits 13..16 = HCLEN = 0      → ignored, parser raises before use
+///
+/// Packed bytes:
+///   byte 0 = 0b11110101 = 0xF5
+///   byte 1 = 0x00
+///   byte 2 = 0x00 (must be present so the 14-bit header refill can complete)
+test "inflt/dynamic_huffman/hlit_too_large_f_inf_002" {
+  let payload : FixedArray[Byte] = [b'\xF5', b'\x00', b'\x00']
+  let result = try? inflate_sync(payload)
+  guard result is Err(FzipError(code~, ..)) else {
+    fail("expected FzipError for HLIT > 286")
+  }
+  assert_eq(code, InvalidLengthLiteral)
+}
+
+///|
+/// F-INF-003 regression: a dynamic-Huffman block whose HDIST field encodes
+/// `h_dist = 31` (raw 30). RFC 1951 §3.2.7 caps the distance alphabet at 30
+/// symbols (sym 0..29); accepting larger HDIST would let a crafted distance
+/// tree decode symbol 30/31 into `fd[30]` / `fd[31]` — and `fd` only has
+/// length 31, so `dsym = 31` traps with an out-of-bounds index. The fix
+/// rejects `HDIST > 30` before allocating any tree.
+///
+/// Bit stream (LSB-first within byte):
+///   bit 0      = 1   (BFINAL)
+///   bits 1..2  = 01  (BTYPE = 2)
+///   bits 3..7  = HLIT = 0       → h_lit = 257 (in-spec)
+///   bits 8..12 = HDIST = 0b11110 → h_dist = 30 + 1 = 31
+///   bits 13..16 = HCLEN = 0
+///
+/// Packed bytes:
+///   byte 0 = 0b00000101 = 0x05  (BFINAL + BTYPE + HLIT=0)
+///   byte 1 = 0b00011110 = 0x1E  (HDIST = 30 reversed + HCLEN low bits)
+///   byte 2 = 0x00
+test "inflt/dynamic_huffman/hdist_too_large_f_inf_003" {
+  let payload : FixedArray[Byte] = [b'\x05', b'\x1E', b'\x00']
+  let result = try? inflate_sync(payload)
+  guard result is Err(FzipError(code~, ..)) else {
+    fail("expected FzipError for HDIST > 30")
+  }
+  assert_eq(code, InvalidDistance)
+}

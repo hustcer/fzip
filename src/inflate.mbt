@@ -191,6 +191,25 @@ fn inflt(
         let hc_len = ((bbuf >> 10) & 15) + 4
         bbuf = bbuf >> 14
         bcnt -= 14
+        // RFC 1951 §3.2.7: the length/literal alphabet has only 286 symbols
+        // (sym 0..285) and the distance alphabet has only 30 (sym 0..29).
+        // HLIT > 286 or HDIST > 30 is malformed and would let a crafted
+        // dynamic-Huffman block reach `fl[29..30]` / `fd[30]` — derived
+        // freb values that are either spec-meaningless or out of bounds
+        // (`fd` has length 31, so `dsym=31` traps on `fd[31]`). Reject
+        // before we allocate the trees.
+        if h_lit > 286 {
+          raise fzip_err(
+            InvalidLengthLiteral,
+            msg="HLIT exceeds 286-symbol length/literal alphabet",
+          )
+        }
+        if tl - h_lit > 30 {
+          raise fzip_err(
+            InvalidDistance,
+            msg="HDIST exceeds 30-symbol distance alphabet",
+          )
+        }
         // length+distance tree
         let ldt : FixedArray[Byte] = FixedArray::make(tl, b'\x00')
         // code length tree
