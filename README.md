@@ -107,6 +107,9 @@ let infos = @fzip.unzip_list(archive)
 for info in infos {
   println("\{info.name}: original size \{info.original_size} (compressed: \{info.size})")
 }
+
+// Extract ZIP archive and verify each entry CRC-32
+let checked = @fzip.unzip_sync(archive, opts={ verify_checksum: true })
 ```
 
 #### ZIP64 metadata support
@@ -168,9 +171,9 @@ Available streams: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream
 `fzip` includes checks for common compression and archive issues:
 
 - **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes; ZIP extraction also caps total sync output and entry fan-out
-- **Checksum verification**: CRC-32 (GZIP and ZIP entries) and Adler-32 (Zlib) checksums are verified by default to detect corrupted data
-  - Can be disabled via `verify_checksum: false` for better performance when data integrity is guaranteed
-  - Default is `true` (security-first approach)
+- **Checksum verification**:
+  - GZIP and Zlib verify their container checksums by default
+  - ZIP entry CRC-32 verification is opt-in via `unzip_sync(..., opts={ verify_checksum: true })`; this preserves the historical fast ZIP extraction path and avoids an extra checksum pass when callers already trust the archive source
 - **Compression ratio check**: ZIP files with compression ratios > 1000:1 are rejected
 - **Path traversal protection**: ZIP entries with unsafe paths (`../`, absolute paths) are rejected
 - **ZIP metadata validation**: ZIP filenames and extra fields are length-limited; encrypted and multi-disk ZIP archives are rejected

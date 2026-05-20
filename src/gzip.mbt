@@ -39,6 +39,9 @@ fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
   if (flg & 0xE0) != 0 {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
+  if flg == 0 {
+    return 10
+  }
   let mut st = 10
   if (flg & 4) != 0 {
     if st > d.length() - 2 {
@@ -68,7 +71,11 @@ fn gzs(d : FixedArray[Byte]) -> Int raise FzipError {
 ///|
 /// Read a sync-API-safe GZIP ISIZE footer value.
 fn gzl(d : FixedArray[Byte]) -> Int raise FzipError {
-  let raw = b4(d, d.length() - 4)
+  let l = d.length()
+  let raw = d[l - 4].to_uint() |
+    (d[l - 3].to_uint() << 8) |
+    (d[l - 2].to_uint() << 16) |
+    (d[l - 1].to_uint() << 24)
   if raw > max_int_val().reinterpret_as_uint() {
     raise fzip_err(InvalidZipData, msg="gzip ISIZE exceeds Int range")
   }

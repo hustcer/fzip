@@ -83,21 +83,17 @@ fn local_data_offset(
       msg="local-header extra field length exceeds maximum",
     )
   }
-  // `fnl` and `exl` are 16-bit values so each fits in `Int`, but their sum
-  // with `local_offset + 30` can overflow when `local_offset` is close to
-  // `Int` max. Compute in `Int64`, then range-check against the archive
-  // before storing back.
-  let data_off_64 = local_offset.to_int64() +
-    30L +
-    fnl.to_int64() +
-    exl.to_int64()
-  if data_off_64 > data.length().to_int64() {
+  // `fnl` and `exl` are 16-bit fields, so this sum cannot overflow `Int`.
+  // Keep the hot classic-ZIP path in `Int`; use subtraction-form checks to
+  // avoid `local_offset + header_len` overflow on malformed offsets.
+  let header_len = 30 + fnl + exl
+  if local_offset > data.length() - header_len {
     raise fzip_err(
       InvalidZipData,
       msg="local header filename/extra exceed bounds",
     )
   }
-  let data_off = data_off_64.to_int()
+  let data_off = local_offset + header_len
   if compressed_size < 0 {
     raise fzip_err(InvalidZipData, msg="negative compressed size")
   }
@@ -187,22 +183,16 @@ fn read_central_directory_entry(
       msg="multi-disk ZIP archives are not supported",
     )
   }
-  // `entry_total` and `offset + entry_total` can each overflow `Int` for
-  // adversarial archives (filename_len + extra_len + comment_len ≤ 196605
-  // but offset can be near `Int` max). Keep the math in `Int64` for the
-  // bounds check, then convert back.
-  let entry_total_64 = 46L +
-    filename_len.to_int64() +
-    extra_len.to_int64() +
-    comment_len.to_int64()
-  let next_offset_64 = offset.to_int64() + entry_total_64
-  if next_offset_64 > cd_end.to_int64() {
+  // The three variable-length fields are 16-bit values, so `entry_total`
+  // cannot overflow `Int`. Check with subtraction-form before adding to the
+  // untrusted `offset`.
+  let entry_total = 46 + filename_len + extra_len + comment_len
+  if offset > cd_end - entry_total {
     raise fzip_err(
       InvalidZipData,
       msg="central directory entry exceeds CD bounds",
     )
   }
-  let entry_total = entry_total_64.to_int()
   let is_utf8 = (flag & 2048) != 0
   let name = str_from_u8(
     data,
@@ -1400,6 +1390,7 @@ fn read_central_directory_info(
 /// ratio checks to reduce zip-bomb risk.
 pub fn unzip_sync(
   data : FixedArray[Byte],
+  opts? : UnzipOptions = UnzipOptions::default(),
 ) -> Array[(String, FixedArray[Byte])] raise FzipError {
   validate_zip_input_len(data.length())
   let files : Array[(String, FixedArray[Byte])] = []
@@ -1434,16 +1425,16 @@ pub fn unzip_sync(
       if sc != su {
         raise fzip_err(InvalidZipData, msg="stored ZIP entry size mismatch")
       }
-      let crc_state = CRC32State::new()
-      crc_state.push_range(data, b_off, sc)
-      validate_zip_crc(crc_state.digest(), header.crc)
-      files.push((header.name, slc(data, b_off, e=b_off + sc)))
+      let buf = slc(data, b_off, e=b_off + sc)
+      if opts.verify_checksum {
+        validate_zip_crc(crc32(buf), header.crc)
+      }
+      files.push((header.name, buf))
     } else if header.compression == 8 {
       // Check compression ratio to detect potential zip bombs
       // Reject if uncompressed size > 1000x compressed size
       validate_zip_compression_ratio(sc, su)
       let out = FixedArray::make(su, b'\x00')
-      let crc_state = CRC32State::new()
       let (buf, len) = inflt(
         data,
         InflateState::new(2),
@@ -1453,12 +1444,13 @@ pub fn unzip_sync(
         default_max_output_size,
         dat_off=b_off,
         dat_end=b_off + sc,
-        crc_state=Some(crc_state),
       )
       if len != su {
         raise fzip_err(InvalidZipData, msg="inflated ZIP entry size mismatch")
       }
-      validate_zip_crc(crc_state.digest(), header.crc)
+      if opts.verify_checksum {
+        validate_zip_crc(crc32(buf), header.crc)
+      }
       files.push((header.name, buf))
     } else {
       raise fzip_err(

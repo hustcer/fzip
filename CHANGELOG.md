@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - ZIP64 metadata support for `zip_sync`, `unzip_sync`, and `unzip_list` when archives and entries still fit the current in-memory sync API limits.
 - ZIP writer emission of ZIP64 extra fields, ZIP64 EOCD records, and ZIP64 EOCD locators when classic ZIP fields need sentinel values.
 - `zip_sync_checked(files, opts?)`, a raising variant of `zip_sync` for recoverable ZIP writer validation errors.
+- `UnzipOptions` with `verify_checksum` for callers that want ZIP entry CRC-32 validation during extraction.
 - `FzipErrorCode::Zip64ValueTooLarge` for ZIP64 values that are valid metadata but cannot be represented safely by the current `Int`/`FixedArray` sync APIs.
 - `zip64_eocd_signature` and `zip64_locator_signature`; the old `zip64_eocd_locator_signature` name remains as a deprecated alias.
 - ZIP data-descriptor entry support for the sync reader, using central-directory sizes and CRC-32.
@@ -16,7 +17,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - ZIP reading now validates central-directory and local-header bounds before extraction, including EOCD comment length, ZIP64/classic EOCD consistency, extra-field length, local-header signature, and entry data range.
-- ZIP extraction now verifies each stored or deflated entry against the central-directory CRC-32 and caps total sync output and entry fan-out.
+- ZIP extraction can verify each stored or deflated entry against the central-directory CRC-32 when `verify_checksum` is enabled, and now caps total sync output and entry fan-out.
 - `str_from_u8` now rejects malformed UTF-8 according to RFC 3629 instead of accepting continuation-byte starts, bad continuation bytes, overlong encodings, surrogates, and out-of-range code points.
 - `gunzip_sync` now validates reserved GZIP flags, FEXTRA bounds, ISIZE range, ISIZE versus `max_output_size`, and final output length.
 - `zip_sync` now writes ZIP metadata with fixed-width little-endian helpers and removes user-provided extra fields with header id `0x0001` before emitting its own ZIP64 extra field.

@@ -50,7 +50,7 @@ pub fn str_to_u8(String, latin1? : Bool) -> FixedArray[Byte]
 
 pub fn unzip_list(FixedArray[Byte]) -> Array[UnzipFileInfo] raise FzipError
 
-pub fn unzip_sync(FixedArray[Byte]) -> Array[(String, FixedArray[Byte])] raise FzipError
+pub fn unzip_sync(FixedArray[Byte], opts? : UnzipOptions) -> Array[(String, FixedArray[Byte])] raise FzipError
 
 pub fn unzlib_sync(FixedArray[Byte], opts? : UnzlibOptions) -> FixedArray[Byte] raise FzipError
 
@@ -174,6 +174,11 @@ pub(all) struct UnzipFileInfo {
   original_size : Int
   compression : Int
 } derive(@debug.Debug)
+
+pub(all) struct UnzipOptions {
+  verify_checksum : Bool
+} derive(@debug.Debug)
+pub fn UnzipOptions::default() -> Self
 
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?

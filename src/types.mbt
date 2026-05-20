@@ -194,6 +194,24 @@ pub fn ZipEntryOptions::default() -> ZipEntryOptions {
 }
 
 ///|
+/// Options for ZIP extraction.
+///
+/// ZIP archives carry CRC-32 values in the central directory. `verify_checksum`
+/// enables validation of each extracted entry against those values. It is off
+/// by default to preserve the historical `unzip_sync` performance profile; turn
+/// it on when archive integrity is not already guaranteed by the caller.
+pub(all) struct UnzipOptions {
+  /// Whether to verify each extracted ZIP entry against its CRC-32 value.
+  verify_checksum : Bool
+} derive(Debug)
+
+///|
+/// Return the default ZIP extraction options.
+pub fn UnzipOptions::default() -> UnzipOptions {
+  { verify_checksum: false }
+}
+
+///|
 /// Metadata for an entry returned by `unzip_list`.
 pub(all) struct UnzipFileInfo {
   /// Entry path stored in the archive.

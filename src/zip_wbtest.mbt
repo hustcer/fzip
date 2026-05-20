@@ -1432,13 +1432,24 @@ test "unzip_sync - hand-built classic stored archive round-trips through new hel
 }
 
 ///|
-test "unzip_sync - rejects stored entry with central-directory CRC mismatch" {
+test "unzip_sync - default skips stored entry CRC validation" {
+  let arc = build_classic_archive([b'a'], [b'X'])
+  let eocd = find_eocd(arc)
+  let cd_offset = b4(arc, eocd + 16).reinterpret_as_int()
+  w4(arc, cd_offset + 16, 0U)
+  let files = unzip_sync(arc)
+  assert_eq(files.length(), 1)
+}
+
+///|
+test "unzip_sync - verify_checksum rejects stored entry with central-directory CRC mismatch" {
   let arc = build_classic_archive([b'a'], [b'X'])
   let eocd = find_eocd(arc)
   let cd_offset = b4(arc, eocd + 16).reinterpret_as_int()
   w4(arc, cd_offset + 16, 0U)
   let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
     arc,
+    opts={ verify_checksum: true },
   )
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidChecksum)
@@ -1446,13 +1457,14 @@ test "unzip_sync - rejects stored entry with central-directory CRC mismatch" {
 }
 
 ///|
-test "unzip_sync - rejects deflated entry with central-directory CRC mismatch" {
+test "unzip_sync - verify_checksum rejects deflated entry with central-directory CRC mismatch" {
   let zipped = zip_sync([("crc.txt", [b'a', b'b', b'c'])])
   let eocd = find_eocd(zipped)
   let cd_offset = b4(zipped, eocd + 16).reinterpret_as_int()
   w4(zipped, cd_offset + 16, 0U)
   let r : Result[Array[(String, FixedArray[Byte])], FzipError] = try? unzip_sync(
     zipped,
+    opts={ verify_checksum: true },
   )
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidChecksum)
