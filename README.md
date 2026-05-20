@@ -21,7 +21,7 @@ Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.
 - Streaming APIs for chunk-based DEFLATE/GZIP/Zlib compression and decompression
 - In-memory ZIP read/write support, including ZIP64 metadata, data descriptors, listing, and CRC-32 validation
 - Configurable input and output limits
-- Tests covering format behavior, edge cases, and malformed input
+- 360+ tests covering format correctness, edge cases, security scenarios, and malformed input
 
 ## Installation
 
