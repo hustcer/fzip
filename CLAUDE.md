@@ -49,22 +49,22 @@ compressed → inflt() [block decoder] → raw data
 
 ### File Responsibilities
 
-| File | Role |
-|------|------|
-| `src/bits.mbt` | Bit-level I/O (`bits`, `bits16`, `wbits`, `wbits16`), byte readers (`b2`/`b4`/`b8`), buffer helpers (`slc`, `fa_set`) |
-| `src/tables.mbt` | DEFLATE constant lookup tables (`fleb`, `fdeb`, `clim`, `rev`, `flt`, `fdt`, `deo`) |
-| `src/huffman.mbt` | Huffman tree construction (`h_map`, `h_tree`, `freb`, `lc_gen`, `clen`); derived tables (`fl`, `fd`, `flm`, `fdm` and their reverse variants) |
-| `src/deflate.mbt` | Core compressor: `dflt()` (LZ77 hash chain + Huffman), `wblk()`/`wfblk()` block writers, `dopt()`, public `deflate_sync()` |
-| `src/inflate.mbt` | Core decompressor: `inflt()` (~280 lines, handles stored/fixed/dynamic blocks), `ensure_buf()`, public `inflate_sync()` |
-| `src/gzip.mbt` | GZIP format: header write/parse (`gzh`/`gzs`), `gzip_sync()`, `gunzip_sync()` |
-| `src/zlib.mbt` | Zlib format: header write/parse (`zlh`/`zls`), `zlib_sync()`, `unzlib_sync()` |
-| `src/zip.mbt` | ZIP format: local/central headers (`wzh`/`wzf`/`zh`/`slzh`), ZIP64 (`z64e`), `zip_sync()`, `unzip_sync()`, `unzip_list()` |
-| `src/checksum.mbt` | CRC-32 and Adler-32 (both one-shot and incremental state) |
-| `src/string.mbt` | UTF-8 ↔ String conversion (`str_to_u8`, `str_from_u8`) with latin1 mode |
-| `src/stream.mbt` | Streaming wrappers: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream`, `ZlibStream`, `UnzlibStream`, `DecompressStream` |
-| `src/fzip.mbt` | Convenience API: `compress_sync()` (= gzip), `decompress_sync()` (auto-detect) |
-| `src/error.mbt` | `FzipErrorCode` enum (16 codes), `FzipError` suberror, `fzip_err()` helper |
-| `src/types.mbt` | Option structs with `::default()` methods; includes `verify_checksum` for optional checksum verification |
+| File               | Role                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/bits.mbt`     | Bit-level I/O (`bits`, `bits16`, `wbits`, `wbits16`), byte readers (`b2`/`b4`/`b8`), buffer helpers (`slc`, `fa_set`)                         |
+| `src/tables.mbt`   | DEFLATE constant lookup tables (`fleb`, `fdeb`, `clim`, `rev`, `flt`, `fdt`, `deo`)                                                           |
+| `src/huffman.mbt`  | Huffman tree construction (`h_map`, `h_tree`, `freb`, `lc_gen`, `clen`); derived tables (`fl`, `fd`, `flm`, `fdm` and their reverse variants) |
+| `src/deflate.mbt`  | Core compressor: `dflt()` (LZ77 hash chain + Huffman), `wblk()`/`wfblk()` block writers, `dopt()`, public `deflate_sync()`                    |
+| `src/inflate.mbt`  | Core decompressor: `inflt()` (~280 lines, handles stored/fixed/dynamic blocks), `ensure_buf()`, public `inflate_sync()`                       |
+| `src/gzip.mbt`     | GZIP format: header write/parse (`gzh`/`gzs`), `gzip_sync()`, `gunzip_sync()`                                                                 |
+| `src/zlib.mbt`     | Zlib format: header write/parse (`zlh`/`zls`), `zlib_sync()`, `unzlib_sync()`                                                                 |
+| `src/zip.mbt`      | ZIP format: local/central headers (`wzh`/`wzf`/`zh`/`slzh`), ZIP64 (`z64e`), `zip_sync()`, `unzip_sync()`, `unzip_list()`                     |
+| `src/checksum.mbt` | CRC-32 and Adler-32 (both one-shot and incremental state)                                                                                     |
+| `src/string.mbt`   | UTF-8 ↔ String conversion (`str_to_u8`, `str_from_u8`) with latin1 mode                                                                       |
+| `src/stream.mbt`   | Streaming wrappers: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream`, `ZlibStream`, `UnzlibStream`, `DecompressStream`          |
+| `src/fzip.mbt`     | Convenience API: `compress_sync()` (= gzip), `decompress_sync()` (auto-detect)                                                                |
+| `src/error.mbt`    | `FzipErrorCode` enum (16 codes), `FzipError` suberror, `fzip_err()` helper                                                                    |
+| `src/types.mbt`    | Option structs with `::default()` methods; includes `verify_checksum` for optional checksum verification                                      |
 
 ### Key Internal Patterns
 

@@ -10,7 +10,7 @@ on:
       - develop
 
     paths-ignore:
-      - '**.md'
+      - "**.md"
 
 jobs:
   fzip-check:
@@ -34,4 +34,3 @@ jobs:
           moon check --target all
           moon build --target all
           moon test --target all
-

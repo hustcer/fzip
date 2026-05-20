@@ -2,134 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.8.0 - 2026-05-20
 
-### ZIP64 metadata support (Phase 1)
+### Added
 
-Sync ZIP APIs are now ZIP64-aware for archives and entries that still fit
-inside the `Int`/`FixedArray`-bounded sync API budget. Larger archives
-that need streaming continue to be deferred to Phase 2.
+- ZIP64 metadata support for `zip_sync`, `unzip_sync`, and `unzip_list` when archives and entries still fit the current in-memory sync API limits.
+- ZIP writer emission of ZIP64 extra fields, ZIP64 EOCD records, and ZIP64 EOCD locators when classic ZIP fields need sentinel values.
+- `zip_sync_checked(files, opts?)`, a raising variant of `zip_sync` for recoverable ZIP writer validation errors.
+- `FzipErrorCode::Zip64ValueTooLarge` for ZIP64 values that are valid metadata but cannot be represented safely by the current `Int`/`FixedArray` sync APIs.
+- `zip64_eocd_signature` and `zip64_locator_signature`; the old `zip64_eocd_locator_signature` name remains as a deprecated alias.
+- ZIP data-descriptor entry support for the sync reader, using central-directory sizes and CRC-32.
 
-#### Reader
+### Changed
 
-- **ZIP64 EOCD record + locator parsing** (PKWARE APPNOTE §4.3.14 /
-  §4.3.15) shared between `unzip_sync` and `unzip_list`. Multi-disk
-  archives are rejected at every layer (classic EOCD, ZIP64 EOCD record,
-  ZIP64 locator, per-entry disk number).
-- **EOCD discovery** now requires the candidate's declared comment length
-  to match the candidate's distance from the end of the input, so a
-  `0x06054B50` byte sequence inside an EOCD comment can no longer be
-  mistaken for the record itself.
-- **65 535-entry compatibility**: a classic archive whose only sentinel-
-  like field is the entry-count `0xFFFF`, with no ZIP64 locator present,
-  is parsed as a regular 65 535-entry classic archive instead of being
-  rejected.
-- **ZIP64 extended-information extra field parsing** is now conditional
-  per APPNOTE §4.5.3: each 8-byte value is only consumed when its
-  matching classic 32-bit field is the sentinel, in spec-fixed order
-  (uncompressed, compressed, local header offset). Unrelated extras
-  before the ZIP64 entry are skipped. Sentinel values never propagate
-  out as real sizes.
-- **Local-header validation**: the new `local_data_offset` checks the
-  local file header signature, the general-purpose bit flag (rejects
-  encryption), filename + extra bounds, and data range bounds before any
-  extraction.
-- **Data-descriptor entries** (general-purpose bit 3) are accepted by the
-  sync reader using central-directory sizes and CRC-32 for bounds and
-  integrity checks, including both stored and deflated entries.
-- **ZIP integrity and resource caps**: `unzip_sync` validates each
-  extracted entry against the central-directory CRC-32 and caps total
-  sync output. ZIP listing/extraction also rejects oversized sync input
-  and excessive entry fan-out before allocating result arrays.
-- **Decompression cap fix**: `unzip_sync` now passes
-  `default_max_output_size` (not `default_max_input_size`) to the
-  inflater for the output cap, and applies the same cap to stored
-  entries before allocating a buffer. Deflated entries also reject an
-  uncompressed size above the cap before allocation.
+- ZIP reading now validates central-directory and local-header bounds before extraction, including EOCD comment length, ZIP64/classic EOCD consistency, extra-field length, local-header signature, and entry data range.
+- ZIP extraction now verifies each stored or deflated entry against the central-directory CRC-32 and caps total sync output and entry fan-out.
+- `str_from_u8` now rejects malformed UTF-8 according to RFC 3629 instead of accepting continuation-byte starts, bad continuation bytes, overlong encodings, surrogates, and out-of-range code points.
+- `gunzip_sync` now validates reserved GZIP flags, FEXTRA bounds, ISIZE range, ISIZE versus `max_output_size`, and final output length.
+- `zip_sync` now writes ZIP metadata with fixed-width little-endian helpers and removes user-provided extra fields with header id `0x0001` before emitting its own ZIP64 extra field.
 
-#### Writer
+### Fixed
 
-- **ZIP64 emission**: `zip_sync` now automatically promotes archives to
-  ZIP64 when any per-entry size or local-header offset crosses
-  `0xFFFFFFFF`, when entry count crosses `0xFFFF`, or when the central
-  directory size or offset crosses `0xFFFFFFFF`. The promotion is
-  per-field — only overflowing classic fields use the sentinel value,
-  but a ZIP64 EOCD record + locator are written before the classic EOCD
-  whenever any field is promoted.
-- **Per-entry ZIP64 extras** follow APPNOTE §4.4.8 / §4.5.3: the local
-  header carries a 16-byte payload with both 8-byte size values when
-  either size needs ZIP64 (never the local header offset); the central
-  directory entry carries only the 8-byte values for fields that
-  actually use the sentinel, in fixed order.
-- **Version bytes** stamp the spec-low byte at 45 for any header that
-  carries ZIP64 sentinels or a ZIP64 extra field, and at 20 otherwise.
-  The high byte of the central directory's `version made by` field
-  continues to carry `opts.os` regardless of ZIP64 promotion.
-- **Fixed-width metadata writes**: `zip_sync` now uses fixed-width
-  little-endian writers for ZIP signature, version, mtime, CRC, sizes,
-  attributes, lengths, and offset fields. The previous variable-width
-  `wbytes` writes worked only because the output buffer was zero-
-  initialized; the new writers do not depend on that assumption.
-  *Note*: this does not change the existing simplified `mtime`
-  semantics (`opts.mtime` is still stored as raw 4 bytes rather than
-  converted from Unix seconds to the DOS date+time pair). That bug is
-  tracked separately.
-- **Reserved 0x0001 sanitization**: user-provided extra fields whose
-  header id is `0x0001` (ZIP64 extended information) are dropped before
-  the writer emits its own coherent ZIP64 extra payload, so an
-  attacker-supplied or accidentally-set `0x0001` cannot collide with
-  fzip's metadata. This is documented as reserved-id behavior.
+- Fixed ZIP reader integer-overflow risks in central-directory, local-header, compression-ratio, and ZIP32 field handling.
+- Fixed ZIP64 EOCD locator detection and conditional ZIP64 extended-information extra-field parsing.
+- Fixed DEFLATE inflate handling for dictionary-backed LZ77 back-references that were fully satisfied by the dictionary.
+- Fixed malformed dynamic-Huffman handling by rejecting `HLIT > 286`, `HDIST > 30`, invalid repeat-16 placement, and code-length repeat overflows.
+- Fixed fixed-output-buffer inflate paths so undersized caller buffers return `FzipError` instead of writing past capacity.
 
-#### Cross-tool fixture coverage
+### Tests and docs
 
-The `moon test` suite now exercises fzip's reader against ZIP64
-archives written by independent tools — both byte literals are
-embedded in `src/zip64_fixtures_wbtest.mbt` so they run in CI without
-requiring Python or Info-ZIP on the host:
-
-- Python `zipfile.ZipFile.open(..., force_zip64=True)` (278 bytes,
-  SHA-256 `3e15b0ee932b51a4...`).
-- Info-ZIP `zip -X -fz` (378 bytes, SHA-256 `94463df34e356968b...`).
-
-The deterministic generator scripts under `tools/zip64-fixtures/`
-reproduce the canonical bytes; SHA-256 comments next to the literals
-catch silent drift if anyone re-embeds without regenerating.
-
-#### Public API additions
-
-- **`pub fn zip_sync_checked(files, opts?) -> FixedArray[Byte] raise
-  FzipError`** — recoverable-failure variant of `zip_sync`. The two
-  share the same builder; `zip_sync_checked` raises `FzipError` for
-  recoverable failures while `zip_sync` traps deterministically with a
-  stable abort message ("fzip.zip_sync failed; use zip_sync_checked
-  for recoverable errors: ...") rather than returning a partial or
-  corrupt archive.
-- **`FzipErrorCode::Zip64ValueTooLarge`** — new error variant for
-  well-formed ZIP64 metadata whose count, size, offset, or final writer
-  layout cannot be represented or safely indexed by the current `Int`
-  / `FixedArray`-based sync API. Distinct from `InvalidZipData` (which
-  remains for malformed archives, unsafe paths, missing required ZIP64
-  extras, multi-disk metadata, and similar policy violations).
-- **`pub let zip64_eocd_signature : UInt`** — the actual ZIP64
-  end-of-central-directory record signature (`0x06064B50U`). The
-  previously exported `zip64_eocd_locator_signature` was misnamed
-  (it carried the record signature value); it remains as a
-  `#alias(.., deprecated)` for source compatibility and will be
-  dropped in a later major release.
-- **`pub let zip64_locator_signature : UInt`** — the ZIP64 EOCD
-  locator signature (`0x07064B50U`).
-
-#### Unsupported behavior, intentionally explicit
-
-- **Multi-disk archives** are rejected with `InvalidZipData` at every
-  point the reader could detect them (classic EOCD disk fields, ZIP64
-  EOCD disk fields, locator disk fields, per-entry disk-number-start,
-  ZIP64 extra disk-start-number).
-- **General-purpose bit 0 (encryption)** is rejected; fzip does not
-  implement ZIP encryption.
-- **True large-file streaming** (>2 GiB entries or archives) remains
-  Phase 2 work. The sync APIs continue to require both the input and
-  output to fit in `FixedArray[Byte]`, indexed by `Int`.
+- Added ZIP64 design documentation in `docs/zip64.md`.
+- Added embedded ZIP64 fixtures produced by Python `zipfile` and Info-ZIP, with generator scripts under `tools/zip64-fixtures/`.
+- Added regression tests for ZIP64 parsing/writing, ZIP bounds checks, GZIP header/ISIZE validation, DEFLATE malformed input handling, and strict UTF-8 decoding.
 
 ## v0.7.0 - 2026-05-16
 

@@ -5,8 +5,9 @@
 This library provides:
 
 - **Deflate, GZIP, Zlib, and ZIP** compression and decompression
-- **Streaming and Synchronous APIs** for flexible data processing
-- **Built-in Security** against zip bombs, path traversal, and corrupted data
+- **Synchronous and streaming APIs**
+- **ZIP64 metadata support** for ZIP archives that still fit the sync API memory limits
+- **Validation and size limits** for malformed input, zip bombs, path traversal, and corrupted data
 
 ## Benchmark
 
@@ -17,9 +18,10 @@ Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.
 - Pure MoonBit implementation with no external dependencies (compiled to Wasm-GC)
 - Support for DEFLATE, GZIP, Zlib, and ZIP formats
 - Automatic format detection for decompression
-- High-performance, memory-efficient streaming APIs
-- Robust security limits configurable per operation
-- Comprehensive test coverage (220+ tests)
+- Streaming APIs for chunk-based compression and decompression
+- ZIP read/write support, including ZIP64 metadata, data descriptors, listing, and CRC-32 validation
+- Configurable input and output limits
+- Tests covering format behavior, edge cases, and malformed input
 
 ## Installation
 
@@ -32,7 +34,7 @@ Or add this to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/fzip": "0.7.0"
+    "hustcer/fzip": "0.8.0"
   }
 }
 ```
@@ -53,27 +55,27 @@ println(text) // "Hello, MoonBit!"
 
 ## Current Status
 
-This library is fully functional and actively maintained. Detailed documentation for APIs can be explored via `moon ide doc` or in the codebase.
+Detailed API documentation can be explored via `moon ide doc` or in the codebase.
 
 ### Working Features
 
 - **DEFLATE compression/decompression** - Full deflate algorithm implementation
 - **GZIP format support** - Deflate with GZIP headers, timestamps, metadata, and CRC-32 checksums
 - **Zlib format support** - Deflate with Zlib headers and Adler-32 checksums
-- **ZIP archive structure** - Types and basic operations for parsing and encoding
-- **ZIP encoding** - Write complete ZIP archives with proper headers
-- **ZIP parsing** - Extract existing ZIP files with format support
+- **ZIP archive support** - Write, list, and extract ZIP archives
+- **ZIP64 metadata support** - Read and write ZIP64 metadata for archives that fit the current sync API limits
+- **ZIP data descriptors** - Read entries that use central-directory sizes and CRC-32
 - **Streaming compression** - Stream-based handlers for chunk-based data processing
-- **In-built protections** - Size limits, path traversal detection, and zip bomb mitigation
-- **Auto-detection** - Smart decompression that automatically recognizes formats
-- **Comprehensive tests** - 220+ passing tests spanning basic encoding, edge cases, and security
+- **Input validation** - Size limits, path traversal detection, checksum validation, and malformed metadata rejection
+- **Auto-detection** - Decompression that recognizes GZIP, Zlib, or raw DEFLATE
+- **Test coverage** - Tests for encoding, decoding, edge cases, and security-related regressions
 
 ### API Compatibility
 
-The API is directly inspired by the original `fflate` library structure but adapted for robust MoonBit semantics:
+The API is inspired by the original `fflate` library structure and adapted for MoonBit:
 
 - Type-safe synchronous and stream-based representations (`ondata` callbacks).
-- Clean error propagation utilizing MoonBit's `raise Error` mechanisms rather than unchecked exceptions.
+- Error propagation through MoonBit's `raise Error` mechanisms.
 - Zero-dependency string encoding/decoding implementations built-in.
 
 ## Detailed API
@@ -104,52 +106,34 @@ for info in infos {
 
 #### ZIP64 metadata support
 
-`zip_sync`, `unzip_sync`, and `unzip_list` understand ZIP64 metadata for
-archives and entries that fit inside the sync API's `Int`/`FixedArray`
-budget. The writer automatically promotes an archive to ZIP64 when any of
-the classic 4 GiB / 64 K limits is reached:
+`zip_sync`, `unzip_sync`, and `unzip_list` understand ZIP64 metadata for archives and entries that still fit inside the sync API's `Int`/`FixedArray` limits. This is ZIP64 metadata compatibility, not large-file streaming.
 
-- entry compressed or uncompressed size ≥ `0xFFFFFFFF`
-- entry local-header offset ≥ `0xFFFFFFFF`
-- entry count ≥ `0xFFFF`
-- central directory size or offset ≥ `0xFFFFFFFF`
+The writer emits ZIP64 metadata when a classic ZIP field needs a sentinel value:
 
-When promoted the archive carries the spec-mandated ZIP64 EOCD record,
-ZIP64 EOCD locator, and per-entry ZIP64 extra fields; the existing
-classic EOCD continues to be written last so classic-only readers can
-still locate the central directory.
+- entry compressed or uncompressed size reaches `0xFFFFFFFF`
+- entry local-header offset reaches `0xFFFFFFFF`
+- entry count reaches `0xFFFF`
+- central directory size or offset reaches `0xFFFFFFFF`
 
-The reader path validates ZIP64 metadata up front: structurally valid
-ZIP64 archives whose count, size, offset, or layout exceeds what the
-current sync API can safely index raise the new
-`FzipErrorCode::Zip64ValueTooLarge`. Data-descriptor entries
-(general-purpose bit 3) are accepted using the central directory's
-authoritative sizes and CRC. Malformed archives, encryption, multi-disk
-archives, and missing required ZIP64 extras continue to raise
-`InvalidZipData`.
+ZIP64 archives include the ZIP64 EOCD record, ZIP64 EOCD locator, and per-entry ZIP64 extra fields required by the format. The classic EOCD is still written last.
 
-For recoverable writer failures (ZIP64 layout overflow, oversized extras,
-filenames/comments that do not fit ZIP fields, or invalid extra-field ids)
-use the new `zip_sync_checked` API:
+The reader validates ZIP64 metadata before extraction. Metadata that is structurally valid but too large for the current sync API raises `FzipErrorCode::Zip64ValueTooLarge`. Malformed ZIP64 metadata, encryption, multi-disk archives, and missing required ZIP64 extras raise `InvalidZipData`.
+
+For recoverable writer failures, use `zip_sync_checked`:
 
 ```moonbit
 let archive = @fzip.zip_sync_checked(files) catch {
   FzipError(code~, message~) => {
-    // handle Zip64ValueTooLarge, ExtraFieldTooLong, FilenameTooLong,
-    // InvalidZipData, or other writer validation errors here
+    // Handle Zip64ValueTooLarge, ExtraFieldTooLong,
+    // FilenameTooLong, InvalidZipData, or another writer error.
     return
   }
 }
 ```
 
-`zip_sync` itself shares the same builder and traps deterministically
-with a stable abort message when the builder reports a recoverable
-error — it never returns a partial or corrupt archive.
+`zip_sync` uses the same builder and aborts if the builder reports a recoverable error. It does not return a partial archive.
 
-True large-file streaming (entries or archives larger than ~2 GiB) is
-not yet supported; that work is tracked under Phase 2 and depends on a
-streaming DEFLATE engine. See [`docs/zip64.md`](docs/zip64.md) for the
-full plan.
+True large-file streaming is not implemented yet. See [`docs/zip64.md`](docs/zip64.md) for the ZIP64 plan.
 
 ### Automatic Decompression
 
@@ -176,16 +160,17 @@ Available streams: `DeflateStream`, `InflateStream`, `GzipStream`, `GunzipStream
 
 ### Security Features
 
-`fzip` includes built-in protections against common compression attacks:
+`fzip` includes checks for common compression and archive issues:
 
-- **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes prevent zip bombs; ZIP extraction also caps total sync output and entry fan-out
+- **Size limits**: Configurable max output (default 100MB) and input (default 1GB) sizes; ZIP extraction also caps total sync output and entry fan-out
 - **Checksum verification**: CRC-32 (GZIP and ZIP entries) and Adler-32 (Zlib) checksums are verified by default to detect corrupted data
   - Can be disabled via `verify_checksum: false` for better performance when data integrity is guaranteed
   - Default is `true` (security-first approach)
 - **Compression ratio check**: ZIP files with compression ratios > 1000:1 are rejected
 - **Path traversal protection**: ZIP entries with unsafe paths (`../`, absolute paths) are rejected
-- **Filename length validation**: ZIP filenames are limited to 4096 bytes
+- **ZIP metadata validation**: ZIP filenames and extra fields are length-limited; encrypted and multi-disk ZIP archives are rejected
 - **Data descriptor support**: ZIP entries with general-purpose bit 3 are bounded by central-directory sizes and verified with CRC-32
+- **Strict UTF-8 decoding**: malformed UTF-8 is rejected unless Latin-1 decoding is explicitly requested
 
 Configure security options per operation:
 
@@ -199,7 +184,7 @@ let original = @fzip.gunzip_sync(compressed, opts={
   verify_checksum: true,        // Verify CRC-32 (default)
 })
 
-// Performance-optimized (skip checksum verification)
+// Skip checksum verification when integrity is checked elsewhere
 let original = @fzip.gunzip_sync(compressed, opts={
   verify_checksum: false,       // Skip CRC-32 for ~4x faster decompression
   ..

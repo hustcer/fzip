@@ -50,17 +50,17 @@ Both generators write the same two entries with mtimes pinned to
 1980-01-01 00:00:00 so the produced bytes — and therefore the SHA-256s —
 are stable across runs and across hosts (modulo Info-ZIP build flags).
 
-| File | Tool | Bytes | SHA-256 |
-|------|------|-------|---------|
-| `output/python-force-zip64.zip` | Python `zipfile` (`force_zip64=True`) | 278 | `3e15b0ee932b51a4057944292e6940f36e534b0e947135267b61bf83d9a84055` |
-| `output/infozip-zip64.zip` | Info-ZIP `zip -X -fz` | 378 | `94463df34e356968bfdbf20bb2cac6280bde9f799a77722d98fb7be2502ffdcd` |
+| File                            | Tool                                  | Bytes | SHA-256                                                            |
+| ------------------------------- | ------------------------------------- | ----- | ------------------------------------------------------------------ |
+| `output/python-force-zip64.zip` | Python `zipfile` (`force_zip64=True`) | 278   | `3e15b0ee932b51a4057944292e6940f36e534b0e947135267b61bf83d9a84055` |
+| `output/infozip-zip64.zip`      | Info-ZIP `zip -X -fz`                 | 378   | `94463df34e356968bfdbf20bb2cac6280bde9f799a77722d98fb7be2502ffdcd` |
 
 Both archives store the same two entries:
 
-| Entry | Uncompressed bytes | Content |
-|------|-------------------|---------|
-| `hello.txt` | 14 | `Hello, ZIP64!\n` |
-| `data.bin`  | 16 | `00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f` |
+| Entry       | Uncompressed bytes | Content                                           |
+| ----------- | ------------------ | ------------------------------------------------- |
+| `hello.txt` | 14                 | `Hello, ZIP64!\n`                                 |
+| `data.bin`  | 16                 | `00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f` |
 
 Both archives advertise `version_needed_to_extract = 0x002D` (= 45),
 which is APPNOTE.txt's marker for ZIP64.
@@ -93,13 +93,13 @@ When adding a new cross-tool fixture, do **not** check the binary into
 git. Instead append a row to `provenance.md` (created on first use)
 with:
 
-| Field | Example |
-|------|------|
-| Tool + version | `python 3.13.1`, `zip 3.0` |
-| Generator script | `tools/zip64-fixtures/gen-python.py` |
-| Output path | `output/python-force-zip64.zip` |
-| Approximate size | `<2 KiB` |
-| SHA-256 | (the value the generator prints) |
+| Field            | Example                                |
+| ---------------- | -------------------------------------- |
+| Tool + version   | `python 3.13.1`, `zip 3.0`             |
+| Generator script | `tools/zip64-fixtures/gen-python.py`   |
+| Output path      | `output/python-force-zip64.zip`        |
+| Approximate size | `<2 KiB`                               |
+| SHA-256          | (the value the generator prints)       |
 | Expected entries | `[("hello.txt", 5), ("data.bin", 16)]` |
 
 Reviewers can regenerate locally and compare hashes to confirm the
