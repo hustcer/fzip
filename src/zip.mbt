@@ -135,6 +135,7 @@ fn read_central_directory_entry(
   offset : Int,
   cd_end : Int,
   zip64 : Bool,
+  read_crc? : Bool = false,
 ) -> ZipEntryHeader raise FzipError {
   // Subtraction-form bounds checks. `offset + 46 > cd_end` would wrap on
   // `offset >= 2^31 - 46`, which is reachable in a multi-GiB archive whose
@@ -160,7 +161,7 @@ fn read_central_directory_entry(
     )
   }
   let compression = b2(data, offset + 10)
-  let crc = b4(data, offset + 16)
+  let crc = if read_crc { b4(data, offset + 16) } else { 0U }
   let comp_size_classic = b4(data, offset + 20)
   let uncomp_size_classic = b4(data, offset + 24)
   let filename_len = b2(data, offset + 28)
@@ -1409,7 +1410,9 @@ pub fn unzip_sync(
         msg="central directory entry exceeds CD bounds",
       )
     }
-    let header = read_central_directory_entry(data, o, cd_end, cd.zip64)
+    let header = read_central_directory_entry(
+      data, o, cd_end, cd.zip64, read_crc=opts.verify_checksum,
+    )
     if is_unsafe_path(header.name) {
       raise fzip_err(
         InvalidZipData,
