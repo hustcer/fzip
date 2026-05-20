@@ -1404,14 +1404,12 @@ pub fn unzip_sync(
   let mut o = cd.offset
   let mut total_output = 0
   for _i in 0..<cd.entries {
-    if o >= cd_end {
-      raise fzip_err(
-        InvalidZipData,
-        msg="central directory entry exceeds CD bounds",
-      )
-    }
     let header = read_central_directory_entry(
-      data, o, cd_end, cd.zip64, read_crc=opts.verify_checksum,
+      data,
+      o,
+      cd_end,
+      cd.zip64,
+      read_crc=opts.verify_checksum,
     )
     if is_unsafe_path(header.name) {
       raise fzip_err(
@@ -1490,12 +1488,6 @@ pub fn unzip_list(
   let cd_end = cd.offset + cd.size
   let mut o = cd.offset
   for _i in 0..<cd.entries {
-    if o >= cd_end {
-      raise fzip_err(
-        InvalidZipData,
-        msg="central directory entry exceeds CD bounds",
-      )
-    }
     let header = read_central_directory_entry(data, o, cd_end, cd.zip64)
     o = header.next_offset
     infos.push({
