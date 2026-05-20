@@ -5,8 +5,8 @@
 This library provides:
 
 - **Deflate, GZIP, Zlib, and ZIP** compression and decompression
-- **Synchronous and streaming APIs**
-- **ZIP64 metadata support** for ZIP archives that still fit the sync API memory limits
+- **Synchronous APIs plus streaming APIs for DEFLATE/GZIP/Zlib**
+- **ZIP64 metadata support** for in-memory ZIP archives that still fit the sync API limits
 - **Validation and size limits** for malformed input, zip bombs, path traversal, and corrupted data
 
 ## Benchmark
@@ -18,8 +18,8 @@ Platform: macOS (Apple Silicon), MoonBit wasm-gc target. Full results in [bench.
 - Pure MoonBit implementation with no external dependencies (compiled to Wasm-GC)
 - Support for DEFLATE, GZIP, Zlib, and ZIP formats
 - Automatic format detection for decompression
-- Streaming APIs for chunk-based compression and decompression
-- ZIP read/write support, including ZIP64 metadata, data descriptors, listing, and CRC-32 validation
+- Streaming APIs for chunk-based DEFLATE/GZIP/Zlib compression and decompression
+- In-memory ZIP read/write support, including ZIP64 metadata, data descriptors, listing, and CRC-32 validation
 - Configurable input and output limits
 - Tests covering format behavior, edge cases, and malformed input
 
@@ -63,7 +63,7 @@ Detailed API documentation can be explored via `moon ide doc` or in the codebase
 - **GZIP format support** - Deflate with GZIP headers, timestamps, metadata, and CRC-32 checksums
 - **Zlib format support** - Deflate with Zlib headers and Adler-32 checksums
 - **ZIP archive support** - Write, list, and extract ZIP archives
-- **ZIP64 metadata support** - Read and write ZIP64 metadata for archives that fit the current sync API limits
+- **ZIP64 metadata support** - Read and write ZIP64 metadata for archives that fit the current in-memory sync API limits
 - **ZIP data descriptors** - Read entries that use central-directory sizes and CRC-32
 - **Streaming compression** - Stream-based handlers for chunk-based data processing
 - **Input validation** - Size limits, path traversal detection, checksum validation, and malformed metadata rejection
@@ -81,6 +81,11 @@ The API is inspired by the original `fflate` library structure and adapted for M
 ## Detailed API
 
 ### ZIP
+
+The ZIP APIs are synchronous and in-memory: callers pass complete archive bytes to
+`unzip_sync`/`unzip_list`, and `zip_sync` builds a complete archive in a
+`FixedArray[Byte]`. ZIP64 support makes those APIs understand ZIP64 metadata; it
+does not add streaming extraction or creation for archives larger than memory.
 
 ```moonbit
 // Create ZIP archive
@@ -106,7 +111,7 @@ for info in infos {
 
 #### ZIP64 metadata support
 
-`zip_sync`, `unzip_sync`, and `unzip_list` understand ZIP64 metadata for archives and entries that still fit inside the sync API's `Int`/`FixedArray` limits. This is ZIP64 metadata compatibility, not large-file streaming.
+`zip_sync`, `unzip_sync`, and `unzip_list` understand ZIP64 metadata for archives and entries that still fit inside the sync API's `Int`/`FixedArray` limits. This is ZIP64 metadata compatibility for in-memory ZIP APIs, not large-file streaming.
 
 The writer emits ZIP64 metadata when a classic ZIP field needs a sentinel value:
 
