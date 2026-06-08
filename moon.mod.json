@@ -9,7 +9,7 @@
   "source": "src",
   "deps": {
     "ivgtr/moonzip": "0.2.4",
-    "mizchi/zlib": "0.4.4",
+    "mizchi/zlib": "0.4.7",
     "bikallem/compress": "0.3.4"
   }
 }
