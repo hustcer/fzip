@@ -337,14 +337,16 @@ test "inflt/tuple_return/too_small_buf_returns_error" {
   let data = FixedArray::make(512, b'A')
   let compressed = deflate_sync(data)
   let out = FixedArray::make(8, b'\x00')
-  let result : Result[(FixedArray[Byte], Int), FzipError] = try? inflt(
-    compressed,
-    InflateState::new(2),
-    Some(out),
-    None,
-    default_max_input_size,
-    default_max_input_size,
-  )
+  let result : Result[(FixedArray[Byte], Int), FzipError] = fzip_result(() => {
+    inflt(
+      compressed,
+      InflateState::new(2),
+      Some(out),
+      None,
+      default_max_input_size,
+      default_max_input_size,
+    )
+  })
   guard result is Err(FzipError(code~, message~)) else {
     fail("expected error")
   }
@@ -356,7 +358,7 @@ test "inflt/tuple_return/too_small_buf_returns_error" {
 test "inflate - corrupted data error" {
   // Test error handling with corrupted data
   let corrupted = FixedArray::make(10, b'\xff')
-  let result = try? inflate_sync(corrupted)
+  let result = fzip_result(() => inflate_sync(corrupted))
   assert_true(result is Err(_))
 }
 
@@ -367,16 +369,16 @@ test "inflate - truncated data error" {
   let compressed = deflate_sync(data)
   // Take only first half of compressed data
   let truncated = slc(compressed, 0, e=compressed.length() / 2)
-  let result = try? inflate_sync(truncated)
+  let result = fzip_result(() => inflate_sync(truncated))
   assert_true(result is Err(_))
 }
 
 ///|
 test "inflate - rejects code length repeat 16 at start" {
   let malformed : FixedArray[Byte] = [b'\x05', b'\x00', b'\x02', b'\x00']
-  let result : Result[FixedArray[Byte], FzipError] = try? inflate_sync(
-    malformed,
-  )
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    inflate_sync(malformed)
+  })
   guard result is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, InvalidLengthLiteral)
 }
@@ -386,9 +388,9 @@ test "inflate - rejects code length repeat overflow" {
   let malformed : FixedArray[Byte] = [
     b'\x05', b'\x00', b'\x80', b'\xC0', b'\xDF', b'\x1F',
   ]
-  let result : Result[FixedArray[Byte], FzipError] = try? inflate_sync(
-    malformed,
-  )
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    inflate_sync(malformed)
+  })
   guard result is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, InvalidLengthLiteral)
 }
@@ -399,11 +401,13 @@ test "inflate - custom max_output_size limit" {
   let data = FixedArray::make(1000, b'A')
   let compressed = deflate_sync(data)
   // Set max_output_size to 500 bytes (less than actual output)
-  let result = try? inflate_sync(compressed, opts={
-    out: None,
-    dictionary: None,
-    max_output_size: 500,
-    max_input_size: default_max_input_size,
+  let result = fzip_result(() => {
+    inflate_sync(compressed, opts={
+      out: None,
+      dictionary: None,
+      max_output_size: 500,
+      max_input_size: default_max_input_size,
+    })
   })
   assert_true(result is Err(_))
 }
@@ -418,11 +422,13 @@ test "inflate - custom max_input_size limit" {
   }
   let compressed = deflate_sync(data)
   // Set max_input_size smaller than compressed size
-  let result = try? inflate_sync(compressed, opts={
-    out: None,
-    dictionary: None,
-    max_output_size: default_max_output_size,
-    max_input_size: 100,
+  let result = fzip_result(() => {
+    inflate_sync(compressed, opts={
+      out: None,
+      dictionary: None,
+      max_output_size: default_max_output_size,
+      max_input_size: 100,
+    })
   })
   assert_true(result is Err(_))
 }
@@ -821,7 +827,7 @@ test "inflt/backref/dict_overlap_then_doubling" {
 ///   byte 2 = 0x00 (must be present so the 14-bit header refill can complete)
 test "inflt/dynamic_huffman/hlit_too_large_f_inf_002" {
   let payload : FixedArray[Byte] = [b'\xF5', b'\x00', b'\x00']
-  let result = try? inflate_sync(payload)
+  let result = fzip_result(() => inflate_sync(payload))
   guard result is Err(FzipError(code~, ..)) else {
     fail("expected FzipError for HLIT > 286")
   }
@@ -849,7 +855,7 @@ test "inflt/dynamic_huffman/hlit_too_large_f_inf_002" {
 ///   byte 2 = 0x00
 test "inflt/dynamic_huffman/hdist_too_large_f_inf_003" {
   let payload : FixedArray[Byte] = [b'\x05', b'\x1E', b'\x00']
-  let result = try? inflate_sync(payload)
+  let result = fzip_result(() => inflate_sync(payload))
   guard result is Err(FzipError(code~, ..)) else {
     fail("expected FzipError for HDIST > 30")
   }

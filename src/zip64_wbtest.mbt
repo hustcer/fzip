@@ -1,6 +1,8 @@
 ///|
 test "zip64_to_int - rejects negative" {
-  let r : Result[Int, FzipError] = try? zip64_to_int(-1L, "compressed_size")
+  let r : Result[Int, FzipError] = fzip_result(() => {
+    zip64_to_int(-1L, "compressed_size")
+  })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, Zip64ValueTooLarge)
 }
@@ -8,9 +10,9 @@ test "zip64_to_int - rejects negative" {
 ///|
 test "zip64_to_int - rejects values past Int range" {
   let too_big = max_int_val().to_int64() + 1L
-  let r : Result[Int, FzipError] = try? zip64_to_int(
-    too_big, "central_dir_size",
-  )
+  let r : Result[Int, FzipError] = fzip_result(() => {
+    zip64_to_int(too_big, "central_dir_size")
+  })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, Zip64ValueTooLarge)
 }
@@ -38,9 +40,9 @@ test "read_zip64_int - rejects high word non-zero (> 2^32)" {
   let d : FixedArray[Byte] = FixedArray::make(16, b'\x00')
   // Set byte 4 = 1 -> high 32-bit word = 1, value = 2^32.
   d[4] = b'\x01'
-  let r : Result[Int, FzipError] = try? read_zip64_int(
-    d, 0, "uncompressed_size",
-  )
+  let r : Result[Int, FzipError] = fzip_result(() => {
+    read_zip64_int(d, 0, "uncompressed_size")
+  })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, Zip64ValueTooLarge)
 }
@@ -50,7 +52,9 @@ test "read_zip64_int - rejects low word past Int range" {
   let d : FixedArray[Byte] = FixedArray::make(16, b'\x00')
   // Low word = 0x80000000 = 2147483648, which exceeds max_int_val (2^31 - 1).
   d[3] = b'\x80'
-  let r : Result[Int, FzipError] = try? read_zip64_int(d, 0, "local_offset")
+  let r : Result[Int, FzipError] = fzip_result(() => {
+    read_zip64_int(d, 0, "local_offset")
+  })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, Zip64ValueTooLarge)
 }
@@ -82,9 +86,9 @@ test "write_zip64_int - validates and writes 8 bytes" {
 ///|
 test "write_zip64_int - rejects negative value before writing" {
   let d : FixedArray[Byte] = FixedArray::make(16, b'\x00')
-  let r : Result[Unit, FzipError] = try? write_zip64_int(
-    d, 0, -1L, "compressed_size",
-  )
+  let r : Result[Unit, FzipError] = fzip_result(() => {
+    write_zip64_int(d, 0, -1L, "compressed_size")
+  })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, Zip64ValueTooLarge)
 }

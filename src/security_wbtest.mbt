@@ -1,14 +1,14 @@
 ///|
 test "security/gzip - empty input" {
   let empty : FixedArray[Byte] = []
-  let result = try? gunzip_sync(empty)
+  let result = fzip_result(() => gunzip_sync(empty))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/gzip - too short input" {
   let short : FixedArray[Byte] = [b'\x1F', b'\x8B']
-  let result = try? gunzip_sync(short)
+  let result = fzip_result(() => gunzip_sync(short))
   assert_true(result is Err(_))
 }
 
@@ -17,7 +17,7 @@ test "security/gzip - 9 bytes input" {
   let short : FixedArray[Byte] = [
     b'\x1F', b'\x8B', b'\x08', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
   ]
-  let result = try? gunzip_sync(short)
+  let result = fzip_result(() => gunzip_sync(short))
   assert_true(result is Err(_))
 }
 
@@ -28,7 +28,7 @@ test "security/gzip - FNAME flag but truncated" {
     b'\x1F', b'\x8B', b'\x08', b'\x08', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     b'\x03',
   ]
-  let result = try? gunzip_sync(truncated)
+  let result = fzip_result(() => gunzip_sync(truncated))
   assert_true(result is Err(_))
 }
 
@@ -38,7 +38,7 @@ test "security/gzip - FEXTRA flag but truncated length" {
     b'\x1F', b'\x8B', b'\x08', b'\x04', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     b'\x03',
   ]
-  let result = try? gunzip_sync(truncated)
+  let result = fzip_result(() => gunzip_sync(truncated))
   assert_true(result is Err(_))
 }
 
@@ -48,7 +48,7 @@ test "security/gzip - FEXTRA length exceeds input" {
     b'\x1F', b'\x8B', b'\x08', b'\x04', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     b'\x03', b'\x10', b'\x00',
   ]
-  let result = try? gunzip_sync(truncated)
+  let result = fzip_result(() => gunzip_sync(truncated))
   assert_true(result is Err(_))
 }
 
@@ -58,21 +58,21 @@ test "security/gzip - reserved flags rejected" {
     b'\x1F', b'\x8B', b'\x08', b'\xE0', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     b'\x03', b'\x03', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
   ]
-  let result = try? gunzip_sync(invalid)
+  let result = fzip_result(() => gunzip_sync(invalid))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/zlib - empty input" {
   let empty : FixedArray[Byte] = []
-  let result = try? unzlib_sync(empty)
+  let result = fzip_result(() => unzlib_sync(empty))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/zlib - 1 byte input" {
   let short : FixedArray[Byte] = [b'\x78']
-  let result = try? unzlib_sync(short)
+  let result = fzip_result(() => unzlib_sync(short))
   assert_true(result is Err(_))
 }
 
@@ -80,28 +80,28 @@ test "security/zlib - 1 byte input" {
 test "security/zlib - header only (no compressed data)" {
   // Valid zlib header (0x78 0x9C) but no compressed data or checksum
   let short : FixedArray[Byte] = [b'\x78', b'\x9C']
-  let result = try? unzlib_sync(short)
+  let result = fzip_result(() => unzlib_sync(short))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/zip - empty input" {
   let empty : FixedArray[Byte] = []
-  let result = try? unzip_sync(empty)
+  let result = fzip_result(() => unzip_sync(empty))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/zip - too short input" {
   let short : FixedArray[Byte] = [b'\x50', b'\x4B', b'\x05', b'\x06']
-  let result = try? unzip_sync(short)
+  let result = fzip_result(() => unzip_sync(short))
   assert_true(result is Err(_))
 }
 
 ///|
 test "security/zip - unzip_list empty input" {
   let empty : FixedArray[Byte] = []
-  let result = try? unzip_list(empty)
+  let result = fzip_result(() => unzip_list(empty))
   assert_true(result is Err(_))
 }
 
@@ -132,7 +132,7 @@ test "security/decompress - 2 byte input no crash" {
   // decompress_sync with exactly 2 bytes should not crash
   // (previously accessed data[2] with only length >= 2 check)
   let data : FixedArray[Byte] = [b'\x00', b'\x00']
-  let result = try? decompress_sync(data)
+  let result = fzip_result(() => decompress_sync(data))
   // It's OK if this errors, just shouldn't crash with out-of-bounds
   let _ = result
 }
@@ -140,13 +140,13 @@ test "security/decompress - 2 byte input no crash" {
 ///|
 test "security/decompress - 1 byte input" {
   let data : FixedArray[Byte] = [b'\x00']
-  let result = try? decompress_sync(data)
+  let result = fzip_result(() => decompress_sync(data))
   let _ = result
 }
 
 ///|
 test "security/decompress - empty input" {
   let data : FixedArray[Byte] = []
-  let result = try? decompress_sync(data)
+  let result = fzip_result(() => decompress_sync(data))
   let _ = result
 }

@@ -134,7 +134,7 @@ test "str_to_u8/str_from_u8 roundtrip - mixed byte lengths" {
 
 ///|
 fn assert_invalid_utf8(data : FixedArray[Byte]) -> Unit raise {
-  let result = try? str_from_u8(data)
+  let result = fzip_result(() => str_from_u8(data))
   guard result is Err(FzipError(code~, ..)) else {
     fail("expected InvalidUTF8 for byte sequence")
   }
