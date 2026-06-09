@@ -46,7 +46,7 @@ test "unzlib - invalid Adler-32 checksum" {
   // Corrupt the Adler-32 (last 4 bytes)
   let corrupted = slc(compressed, 0, e=compressed.length())
   corrupted[corrupted.length() - 1] = b'\xFF'
-  let result = try? unzlib_sync(corrupted)
+  let result = fzip_result(() => unzlib_sync(corrupted))
   assert_true(result is Err(_))
 }
 

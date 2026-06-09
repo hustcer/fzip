@@ -46,7 +46,7 @@ pub(all) enum FzipErrorCode {
 
 ///|
 /// Write the symbolic error-code name, such as `"InvalidHeader"`.
-pub impl Show for FzipErrorCode with output(self, logger) {
+pub impl Show for FzipErrorCode with fn output(self, logger) {
   match self {
     UnexpectedEOF => logger.write_string("UnexpectedEOF")
     InvalidBlockType => logger.write_string("InvalidBlockType")
@@ -116,4 +116,13 @@ fn fzip_err(code : FzipErrorCode, msg? : String = "") -> FzipError {
     error_messages[fzip_error_code_to_int(code)]
   }
   FzipError(code~, message~)
+}
+
+///|
+fn[T] fzip_result(f : () -> T raise FzipError) -> Result[T, FzipError] {
+  try f() catch {
+    err => Err(err)
+  } noraise {
+    value => Ok(value)
+  }
 }

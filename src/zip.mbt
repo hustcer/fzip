@@ -1357,9 +1357,9 @@ fn read_central_directory_info(
       msg="ZIP64 sentinel set but no valid ZIP64 locator",
     )
   }
-  let z64_result : Result[ZipCdInfo, FzipError] = try? read_zip64_cd_info(
-    data, eocd,
-  )
+  let z64_result : Result[ZipCdInfo, FzipError] = fzip_result(() => {
+    read_zip64_cd_info(data, eocd)
+  })
   match z64_result {
     Ok(info) => {
       validate_zip64_cd_matches_classic(

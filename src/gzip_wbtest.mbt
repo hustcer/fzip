@@ -95,16 +95,15 @@ test "gunzip - rejects ISIZE above max_output_size before allocation" {
   let data : FixedArray[Byte] = [b'H', b'i']
   let compressed = gzip_sync(data)
   w4(compressed, compressed.length() - 4, 1000U)
-  let result : Result[FixedArray[Byte], FzipError] = try? gunzip_sync(
-    compressed,
-    opts={
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    gunzip_sync(compressed, opts={
       out: None,
       dictionary: None,
       max_output_size: 16,
       max_input_size: default_max_input_size,
       verify_checksum: true,
-    },
-  )
+    })
+  })
   guard result is Err(FzipError(code~, message~)) else {
     fail("expected error")
   }
@@ -117,9 +116,9 @@ test "gunzip - rejects ISIZE mismatch after successful inflate" {
   let data : FixedArray[Byte] = [b'H', b'e', b'l', b'l', b'o']
   let compressed = gzip_sync(data)
   w4(compressed, compressed.length() - 4, 8U)
-  let result : Result[FixedArray[Byte], FzipError] = try? gunzip_sync(
-    compressed,
-  )
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    gunzip_sync(compressed)
+  })
   guard result is Err(FzipError(code~, message~)) else {
     fail("expected error")
   }
@@ -252,6 +251,6 @@ test "gunzip - invalid CRC-32 checksum" {
   // Corrupt the CRC-32 (last 8 bytes contain CRC-32 and size)
   let corrupted = slc(compressed, 0, e=compressed.length())
   corrupted[corrupted.length() - 8] = b'\xFF'
-  let result = try? gunzip_sync(corrupted)
+  let result = fzip_result(() => gunzip_sync(corrupted))
   assert_true(result is Err(_))
 }
