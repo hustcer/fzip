@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.1 - 2026-06-12
+
+- Replace deprecated MoonBit try? usage for moonc v0.10.0
+
 ## v0.8.0 - 2026-05-20
 
 ### Added
