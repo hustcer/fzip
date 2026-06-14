@@ -228,22 +228,6 @@ fn wblk(
 }
 
 ///|
-fn wblk_fixed(
-  out : FixedArray[Byte],
-  final_ : Int,
-  syms : FixedArray[Int],
-  li : Int,
-  p : Int,
-) -> Int {
-  let mut p = p
-  wbits(out, p, final_)
-  p += 1
-  wbits(out, p, 1)
-  p += 2
-  write_syms(out, flm, flt, fdm, fdt, syms, li, p)
-}
-
-///|
 /// Internal deflate state for streaming
 priv struct DeflateState {
   mut head : FixedArray[Int]? // hash head
@@ -481,66 +465,149 @@ fn dflt_periodic_block(
   }
   let o_size = sat_add(sat_add(pre, s), sat_add(16, post))
   let mut o = FixedArray::make(o_size, b'\x00')
-  let seed_syms = if !use_fixed {
-    period
-  } else if period < 3 {
-    main_dist
-  } else {
-    period + (main_dist - period + period - 1) / period
-  }
-  let syms_size = seed_syms + (s - main_dist + 257) / 258 + 4
-  let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
-  let lf : FixedArray[Int] = FixedArray::make(288, 0)
-  let df : FixedArray[Int] = FixedArray::make(32, 0)
-  let mut li = 0
-  let literal_seed = if use_fixed && period < 3 { main_dist } else { period }
-  for i in 0..<literal_seed {
-    let b = dat[i].to_int()
-    syms[li] = b
-    li += 1
-    lf[b] += 1
-  }
-  if use_fixed {
-    let period_dc = revfd[period]
-    let mut produced = literal_seed
-    while produced < main_dist {
-      let rem_seed = main_dist - produced
-      let l = if rem_seed > period { period } else { rem_seed }
+  o = ensure_out(o, out_capacity_need(pre, 0, s, post))
+  let pos = if use_fixed {
+    // Two-block split for large periodic data.
+    //
+    // Block A (the dictionary seed) emits the first `main_dist` output bytes as
+    // literals plus one period-distance run. It is <= the small-block threshold,
+    // so `wblk` keeps it on the fixed/stored path — the ~`period` *unique* seed
+    // literals never enter a dynamic Huffman tree.
+    //
+    // Block B emits the bulk back-references at distance `main_dist`. Its
+    // alphabet is tiny (1-2 length symbols + 1 distance symbol), so its dynamic
+    // tree assigns ~1-bit codes (small output) AND the decoder builds a tiny
+    // decode table over few symbols (fast inflate). Keeping the seed literals
+    // out of this tree is what makes both the encoding small and the table
+    // cheap — a single combined dynamic block would pay a ~`period`-symbol tree
+    // on both sides. `main_dist >= 258` keeps every block-B copy non-overlapping.
+    let literal_seed = if period < 3 { main_dist } else { period }
+    let seed_match_cap = if period < 3 {
+      0
+    } else {
+      (main_dist - literal_seed + period - 1) / period
+    }
+    let syms_a : FixedArray[Int] = FixedArray::make(
+      literal_seed + seed_match_cap + 2,
+      0,
+    )
+    let lf_a : FixedArray[Int] = FixedArray::make(288, 0)
+    let df_a : FixedArray[Int] = FixedArray::make(32, 0)
+    let mut li_a = 0
+    for i in 0..<literal_seed {
+      let b = dat[i].to_int()
+      syms_a[li_a] = b
+      li_a += 1
+      lf_a[b] += 1
+    }
+    if period >= 3 {
+      let period_dc = revfd[period]
+      let mut produced = literal_seed
+      while produced < main_dist {
+        let rem_seed = main_dist - produced
+        let l = if rem_seed > period { period } else { rem_seed }
+        let lc = revfl[l]
+        syms_a[li_a] = 268435456 | (lc << 18) | period_dc
+        li_a += 1
+        lf_a[257 + (lc & 31)] += 1
+        df_a[period_dc & 31] += 1
+        produced += l
+      }
+    }
+    let dc = revfd[main_dist]
+    let syms_b : FixedArray[Int] = FixedArray::make(
+      (s - main_dist + 257) / 258 + 4,
+      0,
+    )
+    let lf_b : FixedArray[Int] = FixedArray::make(288, 0)
+    let df_b : FixedArray[Int] = FixedArray::make(32, 0)
+    let mut li_b = 0
+    let mut rem = s - main_dist
+    while rem >= 3 {
+      let l = if rem > 258 { 258 } else { rem }
       let lc = revfl[l]
-      syms[li] = 268435456 | (lc << 18) | period_dc
+      syms_b[li_b] = 268435456 | (lc << 18) | dc
+      li_b += 1
+      lf_b[257 + (lc & 31)] += 1
+      df_b[dc & 31] += 1
+      rem -= l
+    }
+    let mut tail = s - rem
+    while rem > 0 {
+      let b = dat[tail].to_int()
+      syms_b[li_b] = b
+      li_b += 1
+      lf_b[b] += 1
+      tail += 1
+      rem -= 1
+    }
+    // Block A is non-final; block B carries the stream's final flag.
+    let pos_a = wblk(
+      dat,
+      o,
+      0,
+      syms_a,
+      lf_a,
+      df_a,
+      0,
+      li_a,
+      0,
+      main_dist,
+      pre * 8,
+    )
+    let pos_b = wblk(
+      dat,
+      o,
+      st.l,
+      syms_b,
+      lf_b,
+      df_b,
+      0,
+      li_b,
+      main_dist,
+      s - main_dist,
+      pos_a,
+    )
+    pos_b - pre * 8
+  } else {
+    // Small periodic data: one block, distance == period (the few literal seed
+    // symbols barely affect the tree, so splitting would only add overhead).
+    let syms : FixedArray[Int] = FixedArray::make(
+      period + (s - main_dist + 257) / 258 + 4,
+      0,
+    )
+    let lf : FixedArray[Int] = FixedArray::make(288, 0)
+    let df : FixedArray[Int] = FixedArray::make(32, 0)
+    let mut li = 0
+    for i in 0..<period {
+      let b = dat[i].to_int()
+      syms[li] = b
+      li += 1
+      lf[b] += 1
+    }
+    let dc = revfd[main_dist]
+    let mut rem = s - main_dist
+    while rem >= 3 {
+      let l = if rem > 258 { 258 } else { rem }
+      let lc = revfl[l]
+      syms[li] = 268435456 | (lc << 18) | dc
       li += 1
       lf[257 + (lc & 31)] += 1
-      df[period_dc & 31] += 1
-      produced += l
+      df[dc & 31] += 1
+      rem -= l
     }
+    let mut tail = s - rem
+    while rem > 0 {
+      let b = dat[tail].to_int()
+      syms[li] = b
+      li += 1
+      lf[b] += 1
+      tail += 1
+      rem -= 1
+    }
+    let block_pos = wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8)
+    block_pos - pre * 8
   }
-  let dc = revfd[main_dist]
-  let mut rem = s - main_dist
-  while rem >= 3 {
-    let l = if rem > 258 { 258 } else { rem }
-    let lc = revfl[l]
-    syms[li] = 268435456 | (lc << 18) | dc
-    li += 1
-    lf[257 + (lc & 31)] += 1
-    df[dc & 31] += 1
-    rem -= l
-  }
-  let mut tail = s - rem
-  while rem > 0 {
-    let b = dat[tail].to_int()
-    syms[li] = b
-    li += 1
-    lf[b] += 1
-    tail += 1
-    rem -= 1
-  }
-  o = ensure_out(o, out_capacity_need(pre, 0, s, post))
-  let block_pos = if use_fixed {
-    wblk_fixed(o, st.l, syms, li, pre * 8)
-  } else {
-    wblk(dat, o, st.l, syms, lf, df, 0, li, 0, s, pre * 8)
-  }
-  let pos = block_pos - pre * 8
   match crc_state {
     Some(cs) => cs.push_range(dat, 0, s)
     None => ()
