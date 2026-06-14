@@ -25,7 +25,13 @@ fn initial_inflate_size(sl : Int, max_output_size : Int) -> Int raise FzipError 
   }
   let base = sl * 3
   if sl >= 512 && sl < 2048 {
-    let expanded = sl * 96
+    // Small inputs in this range are frequently highly compressible (runs,
+    // periodic data, sparse buffers) and expand by well over 100x. fzip's
+    // periodic encoder packs 100 KiB into ~700 bytes (~140x), so a smaller
+    // multiplier would force a mid-decode realloc + buffer copy. Estimate
+    // generously here (the buffer is trimmed to the exact length afterwards)
+    // so these streams decode in a single allocation.
+    let expanded = sl * 160
     if expanded > max_output_size {
       max_output_size
     } else {

@@ -102,9 +102,13 @@ test "inflate/high_ratio_preallocation/100kb_sequential" {
 
 ///|
 test "inflate initial size heuristic" {
+  // sl < 512 and sl >= 2048 use the proportional base estimate (sl * 3).
   assert_eq(initial_inflate_size(100, default_max_output_size), 300)
-  assert_eq(initial_inflate_size(512, default_max_output_size), 49152)
   assert_eq(initial_inflate_size(2048, default_max_output_size), 6144)
+  // [512, 2048) is biased high (sl * 160) because inputs this small are often
+  // highly compressible (runs/periodic) and expand >100x; the generous estimate
+  // lets them decode in a single allocation.
+  assert_eq(initial_inflate_size(512, default_max_output_size), 81920)
 }
 
 ///|
