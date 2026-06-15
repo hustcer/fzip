@@ -61,7 +61,7 @@
   },
   {
     "name": "deflate/compress/seq_100k/fzip",
-    "compressed": 1263.0,
+    "compressed": 734.0,
     "original": 102400.0
   },
   {
@@ -141,7 +141,7 @@
   },
   {
     "name": "gzip/compress/100k/fzip",
-    "compressed": 1281.0,
+    "compressed": 752.0,
     "original": 102400.0
   },
   {
@@ -181,7 +181,7 @@
   },
   {
     "name": "zlib/compress/100k/fzip",
-    "compressed": 1269.0,
+    "compressed": 740.0,
     "original": 102400.0
   },
   {
