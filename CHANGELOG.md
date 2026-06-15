@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.2 - 2026-06-15
+
+- Reduce output size for large periodic DEFLATE inputs by splitting the seed and bulk encoding blocks, cutting 100K sequential raw DEFLATE, GZIP, and Zlib output by about 42% with no public API change.
+
 ## v0.8.1 - 2026-06-12
 
 - Replace deprecated MoonBit try? usage for moonc v0.10.0
