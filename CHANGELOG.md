@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.3 - 2026-06-17
+
+### Changed
+
+- Increase the inflate initial output estimate for 512-2047 byte compressed inputs from 96x to 160x, avoiding a realloc/copy for highly compressible small streams such as the 100K periodic output produced by fzip's two-block encoder. No public API change.
+
+### Performance
+
+- Isolated native 100K periodic raw DEFLATE decompression improves from 15.17 us to 12.91 us (14.9% faster).
+
 ## v0.8.2 - 2026-06-15
 
 - Reduce output size for large periodic DEFLATE inputs by splitting the seed and bulk encoding blocks, cutting 100K sequential raw DEFLATE, GZIP, and Zlib output by about 42% with no public API change.
