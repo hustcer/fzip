@@ -90,7 +90,91 @@ let crct7 : FixedArray[UInt] = {
 }
 
 ///|
-/// Update an internal CRC-32 state over a byte range using Slice-by-8.
+/// Slice-by-16 CRC-32 tables 8..15 (each adds one more CRC step).
+/// Extending the slice-by-8 ladder to 16 bytes/iteration halves the loop trip
+/// count for large buffers.
+let crct8 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct7[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct9 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct8[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct10 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct9[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct11 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct10[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct12 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct11[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct13 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct12[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct14 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct13[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+let crct15 : FixedArray[UInt] = {
+  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+  for i in 0..<256 {
+    let c = crct14[i]
+    t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
+  }
+  t
+}
+
+///|
+/// Update an internal CRC-32 state over a byte range using Slice-by-16,
+/// falling back to Slice-by-8 then a byte loop for the tail.
 fn crc32_update_range(
   crc : UInt,
   data : FixedArray[Byte],
@@ -100,6 +184,36 @@ fn crc32_update_range(
   let end = offset + len
   let mut c = crc
   let mut i = offset
+  while i + 15 < end {
+    c = c ^
+      (
+        data[i].to_uint() |
+        (data[i + 1].to_uint() << 8) |
+        (data[i + 2].to_uint() << 16) |
+        (data[i + 3].to_uint() << 24)
+      )
+    let d = data[i + 4].to_uint() |
+      (data[i + 5].to_uint() << 8) |
+      (data[i + 6].to_uint() << 16) |
+      (data[i + 7].to_uint() << 24)
+    c = crct15[(c & 0xFFU).reinterpret_as_int()] ^
+      crct14[((c >> 8) & 0xFFU).reinterpret_as_int()] ^
+      crct13[((c >> 16) & 0xFFU).reinterpret_as_int()] ^
+      crct12[(c >> 24).reinterpret_as_int()] ^
+      crct11[(d & 0xFFU).reinterpret_as_int()] ^
+      crct10[((d >> 8) & 0xFFU).reinterpret_as_int()] ^
+      crct9[((d >> 16) & 0xFFU).reinterpret_as_int()] ^
+      crct8[(d >> 24).reinterpret_as_int()] ^
+      crct7[data[i + 8].to_int()] ^
+      crct6[data[i + 9].to_int()] ^
+      crct5[data[i + 10].to_int()] ^
+      crct4[data[i + 11].to_int()] ^
+      crct3[data[i + 12].to_int()] ^
+      crct2[data[i + 13].to_int()] ^
+      crct1[data[i + 14].to_int()] ^
+      crct[data[i + 15].to_int()]
+    i += 16
+  }
   while i + 7 < end {
     c = c ^
       (
