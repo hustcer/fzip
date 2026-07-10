@@ -67,10 +67,16 @@ fn gzs(d : FixedArray[Byte], offset? : Int = 0) -> Int raise FzipError {
     }
     st += 1
   }
-  // skip FHCRC
+  // validate and skip FHCRC
   if (flg & 2) != 0 {
     if st > d.length() - 2 {
       raise fzip_err(InvalidHeader, msg="invalid gzip data")
+    }
+    let expected_crc = d[st].to_uint() | (d[st + 1].to_uint() << 8)
+    let crc = CRC32State::new()
+    crc.push_range(d, offset, st - offset)
+    if (crc.digest() & 0xFFFFU) != expected_crc {
+      raise fzip_err(InvalidChecksum, msg="gzip header CRC-16 mismatch")
     }
     st += 2
   }
@@ -94,6 +100,78 @@ fn gzl(d : FixedArray[Byte], footer : Int) -> Int raise FzipError {
 /// Calculate GZIP header length
 fn gzhl(o : GzipOptions) -> Int {
   10 + (if o.filename.length() > 0 { o.filename.length() + 1 } else { 0 })
+}
+
+///|
+/// Try the fixed-buffer one-shot path used by ordinary single-member streams.
+/// Return `None` when the first DEFLATE stream ends before the final footer or
+/// the final ISIZE-sized candidate buffer is insufficient. The caller then
+/// falls back to concatenated-member decoding and produces the definitive error.
+fn try_gunzip_single_member(
+  data : FixedArray[Byte],
+  data_start : Int,
+  footer : Int,
+  isize : Int,
+  opts : GunzipOptions,
+) -> FixedArray[Byte]? raise FzipError {
+  let crc_st : CRC32State? = if opts.verify_checksum {
+    Some(CRC32State::new())
+  } else {
+    None
+  }
+  let inflate_st = InflateState::new(2)
+  let (buf, len) = try
+    inflt(
+      data,
+      inflate_st,
+      Some(FixedArray::make(isize, b'\x00')),
+      opts.dictionary,
+      opts.max_input_size,
+      opts.max_output_size,
+      dat_off=data_start,
+      dat_end=footer,
+      crc_state=crc_st,
+    )
+  catch {
+    FzipError(code=InvalidZipData, ..) => return None
+    err => raise err
+  } noraise {
+    result => result
+  }
+  if inflate_st.final_ == 0 || !(inflate_st.lm is None) {
+    raise fzip_err(UnexpectedEOF, msg="truncated gzip DEFLATE data")
+  }
+  let actual_footer = shft(inflate_st.pos)
+  if actual_footer < data_start || actual_footer > footer {
+    raise fzip_err(InvalidHeader, msg="invalid gzip data")
+  }
+  if actual_footer != footer {
+    return None
+  }
+  match crc_st {
+    Some(cs) => {
+      let expected_crc = b4(data, footer)
+      if cs.digest() != expected_crc {
+        raise fzip_err(InvalidChecksum, msg="gzip CRC-32 mismatch")
+      }
+    }
+    None => ()
+  }
+  if len != isize {
+    raise fzip_err(InvalidZipData, msg="gzip ISIZE mismatch")
+  }
+  Some(
+    match opts.out {
+      Some(out) => {
+        if len > out.length() {
+          raise fzip_err(InvalidZipData, msg="output buffer too small")
+        }
+        buf.blit_to(out, len~, dst_offset=0)
+        trim_buf(out, len)
+      }
+      None => trim_buf(buf, len)
+    },
+  )
 }
 
 ///|
@@ -129,8 +207,10 @@ pub fn gzip_sync(
 ///
 /// Every concatenated GZIP member is parsed and inflated in order, and their
 /// outputs are joined. Each member's ISIZE is always validated and its CRC-32
-/// footer is verified by default. Set `verify_checksum` to `false` in
-/// `GunzipOptions` only when checksum validation is handled elsewhere.
+/// footer is verified by default. Optional FHCRC header checksums are always
+/// validated when present. `max_input_size` applies to the complete compressed
+/// stream. Set `verify_checksum` to `false` in `GunzipOptions` only when footer
+/// checksum validation is handled elsewhere.
 pub fn gunzip_sync(
   data : FixedArray[Byte],
   opts? : GunzipOptions = GunzipOptions::default(),
@@ -141,20 +221,31 @@ pub fn gunzip_sync(
   if opts.max_input_size < 0 {
     raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
   }
+  if data.length() > opts.max_input_size {
+    raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
+  }
   if opts.max_output_size < 0 {
     raise fzip_err(
       InvalidZipData,
       msg="uncompressed size exceeds max_output_size",
     )
   }
-  ignore(gzs(data))
-  let final_isize = gzl(data, data.length() - 8)
+  let data_start = gzs(data)
+  let final_footer = data.length() - 8
+  if data_start > final_footer {
+    raise fzip_err(InvalidHeader, msg="invalid gzip data")
+  }
+  let final_isize = gzl(data, final_footer)
   if final_isize > opts.max_output_size {
     raise fzip_err(InvalidZipData, msg="gzip ISIZE exceeds max_output_size")
   }
+  match
+    try_gunzip_single_member(data, data_start, final_footer, final_isize, opts) {
+    Some(result) => return result
+    None => ()
+  }
   let chunks : Array[FixedArray[Byte]] = []
   let mut member_offset = 0
-  let mut total_input = 0
   let mut total_output = 0
   while member_offset < data.length() {
     let data_start = gzs(data, offset=member_offset)
@@ -185,7 +276,7 @@ pub fn gunzip_sync(
       inflate_st,
       Some(FixedArray::make(initial_size, b'\x00')),
       opts.dictionary,
-      data.length(),
+      opts.max_input_size,
       output_remaining,
       dat_off=data_start,
       dat_end=data.length(),
@@ -197,10 +288,6 @@ pub fn gunzip_sync(
     let footer = shft(inflate_st.pos)
     if footer < data_start || footer > data.length() - 8 {
       raise fzip_err(InvalidHeader, msg="invalid gzip data")
-    }
-    total_input += footer - data_start
-    if total_input > opts.max_input_size {
-      raise fzip_err(InvalidZipData, msg="input exceeds max_input_size")
     }
     match crc_st {
       Some(cs) => {
