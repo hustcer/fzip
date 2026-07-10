@@ -317,7 +317,12 @@ fn inflt(
     }
     // decode symbols using bit buffer
     if resize {
-      buf = ensure_buf(buf, bt + grow, max_output_size)
+      let growth_target = if grow > max_output_size - bt {
+        max_output_size
+      } else {
+        bt + grow
+      }
+      buf = ensure_buf(buf, growth_target, max_output_size)
     }
     let lms = (1 << lbt) - 1
     let dms = (1 << dbt) - 1
@@ -355,8 +360,12 @@ fn inflt(
         raise fzip_err(InvalidLengthLiteral)
       }
       if sym < 256 {
-        if !resize && bt >= fixed_limit {
-          raise fzip_err(InvalidZipData, msg="output buffer too small")
+        if bt >= buf.length() {
+          if resize {
+            buf = ensure_buf(buf, bt + 1, max_output_size)
+          } else {
+            raise fzip_err(InvalidZipData, msg="output buffer too small")
+          }
         }
         buf[bt] = sym.to_byte()
         bt += 1
@@ -424,11 +433,23 @@ fn inflt(
           break_outer = true
           break
         }
-        if resize {
-          buf = ensure_buf(buf, bt + grow, max_output_size)
-        }
         let end = bt + add
-        if !resize && end > fixed_limit {
+        if resize {
+          if end > buf.length() {
+            if end > max_output_size || end < 0 {
+              raise fzip_err(
+                InvalidZipData,
+                msg="uncompressed size exceeds max_output_size",
+              )
+            }
+            let growth_target = if grow > max_output_size - bt {
+              max_output_size
+            } else {
+              bt + grow
+            }
+            buf = ensure_buf(buf, growth_target, max_output_size)
+          }
+        } else if end > fixed_limit {
           raise fzip_err(InvalidZipData, msg="output buffer too small")
         }
         // dictionary reference: fill from the preset dictionary when the

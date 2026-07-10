@@ -92,7 +92,7 @@ pub(all) struct GunzipOptions {
   dictionary : FixedArray[Byte]?
   /// Maximum allowed uncompressed output size.
   max_output_size : Int
-  /// Maximum allowed compressed input size.
+  /// Maximum allowed size of the complete compressed GZIP stream.
   max_input_size : Int
   /// Whether to verify the GZIP CRC-32 checksum.
   verify_checksum : Bool
