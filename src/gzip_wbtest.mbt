@@ -254,3 +254,66 @@ test "gunzip - invalid CRC-32 checksum" {
   let result = fzip_result(() => gunzip_sync(corrupted))
   assert_true(result is Err(_))
 }
+
+///|
+test "gunzip concatenates multiple members" {
+  let first : FixedArray[Byte] = [b'f', b'i', b'r', b's', b't']
+  let second : FixedArray[Byte] = [b's', b'e', b'c', b'o', b'n', b'd']
+  let second_member = gzip_sync(second, opts={
+    level: 6,
+    mem: 0,
+    dictionary: None,
+    mtime: 1234567890,
+    filename: "second.txt",
+  })
+  let compressed = concat_chunks([gzip_sync(first), second_member])
+  let decompressed = gunzip_sync(compressed)
+  let expected = concat_chunks([first, second])
+  assert_eq(decompressed.length(), expected.length())
+  for i in 0..<expected.length() {
+    assert_eq(decompressed[i], expected[i])
+  }
+}
+
+///|
+test "gunzip validates each member ISIZE when checksum verification is disabled" {
+  let first : FixedArray[Byte] = [b'o', b'n', b'e']
+  let second : FixedArray[Byte] = [b't', b'w', b'o']
+  let first_member = gzip_sync(first)
+  w4(first_member, first_member.length() - 4, 4U)
+  let compressed = concat_chunks([first_member, gzip_sync(second)])
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    gunzip_sync(compressed, opts={
+      out: None,
+      dictionary: None,
+      max_output_size: default_max_output_size,
+      max_input_size: default_max_input_size,
+      verify_checksum: false,
+    })
+  })
+  guard result is Err(FzipError(code~, message~)) else {
+    fail("expected first member ISIZE mismatch")
+  }
+  assert_eq(code, InvalidZipData)
+  assert_true(message.contains("ISIZE mismatch"))
+}
+
+///|
+test "gunzip writes concatenated members into caller output buffer" {
+  let first : FixedArray[Byte] = [b'a', b'b', b'c']
+  let second : FixedArray[Byte] = [b'd', b'e', b'f', b'g']
+  let compressed = concat_chunks([gzip_sync(first), gzip_sync(second)])
+  let out = FixedArray::make(16, b'\x00')
+  let decompressed = gunzip_sync(compressed, opts={
+    out: Some(out),
+    dictionary: None,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+    verify_checksum: false,
+  })
+  let expected = concat_chunks([first, second])
+  assert_eq(decompressed.length(), expected.length())
+  for i in 0..<expected.length() {
+    assert_eq(decompressed[i], expected[i])
+  }
+}

@@ -1,4 +1,32 @@
 ///|
+/// Write a Zlib DICTID in RFC 1950 network byte order.
+fn write_zlib_dict_id(
+  data : FixedArray[Byte],
+  offset : Int,
+  value : UInt,
+) -> Unit {
+  data[offset] = (value >> 24).to_byte()
+  data[offset + 1] = (value >> 16).to_byte()
+  data[offset + 2] = (value >> 8).to_byte()
+  data[offset + 3] = value.to_byte()
+}
+
+///|
+/// Read a Zlib DICTID in RFC 1950 network byte order.
+fn read_zlib_dict_id(
+  data : FixedArray[Byte],
+  offset : Int,
+) -> UInt raise FzipError {
+  if offset < 0 || offset > data.length() - 4 {
+    raise fzip_err(InvalidHeader, msg="invalid zlib dictionary ID")
+  }
+  (data[offset].to_uint() << 24) |
+  (data[offset + 1].to_uint() << 16) |
+  (data[offset + 2].to_uint() << 8) |
+  data[offset + 3].to_uint()
+}
+
+///|
 /// Write Zlib header
 fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
   let lv = o.level
@@ -24,8 +52,7 @@ fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
     Some(dict) => {
       let h = AdlerState::new()
       h.push(dict)
-      let dv = h.digest().reinterpret_as_int()
-      wbytes(c, 2, dv)
+      write_zlib_dict_id(c, 2, h.digest())
     }
     None => ()
   }
@@ -33,7 +60,10 @@ fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
 
 ///|
 /// Parse Zlib header and return data start offset
-fn zls(d : FixedArray[Byte], has_dict : Bool) -> Int raise FzipError {
+fn zls(
+  d : FixedArray[Byte],
+  dictionary : FixedArray[Byte]?,
+) -> Int raise FzipError {
   if d.length() < 2 {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")
   }
@@ -43,18 +73,23 @@ fn zls(d : FixedArray[Byte], has_dict : Bool) -> Int raise FzipError {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")
   }
   let dict_flag = (d[1].to_int() >> 5) & 1
-  if dict_flag == 1 && !has_dict {
-    raise fzip_err(InvalidHeader, msg="invalid zlib data: need dictionary")
+  match (dict_flag, dictionary) {
+    (1, None) =>
+      raise fzip_err(InvalidHeader, msg="invalid zlib data: need dictionary")
+    (0, Some(_)) =>
+      raise fzip_err(
+        InvalidHeader,
+        msg="invalid zlib data: unexpected dictionary",
+      )
+    (1, Some(dict)) => {
+      let expected_dict_id = read_zlib_dict_id(d, 2)
+      if adler32(dict) != expected_dict_id {
+        raise fzip_err(InvalidChecksum, msg="zlib dictionary Adler-32 mismatch")
+      }
+      6
+    }
+    _ => 2
   }
-  if dict_flag == 0 && has_dict {
-    raise fzip_err(
-      InvalidHeader,
-      msg="invalid zlib data: unexpected dictionary",
-    )
-  }
-  // header size: 2 bytes + optional 4 bytes for dict checksum
-  let extra = if ((d[1].to_int() >> 3) & 4) != 0 { 4 } else { 0 }
-  extra + 2
 }
 
 ///|
@@ -92,17 +127,13 @@ pub fn zlib_sync(
 /// The Zlib header is validated before inflating the inner DEFLATE payload. The
 /// Adler-32 footer is verified by default and can be disabled with
 /// `UnzlibOptions.verify_checksum` for trusted inputs. For dictionary streams,
-/// fzip checks that a dictionary is expected but does not compare the header's
-/// dictionary checksum with the provided dictionary.
+/// fzip always verifies that the header DICTID matches the provided dictionary,
+/// even when footer checksum verification is disabled.
 pub fn unzlib_sync(
   data : FixedArray[Byte],
   opts? : UnzlibOptions = UnzlibOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
-  let has_dict = match opts.dictionary {
-    Some(_) => true
-    None => false
-  }
-  let st = zls(data, has_dict)
+  let st = zls(data, opts.dictionary)
   let end = data.length() - 4
   if end < st {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")

@@ -83,9 +83,8 @@ pub fn GzipOptions::default() -> GzipOptions {
 ///
 /// By default fzip verifies the CRC-32 footer to detect corrupted data. Disable
 /// `verify_checksum` only when data integrity is already guaranteed elsewhere
-/// and decompression speed is more important. When `out` is not supplied,
-/// `gunzip_sync` allocates its output from the GZIP ISIZE footer after checking
-/// it against `max_output_size`.
+/// and decompression speed is more important. Concatenated members are decoded
+/// in order, with `max_output_size` applied to their combined output.
 pub(all) struct GunzipOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
@@ -137,8 +136,8 @@ pub fn ZlibOptions::default() -> ZlibOptions {
 ///
 /// By default fzip verifies the Adler-32 footer to detect corrupted data. If a
 /// dictionary is required, the stream must advertise that requirement and the
-/// caller must provide the matching dictionary; the dictionary checksum in the
-/// header is skipped rather than compared.
+/// caller must provide the matching dictionary. The header DICTID is always
+/// checked, independently of footer checksum verification.
 pub(all) struct UnzlibOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
