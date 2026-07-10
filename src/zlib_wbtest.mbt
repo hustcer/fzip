@@ -156,3 +156,45 @@ test "unzlib with verify_checksum=true detects corruption" {
   }
   assert_true(result == Some(InvalidChecksum), msg="expected InvalidChecksum")
 }
+
+///|
+test "zlib dictionary ID uses network byte order" {
+  let dict : FixedArray[Byte] = [1, 2, 3, 4, 5]
+  let data : FixedArray[Byte] = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
+  let compressed = zlib_sync(data, opts={
+    level: 6,
+    mem: 0,
+    dictionary: Some(dict),
+  })
+  let dict_id = adler32(dict)
+  assert_eq(compressed[2], (dict_id >> 24).to_byte())
+  assert_eq(compressed[3], (dict_id >> 16).to_byte())
+  assert_eq(compressed[4], (dict_id >> 8).to_byte())
+  assert_eq(compressed[5], dict_id.to_byte())
+}
+
+///|
+test "unzlib rejects mismatched dictionary when checksum verification is disabled" {
+  let dict : FixedArray[Byte] = [1, 2, 3, 4, 5]
+  let wrong_dict : FixedArray[Byte] = [9, 9, 9, 9, 9]
+  let data : FixedArray[Byte] = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
+  let compressed = zlib_sync(data, opts={
+    level: 6,
+    mem: 0,
+    dictionary: Some(dict),
+  })
+  let result : Result[FixedArray[Byte], FzipError] = fzip_result(() => {
+    unzlib_sync(compressed, opts={
+      out: None,
+      dictionary: Some(wrong_dict),
+      max_output_size: default_max_output_size,
+      max_input_size: default_max_input_size,
+      verify_checksum: false,
+    })
+  })
+  guard result is Err(FzipError(code~, message~)) else {
+    fail("expected mismatched dictionary to be rejected")
+  }
+  assert_eq(code, InvalidChecksum)
+  assert_true(message.contains("dictionary"))
+}
