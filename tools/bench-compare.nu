@@ -26,7 +26,8 @@ use std/assert
 #     --require-source-change
 
 const schema_version = 2
-const tool_version = '1.1.0'
+const tool_version = '1.2.0'
+const supported_capture_tool_versions = ['1.1.0' '1.2.0']
 const capture_kind = 'moon-bench-capture'
 const comparison_kind = 'moon-bench-comparison'
 const supported_targets = [wasm wasm-gc js native llvm]
@@ -94,27 +95,46 @@ def existing-path-under [
   $expanded
 }
 
+# Resolve a user-provided worktree root and require the repository top level.
+def repository-root [input: path, description: string]: nothing -> path {
+  let expanded = $input | path expand --strict
+  let result = (^git -C $expanded rev-parse --show-toplevel | complete)
+  if $result.exit_code != 0 {
+    error make {msg: $'($description) is not inside a Git repository: ($expanded)'}
+  }
+  let root = $result.stdout | str trim | path expand --strict
+  if $expanded != $root {
+    error make {
+      msg: $'($description) must be the Git repository root: ($expanded)'
+      help: $'Use ($root) instead.'
+    }
+  }
+  $root
+}
+
 # Fingerprint the current build/source state, including local tracked changes and
 # relevant untracked files. The content hash stays stable across a commit when
 # the checked-out source bytes are unchanged.
-def capture-source-state [source_root: path, module_file: path]: nothing -> record {
-  let root_result = (^git rev-parse --show-toplevel | complete)
-  if $root_result.exit_code != 0 {
-    error make {msg: 'bench-compare must run inside a Git repository'}
-  }
-  let repo_root = $root_result.stdout | str trim | path expand --strict
-  let source_rel = repo-relative-path $source_root $repo_root 'source root'
-  let module_rel = repo-relative-path $module_file $repo_root 'module file'
+def capture-source-state-at [
+  repo_root: path
+  source_root: path
+  module_file: path
+]: nothing -> record {
+  let root = repository-root $repo_root 'repository root'
+  let source_path = $root | path join $source_root
+  let module_path = $root | path join $module_file
+  let source_rel = repo-relative-path $source_path $root 'source root'
+  let module_rel = repo-relative-path $module_path $root 'module file'
   let pathspecs = [$source_rel $module_rel]
 
   let untracked_result = (
-    ^git -C $repo_root ls-files --others --exclude-standard -- ...$pathspecs | complete
+    ^git -C $root ls-files --others --exclude-standard -- ...$pathspecs | complete
   )
   if $untracked_result.exit_code != 0 {
     error make {msg: $'Could not list untracked source files: ($untracked_result.stderr)'}
   }
   let ignored_result = (
-    ^git -C $repo_root ls-files --others --ignored --exclude-standard -- ...$pathspecs
+    ^git -C $root ls-files --others --ignored --exclude-standard -- ...$pathspecs
     | complete
   )
   if $ignored_result.exit_code != 0 {
@@ -128,10 +148,10 @@ def capture-source-state [source_root: path, module_file: path]: nothing -> reco
     $ignored_result.stdout | lines | where {|line| $line | str trim | is-not-empty }
   )
   let untracked_paths = $ordinary_untracked_paths | append $ignored_paths | uniq | sort
-  let source_pattern = $repo_root | path join $source_rel '**/*'
+  let source_pattern = $root | path join $source_rel '**/*'
   let filesystem_paths = (
     glob $source_pattern --no-dir
-    | each {|full| $full | path relative-to $repo_root }
+    | each {|full| $full | path relative-to $root }
     | append $module_rel
     | uniq
     | sort
@@ -139,7 +159,7 @@ def capture-source-state [source_root: path, module_file: path]: nothing -> reco
   let files = (
     $filesystem_paths
     | each {|relative|
-        let full = $repo_root | path join $relative
+        let full = $root | path join $relative
         {
           path: $relative
           sha256: (open --raw $full | hash sha256)
@@ -147,12 +167,12 @@ def capture-source-state [source_root: path, module_file: path]: nothing -> reco
       }
   )
   let tracked_diff_result = (
-    ^git -C $repo_root diff --binary HEAD -- ...$pathspecs | complete
+    ^git -C $root diff --binary HEAD -- ...$pathspecs | complete
   )
   if $tracked_diff_result.exit_code != 0 {
     error make {msg: $'Could not fingerprint tracked source changes: ($tracked_diff_result.stderr)'}
   }
-  let head_result = (^git -C $repo_root rev-parse HEAD | complete)
+  let head_result = (^git -C $root rev-parse HEAD | complete)
   if $head_result.exit_code != 0 {
     error make {msg: 'Could not resolve Git HEAD for source fingerprinting'}
   }
@@ -171,7 +191,7 @@ def capture-source-state [source_root: path, module_file: path]: nothing -> reco
   }
 
   {
-    repository_root: $repo_root
+    repository_root: $root
     source_root: $source_rel
     module_file: $module_rel
     git_head: $state_payload.head
@@ -181,6 +201,15 @@ def capture-source-state [source_root: path, module_file: path]: nothing -> reco
     untracked_files: $untracked_files
     state_sha256: ($state_payload | to json | hash sha256)
   }
+}
+
+# Fingerprint the source state in the current repository.
+def capture-source-state [source_root: path, module_file: path]: nothing -> record {
+  let root_result = (^git rev-parse --show-toplevel | complete)
+  if $root_result.exit_code != 0 {
+    error make {msg: 'bench-compare must run inside a Git repository'}
+  }
+  capture-source-state-at ($root_result.stdout | str trim) $source_root $module_file
 }
 
 # Convert a MoonBit benchmark duration to microseconds.
@@ -330,13 +359,15 @@ def summarize-samples [samples: table]: nothing -> record {
 }
 
 # Run a fixed MoonBit benchmark command safely with separated arguments.
-def run-benchmark [
+def run-benchmark-at [
+  root: path
   index: int
   expected_name: string
   package: string
   file: string
   target: string
 ]: nothing -> record {
+  let expanded_root = $root | path expand --strict
   let args = [
     bench
     -p
@@ -350,7 +381,7 @@ def run-benchmark [
     --release
     --frozen
   ]
-  let result = (^moon ...$args | complete)
+  let result = (^moon -C $expanded_root ...$args | complete)
   let output = (
     [$result.stdout $result.stderr]
     | where {|part| ($part | str trim | is-not-empty) }
@@ -367,6 +398,17 @@ def run-benchmark [
   parse-benchmark-output $output $expected_name
 }
 
+# Run a benchmark in the current repository.
+def run-benchmark [
+  index: int
+  expected_name: string
+  package: string
+  file: string
+  target: string
+]: nothing -> record {
+  run-benchmark-at (pwd) $index $expected_name $package $file $target
+}
+
 # Return trimmed git output, or null when the current directory is not a repo.
 def git-output [...args: string]: nothing -> oneof<string, nothing> {
   let result = (^git ...$args | complete)
@@ -377,18 +419,29 @@ def git-output [...args: string]: nothing -> oneof<string, nothing> {
   }
 }
 
+# Return trimmed Git output for a repository root, or null on failure.
+def git-output-at [root: path, ...args: string]: nothing -> oneof<string, nothing> {
+  let result = (^git -C $root ...$args | complete)
+  if $result.exit_code == 0 {
+    $result.stdout | str trim
+  } else {
+    null
+  }
+}
+
 # Collect enough environment data to reject invalid before/after comparisons.
-def capture-environment []: nothing -> record {
-  let moon_result = (^moon version | complete)
+def capture-environment-at [root: path]: nothing -> record {
+  let expanded_root = $root | path expand --strict
+  let moon_result = (^moon -C $expanded_root version | complete)
   if $moon_result.exit_code != 0 {
     error make {msg: 'Could not read moon version'}
   }
 
   let machine_result = (^uname -m | complete)
-  let git_status = (git-output status -- --porcelain)
+  let git_status = (git-output-at $expanded_root status -- --porcelain)
   {
     timestamp: (date now | format date '%Y-%m-%dT%H:%M:%S%z')
-    cwd: (pwd)
+    cwd: $expanded_root
     moon_version: ($moon_result.stdout | lines | first | str trim)
     nu_version: (version | get version)
     host: (sys host | select name os_version long_os_version kernel_version)
@@ -398,37 +451,46 @@ def capture-environment []: nothing -> record {
       null
     })
     git: {
-      commit: (git-output rev-parse HEAD)
-      branch: (git-output branch -- --show-current)
+      commit: (git-output-at $expanded_root rev-parse HEAD)
+      branch: (git-output-at $expanded_root branch -- --show-current)
       dirty: (if $git_status == null { null } else { $git_status | is-not-empty })
     }
   }
 }
 
+# Capture environment data for the current repository.
+def capture-environment []: nothing -> record {
+  capture-environment-at (pwd)
+}
+
 # Fingerprint the benchmark harness so code changes cannot silently alter the test.
-def capture-harness [
+def capture-harness-at [
+  repo_root: path
   source_root: path
   module_file: path
   package: string
   file: string
 ]: nothing -> table {
-  let expanded_source = $source_root | path expand --strict
+  let root = repository-root $repo_root 'repository root'
+  let source_path = $root | path join $source_root
+  let module_path = $root | path join $module_file
+  let expanded_source = $source_path | path expand --strict
   let package_dir = existing-path-under (
-    $source_root | path join $package
+    $source_path | path join $package
   ) $expanded_source 'benchmark package'
-  let package_file = $source_root | path join $package moon.pkg
-  let benchmark_file = $source_root | path join $package $file
+  let package_file = $source_path | path join $package moon.pkg
+  let benchmark_file = $source_path | path join $package $file
   let files = [
     {
-      path: ($module_file | into string)
-      expanded: ($module_file | path expand --strict)
+      path: (repo-relative-path $module_path $root 'module file')
+      expanded: ($module_path | path expand --strict)
     }
     {
-      path: ($package_file | into string)
+      path: (repo-relative-path $package_file $root 'benchmark package file')
       expanded: (existing-path-under $package_file $expanded_source 'benchmark package file')
     }
     {
-      path: ($benchmark_file | into string)
+      path: (repo-relative-path $benchmark_file $root 'benchmark source file')
       expanded: (existing-path-under $benchmark_file $package_dir 'benchmark source file')
     }
   ]
@@ -451,6 +513,16 @@ def ensure-output-available [output: path, force: bool]: nothing -> nothing {
       help: 'Choose a new output path or pass --force explicitly.'
     }
   }
+}
+
+# Fingerprint the benchmark harness in the current repository.
+def capture-harness [
+  source_root: path
+  module_file: path
+  package: string
+  file: string
+]: nothing -> table {
+  capture-harness-at (pwd) $source_root $module_file $package $file
 }
 
 # Save JSON without overwriting an existing artifact unless --force was explicit.
@@ -488,7 +560,7 @@ def load-capture [input: path]: nothing -> record {
   if $capture.schema_version? != $schema_version {
     error make {msg: $'Unsupported capture schema in ($expanded)'}
   }
-  if $capture.tool_version? != $tool_version {
+  if $capture.tool_version? not-in $supported_capture_tool_versions {
     error make {msg: $'Unsupported capture tool version in ($expanded)'}
   }
 
@@ -543,7 +615,6 @@ def build-comparison [
     {field: benchmark.index before: $before.benchmark.index after: $after.benchmark.index}
     {field: benchmark.target before: $before.benchmark.target after: $after.benchmark.target}
     {field: benchmark.release before: $before.benchmark.release after: $after.benchmark.release}
-    {field: tool_version before: $before.tool_version after: $after.tool_version}
     {field: harness before: $before.harness after: $after.harness}
   ]
   let environment_checks = [
@@ -727,6 +798,107 @@ def render-comparison [report: record, format: string]: nothing -> string {
   }
 }
 
+# Build a deterministic pair-by-pair schedule. Alternating which side runs
+# first balances persistent first/second-position effects across recorded rounds.
+def interleaved-schedule [rounds: int]: nothing -> table {
+  if $rounds < 0 {
+    error make {msg: 'schedule rounds must be non-negative'}
+  }
+  0..<$rounds
+  | each --flatten {|round|
+      let sides = if ($round mod 2) == 0 {
+        [before after]
+      } else {
+        [after before]
+      }
+      let pair_order = $sides | str join '-'
+      $sides
+      | enumerate
+      | each {|entry|
+          {
+            round: ($round + 1)
+            side: $entry.item
+            sequence: ($round * 2 + $entry.index + 1)
+            pair_order: $pair_order
+            pair_position: ($entry.index + 1)
+          }
+        }
+    }
+}
+
+# Validate shared benchmark arguments before starting expensive work.
+def validate-capture-request [
+  index: int
+  name: string
+  target: string
+  rounds: int
+  warmup: int
+]: nothing -> nothing {
+  if ($name | is-empty) {
+    error make {msg: '--name is required to guard against benchmark index drift'}
+  }
+  if $rounds < 1 {
+    error make {msg: '--rounds must be at least 1'}
+  }
+  if $warmup < 0 {
+    error make {msg: '--warmup must be non-negative'}
+  }
+  if $index < 0 {
+    error make {msg: 'benchmark index must be non-negative'}
+  }
+  if $target not-in $supported_targets {
+    error make {
+      msg: $'Unsupported target: ($target)'
+      help: $'Supported targets: ($supported_targets | str join ", ")'
+    }
+  }
+}
+
+# Add execution-order metadata to one benchmark sample.
+def run-scheduled-benchmark [
+  step: record
+  before_root: path
+  after_root: path
+  index: int
+  name: string
+  package: string
+  file: string
+  target: string
+]: nothing -> record {
+  let root = match $step.side {
+    before => $before_root
+    after => $after_root
+    _ => { error make {msg: $'Unsupported interleave side: ($step.side)'} }
+  }
+  run-benchmark-at $root $index $name $package $file $target
+  | merge $step
+}
+
+# Construct a normal capture artifact from pre-validated metadata and samples.
+def build-capture-artifact [
+  label: string
+  benchmark: record
+  harness: table
+  source_state: record
+  environment: record
+  sampling: record
+  samples: table
+]: nothing -> record {
+  {
+    schema_version: $schema_version
+    tool_version: $tool_version
+    kind: $capture_kind
+    label: $label
+    benchmark: $benchmark
+    harness: $harness
+    source_state: $source_state
+    environment: $environment
+    sampling: $sampling
+    summary: (summarize-samples $samples)
+    samples: $samples
+  }
+}
+
 # Create a synthetic capture for the built-in self-test.
 def fixture-capture [
   means: list<float>
@@ -829,24 +1001,7 @@ def "main capture" [
   --label (-l): string = ''
   --force                         # Explicitly allow overwriting --output
 ]: nothing -> string {
-  if ($name | is-empty) {
-    error make {msg: '--name is required to guard against benchmark index drift'}
-  }
-  if $rounds < 1 {
-    error make {msg: '--rounds must be at least 1'}
-  }
-  if $warmup < 0 {
-    error make {msg: '--warmup must be non-negative'}
-  }
-  if $index < 0 {
-    error make {msg: 'benchmark index must be non-negative'}
-  }
-  if $target not-in $supported_targets {
-    error make {
-      msg: $'Unsupported target: ($target)'
-      help: $'Supported targets: ($supported_targets | str join ", ")'
-    }
-  }
+  validate-capture-request $index $name $target $rounds $warmup
   ensure-output-available $output $force
   let source_before = capture-source-state $source_root $module_file
   let harness_before = capture-harness $source_root $module_file $package $file
@@ -900,6 +1055,165 @@ def "main capture" [
     output: ($output | path expand)
     benchmark: $capture.benchmark
     summary: $capture.summary
+  }
+  | to json --indent 2
+}
+
+# Capture the same benchmark from two worktrees in alternating A/B pairs.
+# The resulting files remain ordinary capture artifacts accepted by `compare`.
+def "main interleave" [
+  index: int                         # Current index in both benchmark harnesses
+  before_root: path                  # Repository root for the before revision
+  after_root: path                   # Repository root for the after revision
+  --name (-n): string = ''           # Expected benchmark name; guards index drift
+  --before-output: path = 'bench-before.json'
+  --after-output: path = 'bench-after.json'
+  --package (-p): string = 'benchmarks'
+  --file (-f): string = 'bench_test.mbt'
+  --source-root: path = 'src'        # Source directory used for fingerprinting
+  --module-file: path = 'moon.mod.json'
+  --target (-t): string = 'wasm-gc'
+  --rounds (-r): int = 5             # Recorded A/B pairs
+  --warmup (-w): int = 1             # Discarded A/B pairs
+  --before-label: string = 'before'
+  --after-label: string = 'after'
+  --force                            # Explicitly allow overwriting both outputs
+]: nothing -> string {
+  validate-capture-request $index $name $target $rounds $warmup
+
+  let before_repo = repository-root $before_root 'before root'
+  let after_repo = repository-root $after_root 'after root'
+  if $before_repo == $after_repo {
+    error make {
+      msg: 'before and after roots must be different Git worktrees'
+      help: 'Create one detached worktree for each revision being compared.'
+    }
+  }
+
+  let before_path = $before_output | path expand
+  let after_path = $after_output | path expand
+  if $before_path == $after_path {
+    error make {msg: 'before and after output paths must be different'}
+  }
+  ensure-output-available $before_path $force
+  ensure-output-available $after_path $force
+
+  let before_source_before = (
+    capture-source-state-at $before_repo $source_root $module_file
+  )
+  let after_source_before = (
+    capture-source-state-at $after_repo $source_root $module_file
+  )
+  let before_harness_before = (
+    capture-harness-at $before_repo $source_root $module_file $package $file
+  )
+  let after_harness_before = (
+    capture-harness-at $after_repo $source_root $module_file $package $file
+  )
+  if $before_harness_before != $after_harness_before {
+    error make {
+      msg: 'before and after benchmark harnesses do not match'
+      help: 'Use revisions with identical module, package, and benchmark source files.'
+    }
+  }
+
+  interleaved-schedule $warmup
+  | each {|step|
+      (run-scheduled-benchmark
+          $step $before_repo $after_repo $index $name $package $file $target)
+    }
+  | ignore
+
+  let all_samples = (
+    interleaved-schedule $rounds
+    | each {|step|
+        (run-scheduled-benchmark
+            $step $before_repo $after_repo $index $name $package $file $target)
+      }
+  )
+  let before_samples = $all_samples | where side == before
+  let after_samples = $all_samples | where side == after
+
+  let before_harness_after = (
+    capture-harness-at $before_repo $source_root $module_file $package $file
+  )
+  let after_harness_after = (
+    capture-harness-at $after_repo $source_root $module_file $package $file
+  )
+  let before_source_after = (
+    capture-source-state-at $before_repo $source_root $module_file
+  )
+  let after_source_after = (
+    capture-source-state-at $after_repo $source_root $module_file
+  )
+  if (
+    $before_harness_before != $before_harness_after
+    or $after_harness_before != $after_harness_after
+  ) {
+    error make {msg: 'Benchmark harness changed while interleaved capture was running'}
+  }
+  if (
+    $before_source_before.state_sha256 != $before_source_after.state_sha256
+    or $after_source_before.state_sha256 != $after_source_after.state_sha256
+  ) {
+    error make {
+      msg: 'Source state changed while interleaved capture was running'
+      help: 'Discard this run, stop concurrent edits, and capture again into new files.'
+    }
+  }
+
+  let benchmark = {
+    name: $name
+    package: $package
+    file: $file
+    index: $index
+    target: $target
+    release: true
+  }
+  let session_id = random uuid
+  let sampling = {
+    warmup: $warmup
+    rounds: $rounds
+    mode: interleaved
+    pair_order: alternating
+    starts_with: before
+    session_id: $session_id
+  }
+  let before_capture = (build-capture-artifact
+      $before_label
+      $benchmark
+      $before_harness_before
+      $before_source_before
+      (capture-environment-at $before_repo)
+      $sampling
+      $before_samples)
+  let after_capture = (build-capture-artifact
+      $after_label
+      $benchmark
+      $after_harness_before
+      $after_source_before
+      (capture-environment-at $after_repo)
+      $sampling
+      $after_samples)
+
+  # Recheck both destinations immediately before writing either artifact.
+  ensure-output-available $before_path $force
+  ensure-output-available $after_path $force
+  save-json $before_capture $before_path $force
+  save-json $after_capture $after_path $force
+
+  {
+    status: captured
+    mode: interleaved
+    session_id: $session_id
+    before: {
+      output: $before_path
+      summary: $before_capture.summary
+    }
+    after: {
+      output: $after_path
+      summary: $after_capture.summary
+    }
   }
   | to json --indent 2
 }
@@ -986,6 +1300,22 @@ def "main self-test" []: nothing -> string {
   assert equal $catalog.0 {index: 0 name: first/bench line: 1}
   assert equal $catalog.1 {index: 1 name: second/bench line: 3}
 
+  assert equal (interleaved-schedule 0 | length) 0
+  let schedule = interleaved-schedule 3
+  assert equal ($schedule | length) 6
+  assert equal $schedule.0 {round: 1 side: before sequence: 1 pair_order: before-after pair_position: 1}
+  assert equal $schedule.1 {round: 1 side: after sequence: 2 pair_order: before-after pair_position: 2}
+  assert equal $schedule.2 {round: 2 side: after sequence: 3 pair_order: after-before pair_position: 1}
+  assert equal $schedule.3 {round: 2 side: before sequence: 4 pair_order: after-before pair_position: 2}
+  assert equal $schedule.4 {round: 3 side: before sequence: 5 pair_order: before-after pair_position: 1}
+  assert equal $schedule.5 {round: 3 side: after sequence: 6 pair_order: before-after pair_position: 2}
+  assert error { interleaved-schedule (-1) }
+  assert error { validate-capture-request (-1) benchmark wasm-gc 1 0 }
+  assert error { validate-capture-request 0 '' wasm-gc 1 0 }
+  assert error { validate-capture-request 0 benchmark invalid 1 0 }
+  assert error { validate-capture-request 0 benchmark wasm-gc 0 0 }
+  assert error { validate-capture-request 0 benchmark wasm-gc 1 (-1) }
+
   let thresholds = {
     min_improvement_pct: 2.0
     max_regression_pct: 1.0
@@ -1056,7 +1386,43 @@ def "main self-test" []: nothing -> string {
     rm --force $tmp
   }
 
-  {status: ok tests: 29} | to json --indent 2
+  let artifact_samples = (
+    $improved.samples
+    | enumerate
+    | each {|entry|
+        $entry.item
+        | merge {
+            side: before
+            sequence: ($entry.index * 2 + 1)
+            pair_order: before-after
+            pair_position: 1
+          }
+      }
+  )
+  let artifact = (build-capture-artifact
+      interleaved-fixture
+      $improved.benchmark
+      $improved.harness
+      $improved.source_state
+      $improved.environment
+      {warmup: 1 rounds: 5 mode: interleaved}
+      $artifact_samples)
+  assert equal $artifact.summary.rounds 5
+  assert equal $artifact.samples.0.sequence 1
+
+  let compatible_tmp = mktemp --suffix .json
+  try {
+    $artifact | update tool_version '1.1.0' | to json | save --force $compatible_tmp
+    let compatible_capture = load-capture $compatible_tmp
+    assert equal $compatible_capture.tool_version '1.1.0'
+    let cross_version_report = (build-comparison
+        $compatible_capture $artifact before after $thresholds false false)
+    assert equal $cross_version_report.compatibility.benchmark_mismatches []
+  } finally {
+    rm --force $compatible_tmp
+  }
+
+  {status: ok tests: 47} | to json --indent 2
 }
 
 def main []: nothing -> nothing {
@@ -1065,6 +1431,7 @@ def main []: nothing -> nothing {
       'Usage:'
       '  nu tools/bench-compare.nu list [--filter <substring>]'
       '  nu tools/bench-compare.nu capture <index> --name <benchmark> --output <file>'
+      '  nu tools/bench-compare.nu interleave <index> <before-root> <after-root> --name <benchmark>'
       '  nu tools/bench-compare.nu compare <before.json> <after.json> [--require-source-change]'
       '  nu tools/bench-compare.nu self-test'
       'Compare exit codes: 0 improved, 2 regressed, 3 insufficient/inconclusive/noisy, 4 incompatible.'
