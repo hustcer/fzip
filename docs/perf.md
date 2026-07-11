@@ -153,13 +153,15 @@ nu -c 'source tools/bench-compare.nu'
 nu tools/bench-compare.nu list --filter zip/decompress/fzip
 ```
 
-当前仓库中 `zip/decompress/fzip` 的 index 是 66，但源码中插入 benchmark 后可能变化。每次 `capture` 仍必须同时提供 `--name`；工具会核验实际输出名称，防止 index 漂移后测错对象。
+当前仓库中 `zip/decompress/fzip` 的 index 是 66，但源码中插入 benchmark 后可能变化。每次 `capture` 或 `interleave` 仍必须同时提供 `--name`；工具会核验实际输出名称，防止 index 漂移后测错对象。
 
 `tools/bench-compare.nu` 只比较 `moon bench` 的时间结果。它不负责压缩体积、峰值内存或其他非时间指标。
 
 ## 7. 建立当前 baseline
 
-对每个 primary benchmark 和必要的 guard benchmark，在代码改动前生成独立 baseline。下面是时间指标的 Nushell 示例，实际名称、target 和 plan 目录必须来自任务契约：
+对每个 primary benchmark 和必要的 guard benchmark，在代码改动前生成独立 baseline。单态采样可使用 `capture`；正式 before/after 性能决策优先使用两个 Git worktree 的 `interleave`，让每轮 A/B 紧邻执行并交替先后顺序，降低温度、频率和后台负载随时间漂移造成的偏差。
+
+下面是单态 baseline 的 Nushell 示例，实际名称、target 和 plan 目录必须来自任务契约：
 
 ```nu
 let plan_id = $'((date now | format date "%Y-%m-%d-%H%M%S"))-fzip-perf-zip-decompress'
@@ -197,6 +199,29 @@ capture 工件会记录：
 
 如果采样期间相关源码状态发生变化，capture 必须失败。停止并发编辑后写入新的工件重测。
 
+已有 before 和 after revision 时，为二者分别创建 detached worktree，再生成一对普通 capture 工件：
+
+```nu
+let before_root = '/tmp/fzip-before'
+let after_root = '/tmp/fzip-after'
+let before = $plan_dir | path join 'S01-r1-before-wasm-gc.json'
+let after = $plan_dir | path join 'S01-r1-after-wasm-gc.json'
+
+(
+  nu tools/bench-compare.nu interleave $benchmark.index $before_root $after_root
+    --name $benchmark.name
+    --target wasm-gc
+    --rounds 5
+    --warmup 1
+    --before-label S01-r1-before
+    --after-label S01-r1-after
+    --before-output $before
+    --after-output $after
+)
+```
+
+`interleave` 的每个 warmup 和 recorded round 都各运行 before、after 一次；奇数轮按 before → after，偶数轮按 after → before。两个工件共享 session ID，并在 sample 中记录全局 `sequence`、`pair_order` 和 `pair_position`，仍可直接交给 `compare`。两个 worktree 的 benchmark harness 必须一致，且任一源码状态在测量期间变化都会使整次采样失败。`capture` 继续用于建立单态 baseline、提交后复测或无法同时保留两个源码状态的诊断场景。
+
 ## 8. 形成有限候选并维护状态机
 
 在实施前建立按“预期收益、证据强度、风险、成本”排序的有限候选列表。每个策略使用稳定 ID，例如 `S01`、`S02`。
@@ -225,11 +250,11 @@ proposed -> measuring -> accepted
 
 1. 将状态改为 `measuring`。
 2. 记录假设、热点证据、预计影响的 primary/guard benchmark、正确性风险和回退范围。
-3. 在当前有效代码状态上生成该策略专属 before capture。不要用很早以前的 baseline 替代紧邻测量。
+3. 在当前有效代码状态上固定该策略专属 before revision。不要用很早以前的 baseline 替代紧邻测量。
 4. 只实现该策略所需的最小改动。
 5. 同步添加或修改针对性正确性测试。
 6. 运行最小范围的 `moon check` 和 targeted tests。
-7. 生成 after capture。
+7. 将 before、after revision 放入两个独立 worktree，用 `interleave` 生成成对 capture；仅在不适用时分别使用 `capture` 并记录理由。
 8. 比较 primary benchmark，并要求源码确实发生变化。
 9. 比较所有 guard benchmark。
 10. 根据判定接受、重测或只回退本策略变更。
