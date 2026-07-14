@@ -145,6 +145,25 @@ test "gunzip - trims oversized caller output buffer" {
 }
 
 ///|
+test "gunzip - single-member fast path reuses caller output buffer" {
+  let out = FixedArray::make(5, b'\x00')
+  let selected = single_member_gunzip_buffer(5, Some(out))
+  assert_true(physical_equal(selected, out))
+  let data : FixedArray[Byte] = [b'H', b'e', b'l', b'l', b'o']
+  let result = gunzip_sync(gzip_sync(data), opts={
+    out: Some(out),
+    dictionary: None,
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+    verify_checksum: true,
+  })
+  assert_true(physical_equal(result, out))
+  for i in 0..<data.length() {
+    assert_eq(result[i], data[i])
+  }
+}
+
+///|
 test "gzip level 9" {
   let data : FixedArray[Byte] = [1, 2, 3, 4, 5]
   let compressed = gzip_sync(data, opts={

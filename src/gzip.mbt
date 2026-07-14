@@ -103,6 +103,23 @@ fn gzhl(o : GzipOptions) -> Int {
 }
 
 ///|
+/// Select the fixed output buffer for the single-member fast path.
+fn single_member_gunzip_buffer(
+  isize : Int,
+  out : FixedArray[Byte]?,
+) -> FixedArray[Byte] raise FzipError {
+  match out {
+    Some(buf) => {
+      if isize > buf.length() {
+        raise fzip_err(InvalidZipData, msg="output buffer too small")
+      }
+      buf
+    }
+    None => FixedArray::make(isize, b'\x00')
+  }
+}
+
+///|
 /// Try the fixed-buffer one-shot path used by ordinary single-member streams.
 /// Return `None` when the first DEFLATE stream ends before the final footer or
 /// the final ISIZE-sized candidate buffer is insufficient. The caller then
@@ -120,11 +137,12 @@ fn try_gunzip_single_member(
     None
   }
   let inflate_st = InflateState::new(2)
+  let output = single_member_gunzip_buffer(isize, opts.out)
   let (buf, len) = try
     inflt(
       data,
       inflate_st,
-      Some(FixedArray::make(isize, b'\x00')),
+      Some(output),
       opts.dictionary,
       opts.max_input_size,
       opts.max_output_size,
@@ -160,18 +178,7 @@ fn try_gunzip_single_member(
   if len != isize {
     raise fzip_err(InvalidZipData, msg="gzip ISIZE mismatch")
   }
-  Some(
-    match opts.out {
-      Some(out) => {
-        if len > out.length() {
-          raise fzip_err(InvalidZipData, msg="output buffer too small")
-        }
-        buf.blit_to(out, len~, dst_offset=0)
-        trim_buf(out, len)
-      }
-      None => trim_buf(buf, len)
-    },
-  )
+  Some(trim_buf(buf, len))
 }
 
 ///|
