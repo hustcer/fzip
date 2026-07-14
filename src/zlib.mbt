@@ -1,4 +1,14 @@
 ///|
+/// Convert fzip's little-endian footer representation to the canonical
+/// Adler-32 value used by RFC 1950 DICTID fields.
+fn footer_adler_to_rfc1950(value : UInt) -> UInt {
+  ((value & 0x000000FFU) << 24) |
+  ((value & 0x0000FF00U) << 8) |
+  ((value & 0x00FF0000U) >> 8) |
+  ((value & 0xFF000000U) >> 24)
+}
+
+///|
 /// Write a Zlib DICTID in RFC 1950 network byte order.
 fn write_zlib_dict_id(
   data : FixedArray[Byte],
@@ -52,7 +62,7 @@ fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
     Some(dict) => {
       let h = AdlerState::new()
       h.push(dict)
-      write_zlib_dict_id(c, 2, h.digest())
+      write_zlib_dict_id(c, 2, footer_adler_to_rfc1950(h.digest()))
     }
     None => ()
   }
@@ -83,7 +93,7 @@ fn zls(
       )
     (1, Some(dict)) => {
       let expected_dict_id = read_zlib_dict_id(d, 2)
-      if adler32(dict) != expected_dict_id {
+      if footer_adler_to_rfc1950(adler32(dict)) != expected_dict_id {
         raise fzip_err(InvalidChecksum, msg="zlib dictionary Adler-32 mismatch")
       }
       6

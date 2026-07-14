@@ -158,7 +158,7 @@ test "unzlib with verify_checksum=true detects corruption" {
 }
 
 ///|
-test "zlib dictionary ID uses network byte order" {
+test "zlib dictionary ID uses RFC 1950 Adler-32 value" {
   let dict : FixedArray[Byte] = [1, 2, 3, 4, 5]
   let data : FixedArray[Byte] = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
   let compressed = zlib_sync(data, opts={
@@ -166,11 +166,33 @@ test "zlib dictionary ID uses network byte order" {
     mem: 0,
     dictionary: Some(dict),
   })
-  let dict_id = adler32(dict)
-  assert_eq(compressed[2], (dict_id >> 24).to_byte())
-  assert_eq(compressed[3], (dict_id >> 16).to_byte())
-  assert_eq(compressed[4], (dict_id >> 8).to_byte())
-  assert_eq(compressed[5], dict_id.to_byte())
+  // RFC 1950 DICTID is the canonical Adler-32 value 0x00280010 in
+  // network byte order, independent of fzip's footer-oriented UInt layout.
+  assert_eq(compressed[2], b'\x00')
+  assert_eq(compressed[3], b'\x28')
+  assert_eq(compressed[4], b'\x00')
+  assert_eq(compressed[5], b'\x10')
+}
+
+///|
+test "unzlib accepts an RFC 1950 dictionary stream from Python zlib" {
+  let dict : FixedArray[Byte] = [1, 2, 3, 4, 5]
+  let compressed : FixedArray[Byte] = [
+    b'\x78', b'\xBB', b'\x00', b'\x28', b'\x00', b'\x10', b'\x63', b'\x84', b'\x13',
+    b'\x00', b'\x00', b'\x9B', b'\x00', b'\x1F',
+  ]
+  let decompressed = unzlib_sync(compressed, opts={
+    out: None,
+    dictionary: Some(dict),
+    max_output_size: default_max_output_size,
+    max_input_size: default_max_input_size,
+    verify_checksum: true,
+  })
+  let expected : FixedArray[Byte] = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
+  assert_eq(decompressed.length(), expected.length())
+  for i in 0..<expected.length() {
+    assert_eq(decompressed[i], expected[i])
+  }
 }
 
 ///|
