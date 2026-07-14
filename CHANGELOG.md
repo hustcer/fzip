@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.6 - 2026-07-15
+
+### Fixed
+
+- Encode and validate Zlib DICTID values in RFC 1950 network byte order, including when footer checksum verification is disabled.
+- Decode concatenated GZIP members with per-member CRC-32 and ISIZE validation, validate FHCRC headers, and enforce stream-wide size limits.
+- Restore the optimized single-member GZIP path and reuse caller-provided output buffers without an intermediate allocation.
+
+### Tooling
+
+- Add interleaved before/after benchmark capture with source-state validation and standardized result artifacts.
+
+
+## v0.8.5 - 2026-06-20
+
+### Performance
+
+- Extend CRC-32 from slice-by-8 to slice-by-16 by adding `crct8`-`crct15` lookup tables and processing 16 bytes per iteration, while keeping the existing slice-by-8 and byte-at-a-time tail paths for remaining bytes.
+- Isolated 100K CRC-32 improves from 59.98 us to 55.90 us on native (6.8% faster) and from 72.90 us to 66.11 us on wasm-gc (9.3% faster). The same CRC-backed optimization improves native 100K GZIP decompression from 69.71 us to 65.22 us (6.4% faster).
+
+### Changed
+
+- No public API, checksum value, compressed output, or output-size change; this release only changes the internal CRC-32 implementation and adds eight extra static CRC lookup tables.
+
 ## v0.8.3 - 2026-06-17
 
 ### Changed
