@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.6 - 2026-07-15
+
+### Fixed
+
+- Encode and validate Zlib DICTID values in RFC 1950 network byte order, including when footer checksum verification is disabled.
+- Decode concatenated GZIP members with per-member CRC-32 and ISIZE validation, validate FHCRC headers, and enforce stream-wide size limits.
+- Restore the optimized single-member GZIP path and reuse caller-provided output buffers without an intermediate allocation.
+
+### Tooling
+
+- Add interleaved before/after benchmark capture with source-state validation and standardized result artifacts.
+
+
 ## v0.8.5 - 2026-06-20
 
 ### Performance
