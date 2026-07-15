@@ -94,7 +94,7 @@ def gen_deflate_compress [benches: list, sizes: list] {
 
             {
                 Pattern: $pattern,
-                Size: ($size | str upcase),
+                Size: ($size | str uppercase),
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 $ZLIB_COL: (fmt_time $mizchi),
@@ -126,7 +126,7 @@ def gen_deflate_decompress [benches: list] {
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, mizchi: $mizchi, compress: $compress}
 
         {
-            Size: ($size | str upcase),
+            Size: ($size | str uppercase),
             fzip: (fmt_time $fzip),
             moonzip: (fmt_time $moonzip),
             $ZLIB_COL: (fmt_time $mizchi),
@@ -156,7 +156,7 @@ def gen_gzip [benches: list, sizes: list] {
             if $op == 'compress' {
                 {
                     Operation: $op,
-                    Size: ($size | str upcase),
+                    Size: ($size | str uppercase),
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     $ZLIB_COL: (fmt_time $mizchi),
@@ -171,7 +171,7 @@ def gen_gzip [benches: list, sizes: list] {
             } else {
                 {
                     Operation: $op,
-                    Size: ($size | str upcase),
+                    Size: ($size | str uppercase),
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     $ZLIB_COL: (fmt_time $mizchi),
@@ -207,7 +207,7 @@ def gen_zlib [benches: list, sizes: list] {
             if $op == 'compress' {
                 {
                     Operation: $op,
-                    Size: ($size | str upcase),
+                    Size: ($size | str uppercase),
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     $ZLIB_COL: (fmt_time $mizchi),
@@ -222,7 +222,7 @@ def gen_zlib [benches: list, sizes: list] {
             } else {
                 {
                     Operation: $op,
-                    Size: ($size | str upcase),
+                    Size: ($size | str uppercase),
                     fzip: (fmt_time $fzip),
                     moonzip: (fmt_time $moonzip),
                     $ZLIB_COL: (fmt_time $mizchi),
@@ -293,8 +293,8 @@ def gen_checksum [benches: list] {
             let stats = calc_stats {fzip: $fzip, moonzip: $moonzip, mizchi: $mizchi, compress: $compress}
 
             {
-                Algorithm: ($algo | str upcase),
-                Size: ($size | str upcase),
+                Algorithm: ($algo | str uppercase),
+                Size: ($size | str uppercase),
                 fzip: (fmt_time $fzip),
                 moonzip: (fmt_time $moonzip),
                 $ZLIB_COL: (fmt_time $mizchi),
@@ -320,7 +320,7 @@ def gen_auto_detect [benches: list] {
         let stats = calc_stats {fzip: $fzip, moonzip: $moonzip}
 
         {
-            Size: ($size | str upcase),
+            Size: ($size | str uppercase),
             fzip: (fmt_time $fzip),
             moonzip: (fmt_time $moonzip),
             Winner: $stats.winner,
