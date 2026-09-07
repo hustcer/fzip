@@ -197,7 +197,7 @@ pub fn gzip_sync(
   let l = data.length()
   let (d, len) = dopt(
     data,
-    { level: opts.level, mem: opts.mem, dictionary: opts.dictionary },
+    { level: opts.level, mem: opts.mem, dictionary: opts.dictionary, },
     gzhl(opts),
     8,
     None,

@@ -256,7 +256,7 @@ priv struct CRC32State {
 
 ///|
 fn CRC32State::new() -> CRC32State {
-  { c: 0xFFFFFFFFU }
+  { c: 0xFFFFFFFFU, }
 }
 
 ///|
@@ -343,7 +343,7 @@ priv struct AdlerState {
 
 ///|
 fn AdlerState::new() -> AdlerState {
-  { a: 1U, b: 0U }
+  { a: 1U, b: 0U, }
 }
 
 ///|

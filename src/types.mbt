@@ -18,7 +18,7 @@ pub(all) struct DeflateOptions {
 ///|
 /// Return the default raw DEFLATE compression options.
 pub fn DeflateOptions::default() -> DeflateOptions {
-  { level: 6, mem: 0, dictionary: None }
+  { level: 6, mem: 0, dictionary: None, }
 }
 
 ///|
@@ -75,7 +75,7 @@ pub(all) struct GzipOptions {
 ///|
 /// Return the default GZIP compression options.
 pub fn GzipOptions::default() -> GzipOptions {
-  { level: 6, mem: 0, dictionary: None, mtime: 0, filename: "" }
+  { level: 6, mem: 0, dictionary: None, mtime: 0, filename: "", }
 }
 
 ///|
@@ -128,7 +128,7 @@ pub(all) struct ZlibOptions {
 ///|
 /// Return the default Zlib compression options.
 pub fn ZlibOptions::default() -> ZlibOptions {
-  { level: 6, mem: 0, dictionary: None }
+  { level: 6, mem: 0, dictionary: None, }
 }
 
 ///|
@@ -189,7 +189,7 @@ pub(all) struct ZipEntryOptions {
 ///|
 /// Return the default ZIP entry options.
 pub fn ZipEntryOptions::default() -> ZipEntryOptions {
-  { level: 6, mem: 0, os: 0, attrs: 0, extra: [], comment: "", mtime: 0 }
+  { level: 6, mem: 0, os: 0, attrs: 0, extra: [], comment: "", mtime: 0, }
 }
 
 ///|
@@ -207,7 +207,7 @@ pub(all) struct UnzipOptions {
 ///|
 /// Return the default ZIP extraction options.
 pub fn UnzipOptions::default() -> UnzipOptions {
-  { verify_checksum: false }
+  { verify_checksum: false, }
 }
 
 ///|

@@ -1455,7 +1455,7 @@ test "unzip_sync - verify_checksum rejects stored entry with central-directory C
   let cd_offset = b4(arc, eocd + 16).reinterpret_as_int()
   w4(arc, cd_offset + 16, 0U)
   let r : Result[Array[(String, FixedArray[Byte])], FzipError] = fzip_result(() => {
-    unzip_sync(arc, opts={ verify_checksum: true })
+    unzip_sync(arc, opts={ verify_checksum: true, })
   })
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidChecksum)
@@ -1469,7 +1469,7 @@ test "unzip_sync - verify_checksum rejects deflated entry with central-directory
   let cd_offset = b4(zipped, eocd + 16).reinterpret_as_int()
   w4(zipped, cd_offset + 16, 0U)
   let r : Result[Array[(String, FixedArray[Byte])], FzipError] = fzip_result(() => {
-    unzip_sync(zipped, opts={ verify_checksum: true })
+    unzip_sync(zipped, opts={ verify_checksum: true, })
   })
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
   assert_eq(code, InvalidChecksum)
@@ -1842,7 +1842,7 @@ test "build_zip_sync (PR5c) - forced ZIP64 round-trips through unzip_sync" {
     ("a.txt", [b'X', b'Y']),
     ("b.bin", [b'\x01', b'\x02', b'\x03']),
   ]
-  let zipped = build_zip_sync(files, opts, { force_zip64: true })
+  let zipped = build_zip_sync(files, opts, { force_zip64: true, })
   let result = unzip_sync(zipped)
   assert_eq(result.length(), 2)
   let (n0, c0) = result[0]
@@ -1898,7 +1898,7 @@ test "build_zip_sync (PR5c) - forced ZIP64 emits EOCD record + locator before cl
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   let total = zipped.length()
   inspect(b4(zipped, total - 22), content=zip_eocd_signature.to_string())
   inspect(
@@ -1925,7 +1925,7 @@ test "build_zip_sync (PR5c) - forced ZIP64 stamps classic-EOCD sentinels for cou
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   let eocd = zipped.length() - 22
   inspect(b2(zipped, eocd + 8), content=zip_uint16_max.to_string())
   inspect(b2(zipped, eocd + 10), content=zip_uint16_max.to_string())
@@ -1948,7 +1948,7 @@ test "build_zip_sync (PR5c) - ZIP64 entries stamp version_needed=45 and version_
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   // LFH version_needed at +4 (low byte = ZIP spec, high byte = compatibility OS = 0).
   inspect(zipped[4].to_int(), content="45")
   inspect(zipped[5].to_int(), content="0")
@@ -1977,7 +1977,7 @@ test "build_zip_sync (PR5c) - ZIP64 entries write 0xffffffff sentinels in classi
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   // LFH classic size fields.
   inspect(b4(zipped, 18), content=zip_uint32_max.to_string())
   inspect(b4(zipped, 22), content=zip_uint32_max.to_string())
@@ -2007,7 +2007,7 @@ test "build_zip_sync (PR5c) - local-header ZIP64 extra carries both sizes (16-by
     mtime: 0,
   }
   let payload : FixedArray[Byte] = [b'X', b'Y', b'Z']
-  let zipped = build_zip_sync([("a", payload)], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", payload)], opts, { force_zip64: true, })
   // Filename "a" is 1 byte; extras start at LFH offset 30 + 1.
   let extra_off = 30 + 1
   inspect(b2(zipped, 28), content="20") // 4-byte header + 16-byte payload
@@ -2033,7 +2033,7 @@ test "build_zip_sync (PR5c) - central-header ZIP64 extra carries u/c/local_offse
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   let total = zipped.length()
   let zip64_eocd_pos = total - 22 - 20 - 56
   let cd_offset = b8(zipped, zip64_eocd_pos + 48).to_int()
@@ -2064,7 +2064,7 @@ test "build_zip_sync (PR5c) - user 0x0001 dropped, fzip's own ZIP64 extra emitte
     comment: "",
     mtime: 0,
   }
-  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true })
+  let zipped = build_zip_sync([("a", [b'X'])], opts, { force_zip64: true, })
   // Local header extras: should hold ONE 0x0001 (16 bytes) + ONE 0x5455.
   let lfh_extra_off = 30 + 1
   let lfh_extra_len = b2(zipped, 28)

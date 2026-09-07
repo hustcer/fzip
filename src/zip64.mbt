@@ -195,7 +195,7 @@ fn read_zip64_entry_extra(
           )
         }
       }
-      return { compressed, uncompressed, local_offset }
+      return { compressed, uncompressed, local_offset, }
     }
     p = p + 4 + field_len
   }

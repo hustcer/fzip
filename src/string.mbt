@@ -86,13 +86,13 @@ pub fn str_from_u8(
   let actual_len = if len < 0 { data.length() - offset } else { len }
   let end = offset + actual_len
   if latin1 {
-    let buf = StringBuilder::new()
+    let buf = StringBuilder()
     for i in offset..<end {
       buf.write_char(data[i].to_int().unsafe_to_char())
     }
     return buf.to_string()
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let mut i = offset
   while i < end {
     let c = data[i].to_int()

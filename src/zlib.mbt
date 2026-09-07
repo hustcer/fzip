@@ -120,7 +120,7 @@ pub fn zlib_sync(
   }
   let (d, len) = dopt(
     data,
-    { level: opts.level, mem: opts.mem, dictionary: opts.dictionary },
+    { level: opts.level, mem: opts.mem, dictionary: opts.dictionary, },
     pre,
     4,
     None,

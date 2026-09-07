@@ -8,7 +8,7 @@ fn max_int_val() -> Int {
 /// Saturating add for internal non-negative buffer sizing math.
 /// Panics on negative inputs so invariant violations fail fast.
 fn sat_add(a : Int, b : Int) -> Int {
-  guard a >= 0 && b >= 0
+  guard! a >= 0 && b >= 0
   let max_i = max_int_val()
   if a > max_i - b {
     max_i
@@ -21,7 +21,7 @@ fn sat_add(a : Int, b : Int) -> Int {
 /// Saturating multiply for internal non-negative sizing math.
 /// Panics on negative inputs so invariant violations fail fast.
 fn sat_mul(a : Int, b : Int) -> Int {
-  guard a >= 0 && b >= 0
+  guard! a >= 0 && b >= 0
   let max_i = max_int_val()
   if a == 0 || b == 0 {
     0

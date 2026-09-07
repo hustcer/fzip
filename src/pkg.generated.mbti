@@ -224,4 +224,3 @@ pub fn ZlibStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 // Type aliases
 
 // Traits
-

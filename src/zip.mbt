@@ -569,7 +569,7 @@ priv struct ZipBuildOpts {
 /// Default writer options: classic emission, ZIP64 only when sizes/offsets
 /// or the entry count actually overflow.
 fn ZipBuildOpts::default() -> ZipBuildOpts {
-  { force_zip64: false }
+  { force_zip64: false, }
 }
 
 ///|
@@ -709,7 +709,7 @@ fn compute_zip_layout(
     let (compressed, c_len) = if compression != 0 {
       dopt(
         file,
-        { level: opts.level, mem: opts.mem, dictionary: None },
+        { level: opts.level, mem: opts.mem, dictionary: None, },
         0,
         0,
         None,
@@ -824,7 +824,7 @@ fn compute_zip_layout(
   let total_size = cd_offset + cd_size + zip64_section + 22L
   // Validate the final archive size fits the sync API's `Int` budget.
   let _ = zip64_to_int(total_size, "archive total size")
-  { entries, cd_offset, cd_size, total_size, archive_zip64, sanitized_extra }
+  { entries, cd_offset, cd_size, total_size, archive_zip64, sanitized_extra, }
 }
 
 ///|
@@ -1099,7 +1099,7 @@ fn read_classic_cd_info(
     )
   }
   validate_zip_entry_count(entries_total)
-  { entries: entries_total, size, offset, zip64: false }
+  { entries: entries_total, size, offset, zip64: false, }
 }
 
 ///|

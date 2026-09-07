@@ -289,7 +289,7 @@ test "dflt/dopt returns (buf, len) with len < buf.length()" {
   }
   let (buf, len) = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -316,7 +316,7 @@ test "dflt/dopt with pre/post returns correct len" {
   let post = 8
   let (buf, len) = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     pre,
     post,
     None,
@@ -795,9 +795,9 @@ test "higher compression levels produce better ratios" {
   for i in 0..<size {
     data[i] = (i % 128).to_byte()
   }
-  let c1 = deflate_sync(data, opts={ level: 1, mem: 0, dictionary: None })
-  let c6 = deflate_sync(data, opts={ level: 6, mem: 0, dictionary: None })
-  let c9 = deflate_sync(data, opts={ level: 9, mem: 0, dictionary: None })
+  let c1 = deflate_sync(data, opts={ level: 1, mem: 0, dictionary: None, })
+  let c6 = deflate_sync(data, opts={ level: 6, mem: 0, dictionary: None, })
+  let c9 = deflate_sync(data, opts={ level: 9, mem: 0, dictionary: None, })
   assert_true(c6.length() <= c1.length())
   assert_true(c9.length() <= c6.length())
 }
@@ -987,7 +987,7 @@ test "reduced initial allocation - lvl>0 s>512 uses smaller buffer" {
   }
   let (buf, len) = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1090,7 +1090,7 @@ test "checksum fusion - dopt fused CRC matches separate crc32" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1111,7 +1111,7 @@ test "checksum fusion - dopt fused Adler matches separate adler32" {
   let adler_st = AdlerState::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1134,7 +1134,7 @@ test "checksum fusion - multi-block fused CRC" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1157,7 +1157,7 @@ test "checksum fusion - incompressible data fused CRC" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1177,7 +1177,7 @@ test "checksum fusion - level 0 stored blocks fused CRC" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 0, mem: 0, dictionary: None },
+    { level: 0, mem: 0, dictionary: None, },
     0,
     0,
     None,
@@ -1200,7 +1200,7 @@ test "checksum fusion - dictionary excluded from fused CRC" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: Some(dict) },
+    { level: 6, mem: 0, dictionary: Some(dict), },
     0,
     0,
     None,
@@ -1216,7 +1216,7 @@ test "checksum fusion - empty data fused CRC" {
   let crc_st = CRC32State::new()
   let _ = dopt(
     data,
-    { level: 6, mem: 0, dictionary: None },
+    { level: 6, mem: 0, dictionary: None, },
     0,
     0,
     None,

@@ -31,7 +31,7 @@ test "zlib/unzlib roundtrip - repeated" {
 ///|
 test "zlib level 0" {
   let data : FixedArray[Byte] = FixedArray::make(50, b'\x43')
-  let compressed = zlib_sync(data, opts={ level: 0, mem: 0, dictionary: None })
+  let compressed = zlib_sync(data, opts={ level: 0, mem: 0, dictionary: None, })
   let decompressed = unzlib_sync(compressed)
   assert_eq(decompressed.length(), data.length())
   for i in 0..<data.length() {

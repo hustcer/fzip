@@ -32,7 +32,7 @@ pub(all) struct DeflateStream {
 pub fn DeflateStream::new(
   opts? : DeflateOptions = DeflateOptions::default(),
 ) -> DeflateStream {
-  { ondata: None, o: opts, chunks: [] }
+  { ondata: None, o: opts, chunks: [], }
 }
 
 ///|
@@ -91,7 +91,7 @@ pub(all) struct InflateStream {
 pub fn InflateStream::new(
   opts? : InflateOptions = InflateOptions::default(),
 ) -> InflateStream {
-  { ondata: None, chunks: [], opts }
+  { ondata: None, chunks: [], opts, }
 }
 
 ///|
@@ -133,7 +133,7 @@ pub(all) struct GzipStream {
 pub fn GzipStream::new(
   opts? : GzipOptions = GzipOptions::default(),
 ) -> GzipStream {
-  { ondata: None, opts, chunks: [] }
+  { ondata: None, opts, chunks: [], }
 }
 
 ///|
@@ -172,7 +172,7 @@ pub(all) struct GunzipStream {
 pub fn GunzipStream::new(
   opts? : GunzipOptions = GunzipOptions::default(),
 ) -> GunzipStream {
-  { ondata: None, opts, chunks: [] }
+  { ondata: None, opts, chunks: [], }
 }
 
 ///|
@@ -211,7 +211,7 @@ pub(all) struct ZlibStream {
 pub fn ZlibStream::new(
   opts? : ZlibOptions = ZlibOptions::default(),
 ) -> ZlibStream {
-  { ondata: None, opts, chunks: [] }
+  { ondata: None, opts, chunks: [], }
 }
 
 ///|
@@ -250,7 +250,7 @@ pub(all) struct UnzlibStream {
 pub fn UnzlibStream::new(
   opts? : UnzlibOptions = UnzlibOptions::default(),
 ) -> UnzlibStream {
-  { ondata: None, opts, chunks: [] }
+  { ondata: None, opts, chunks: [], }
 }
 
 ///|
@@ -289,7 +289,7 @@ pub(all) struct DecompressStream {
 pub fn DecompressStream::new(
   opts? : InflateOptions = InflateOptions::default(),
 ) -> DecompressStream {
-  { ondata: None, opts, chunks: [] }
+  { ondata: None, opts, chunks: [], }
 }
 
 ///|

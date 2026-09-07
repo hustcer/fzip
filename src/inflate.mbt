@@ -13,7 +13,7 @@ priv struct InflateState {
 
 ///|
 fn InflateState::new(i : Int) -> InflateState {
-  { lm: None, dm: None, lbt: 0, dbt: 0, final_: 0, pos: 0, bt: 0, i }
+  { lm: None, dm: None, lbt: 0, dbt: 0, final_: 0, pos: 0, bt: 0, i, }
 }
 
 ///|
