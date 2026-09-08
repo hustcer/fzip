@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.7 - 2026-09-08
+
+### Chores
+
+- Migrate module metadata from `moon.mod.json` to `moon.mod`.
+- Update MoonBit syntax to use explicit `guard!` assertions and `StringBuilder()` construction.
+- Apply current MoonBit formatting and regenerate package interfaces without changing the public API.
+
 ## v0.8.6 - 2026-07-15
 
 ### Fixed
