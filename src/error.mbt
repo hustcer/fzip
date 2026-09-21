@@ -45,6 +45,15 @@ pub(all) enum FzipErrorCode {
 } derive(Eq, Debug)
 
 ///|
+pub extend FzipErrorCode with Eq::{equal, not_equal}
+
+///|
+pub extend FzipErrorCode with Debug::{to_repr}
+
+///|
+pub extend FzipErrorCode with Show::{output, to_string}
+
+///|
 /// Write the symbolic error-code name, such as `"InvalidHeader"`.
 pub impl Show for FzipErrorCode with fn output(self, logger) {
   match self {

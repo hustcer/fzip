@@ -16,6 +16,9 @@ pub(all) struct DeflateOptions {
 } derive(Debug)
 
 ///|
+pub extend DeflateOptions with Debug::{to_repr}
+
+///|
 /// Return the default raw DEFLATE compression options.
 pub fn DeflateOptions::default() -> DeflateOptions {
   { level: 6, mem: 0, dictionary: None, }
@@ -38,6 +41,9 @@ pub(all) struct InflateOptions {
   /// Maximum allowed compressed input size.
   max_input_size : Int
 } derive(Debug)
+
+///|
+pub extend InflateOptions with Debug::{to_repr}
 
 ///|
 /// Return the default raw DEFLATE decompression options.
@@ -73,6 +79,9 @@ pub(all) struct GzipOptions {
 } derive(Debug)
 
 ///|
+pub extend GzipOptions with Debug::{to_repr}
+
+///|
 /// Return the default GZIP compression options.
 pub fn GzipOptions::default() -> GzipOptions {
   { level: 6, mem: 0, dictionary: None, mtime: 0, filename: "", }
@@ -97,6 +106,9 @@ pub(all) struct GunzipOptions {
   /// Whether to verify the GZIP CRC-32 checksum.
   verify_checksum : Bool
 } derive(Debug)
+
+///|
+pub extend GunzipOptions with Debug::{to_repr}
 
 ///|
 /// Return the default GZIP decompression options.
@@ -126,6 +138,9 @@ pub(all) struct ZlibOptions {
 } derive(Debug)
 
 ///|
+pub extend ZlibOptions with Debug::{to_repr}
+
+///|
 /// Return the default Zlib compression options.
 pub fn ZlibOptions::default() -> ZlibOptions {
   { level: 6, mem: 0, dictionary: None, }
@@ -150,6 +165,9 @@ pub(all) struct UnzlibOptions {
   /// Whether to verify the Zlib Adler-32 checksum.
   verify_checksum : Bool
 } derive(Debug)
+
+///|
+pub extend UnzlibOptions with Debug::{to_repr}
 
 ///|
 /// Return the default Zlib decompression options.
@@ -187,6 +205,9 @@ pub(all) struct ZipEntryOptions {
 } derive(Debug)
 
 ///|
+pub extend ZipEntryOptions with Debug::{to_repr}
+
+///|
 /// Return the default ZIP entry options.
 pub fn ZipEntryOptions::default() -> ZipEntryOptions {
   { level: 6, mem: 0, os: 0, attrs: 0, extra: [], comment: "", mtime: 0, }
@@ -203,6 +224,9 @@ pub(all) struct UnzipOptions {
   /// Whether to verify each extracted ZIP entry against its CRC-32 value.
   verify_checksum : Bool
 } derive(Debug)
+
+///|
+pub extend UnzipOptions with Debug::{to_repr}
 
 ///|
 /// Return the default ZIP extraction options.
@@ -222,3 +246,6 @@ pub(all) struct UnzipFileInfo {
   /// ZIP compression method, usually 0 for stored or 8 for deflated.
   compression : Int
 } derive(Debug)
+
+///|
+pub extend UnzipFileInfo with Debug::{to_repr}

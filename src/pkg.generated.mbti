@@ -90,6 +90,7 @@ pub(all) struct DeflateOptions {
   dictionary : FixedArray[Byte]?
 } derive(@debug.Debug)
 pub fn DeflateOptions::default() -> Self
+pub fn DeflateOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DeflateStream {
   mut ondata : FlateStreamHandler?
@@ -119,6 +120,11 @@ pub(all) enum FzipErrorCode {
   InvalidChecksum
   Zip64ValueTooLarge
 } derive(Eq, @debug.Debug)
+pub fn FzipErrorCode::equal(Self, Self) -> Bool
+pub fn FzipErrorCode::not_equal(Self, Self) -> Bool
+pub fn FzipErrorCode::output(Self, &Logger) -> Unit
+pub fn FzipErrorCode::to_repr(Self) -> @debug.Repr
+pub fn FzipErrorCode::to_string(Self) -> String
 pub impl Show for FzipErrorCode
 
 pub(all) struct GunzipOptions {
@@ -129,6 +135,7 @@ pub(all) struct GunzipOptions {
   verify_checksum : Bool
 } derive(@debug.Debug)
 pub fn GunzipOptions::default() -> Self
+pub fn GunzipOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct GunzipStream {
   mut ondata : FlateStreamHandler?
@@ -145,6 +152,7 @@ pub(all) struct GzipOptions {
   filename : String
 } derive(@debug.Debug)
 pub fn GzipOptions::default() -> Self
+pub fn GzipOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct GzipStream {
   mut ondata : FlateStreamHandler?
@@ -160,6 +168,7 @@ pub(all) struct InflateOptions {
   max_input_size : Int
 } derive(@debug.Debug)
 pub fn InflateOptions::default() -> Self
+pub fn InflateOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct InflateStream {
   mut ondata : FlateStreamHandler?
@@ -174,11 +183,13 @@ pub(all) struct UnzipFileInfo {
   original_size : Int
   compression : Int
 } derive(@debug.Debug)
+pub fn UnzipFileInfo::to_repr(Self) -> @debug.Repr
 
 pub(all) struct UnzipOptions {
   verify_checksum : Bool
 } derive(@debug.Debug)
 pub fn UnzipOptions::default() -> Self
+pub fn UnzipOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
@@ -188,6 +199,7 @@ pub(all) struct UnzlibOptions {
   verify_checksum : Bool
 } derive(@debug.Debug)
 pub fn UnzlibOptions::default() -> Self
+pub fn UnzlibOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct UnzlibStream {
   mut ondata : FlateStreamHandler?
@@ -206,6 +218,7 @@ pub(all) struct ZipEntryOptions {
   mtime : Int
 } derive(@debug.Debug)
 pub fn ZipEntryOptions::default() -> Self
+pub fn ZipEntryOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ZlibOptions {
   level : Int
@@ -213,6 +226,7 @@ pub(all) struct ZlibOptions {
   dictionary : FixedArray[Byte]?
 } derive(@debug.Debug)
 pub fn ZlibOptions::default() -> Self
+pub fn ZlibOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ZlibStream {
   mut ondata : FlateStreamHandler?
