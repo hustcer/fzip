@@ -28,7 +28,7 @@ fn gzh(c : FixedArray[Byte], o : GzipOptions) -> Unit {
 
 ///|
 /// Parse GZIP header and return data start offset
-fn gzs(d : FixedArray[Byte], offset? : Int = 0) -> Int raise FzipError {
+fn gzs(d : FixedArray[Byte], offset~ : Int32 = 0) -> Int32 raise FzipError {
   if offset < 0 || offset > d.length() - 10 {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
@@ -85,7 +85,7 @@ fn gzs(d : FixedArray[Byte], offset? : Int = 0) -> Int raise FzipError {
 
 ///|
 /// Read a sync-API-safe GZIP ISIZE value from a member footer.
-fn gzl(d : FixedArray[Byte], footer : Int) -> Int raise FzipError {
+fn gzl(d : FixedArray[Byte], footer : Int32) -> Int32 raise FzipError {
   if footer < 0 || footer > d.length() - 8 {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")
   }
@@ -98,14 +98,14 @@ fn gzl(d : FixedArray[Byte], footer : Int) -> Int raise FzipError {
 
 ///|
 /// Calculate GZIP header length
-fn gzhl(o : GzipOptions) -> Int {
+fn gzhl(o : GzipOptions) -> Int32 {
   10 + (if o.filename.length() > 0 { o.filename.length() + 1 } else { 0 })
 }
 
 ///|
 /// Select the fixed output buffer for the single-member fast path.
 fn single_member_gunzip_buffer(
-  isize : Int,
+  isize : Int32,
   out : FixedArray[Byte]?,
 ) -> FixedArray[Byte] raise FzipError {
   match out {
@@ -126,9 +126,9 @@ fn single_member_gunzip_buffer(
 /// falls back to concatenated-member decoding and produces the definitive error.
 fn try_gunzip_single_member(
   data : FixedArray[Byte],
-  data_start : Int,
-  footer : Int,
-  isize : Int,
+  data_start : Int32,
+  footer : Int32,
+  isize : Int32,
   opts : GunzipOptions,
 ) -> FixedArray[Byte]? raise FzipError {
   let crc_st : CRC32State? = if opts.verify_checksum {
@@ -191,7 +191,7 @@ fn try_gunzip_single_member(
 /// dictionary to `gunzip_sync`; the GZIP format does not carry a dictionary ID.
 pub fn gzip_sync(
   data : FixedArray[Byte],
-  opts? : GzipOptions = GzipOptions::default(),
+  opts~ : GzipOptions = GzipOptions::default(),
 ) -> FixedArray[Byte] {
   let c = CRC32State::new()
   let l = data.length()
@@ -220,7 +220,7 @@ pub fn gzip_sync(
 /// checksum validation is handled elsewhere.
 pub fn gunzip_sync(
   data : FixedArray[Byte],
-  opts? : GunzipOptions = GunzipOptions::default(),
+  opts~ : GunzipOptions = GunzipOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   if data.length() == 0 {
     raise fzip_err(InvalidHeader, msg="invalid gzip data")

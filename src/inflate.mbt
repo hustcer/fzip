@@ -1,24 +1,27 @@
 ///|
 /// Internal inflate state
 priv struct InflateState {
-  mut lm : FixedArray[Int]? // length map
-  mut dm : FixedArray[Int]? // distance map
-  mut lbt : Int // length bits
-  mut dbt : Int // distance bits
-  mut final_ : Int // final block flag
-  mut pos : Int // bit position
-  mut bt : Int // byte count (output position)
-  i : Int // state info (0=streaming, 2=one-shot)
+  mut lm : FixedArray[Int32]? // length map
+  mut dm : FixedArray[Int32]? // distance map
+  mut lbt : Int32 // length bits
+  mut dbt : Int32 // distance bits
+  mut final_ : Int32 // final block flag
+  mut pos : Int32 // bit position
+  mut bt : Int32 // byte count (output position)
+  i : Int32 // state info (0=streaming, 2=one-shot)
 }
 
 ///|
-fn InflateState::new(i : Int) -> InflateState {
+fn InflateState::new(i : Int32) -> InflateState {
   { lm: None, dm: None, lbt: 0, dbt: 0, final_: 0, pos: 0, bt: 0, i, }
 }
 
 ///|
 /// Choose an initial one-shot output buffer size.
-fn initial_inflate_size(sl : Int, max_output_size : Int) -> Int raise FzipError {
+fn initial_inflate_size(
+  sl : Int32,
+  max_output_size : Int32,
+) -> Int32 raise FzipError {
   let max_safe = max_output_size / 3
   if sl > max_safe {
     raise fzip_err(InvalidZipData, msg="input too large for safe allocation")
@@ -53,13 +56,13 @@ fn inflt(
   st : InflateState,
   buf : FixedArray[Byte]?,
   dict : FixedArray[Byte]?,
-  max_input_size : Int,
-  max_output_size : Int,
-  dat_off? : Int = 0,
-  dat_end? : Int = dat.length(),
-  crc_state? : CRC32State? = None,
-  adler_state? : AdlerState? = None,
-) -> (FixedArray[Byte], Int) raise FzipError {
+  max_input_size : Int32,
+  max_output_size : Int32,
+  dat_off~ : Int32 = 0,
+  dat_end~ : Int32 = dat.length(),
+  crc_state~ : CRC32State? = None,
+  adler_state~ : AdlerState? = None,
+) -> (FixedArray[Byte], Int32) raise FzipError {
   let sl = dat_end - dat_off
   // Check input size against configured limit (before any processing)
   if sl > max_input_size {
@@ -547,8 +550,8 @@ fn inflt(
 /// Ensure buffer has at least `need` capacity
 fn ensure_buf(
   buf : FixedArray[Byte],
-  need : Int,
-  max_size : Int,
+  need : Int32,
+  max_size : Int32,
 ) -> FixedArray[Byte] raise FzipError {
   let bl = buf.length()
   if need > bl {
@@ -582,7 +585,7 @@ fn ensure_buf(
 /// limits for defensive decompression.
 pub fn inflate_sync(
   data : FixedArray[Byte],
-  opts? : InflateOptions = InflateOptions::default(),
+  opts~ : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   let (buf, len) = inflt(
     data,

@@ -8,9 +8,9 @@
 /// compressor and decompressor share the same preset dictionary.
 pub(all) struct DeflateOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
-  level : Int
+  level : Int32
   /// Memory level hint, expected to be 0-12. Use 0 to let fzip choose automatically.
-  mem : Int
+  mem : Int32
   /// Optional preset dictionary for repeated or domain-specific data.
   dictionary : FixedArray[Byte]?
 } derive(Debug)
@@ -37,9 +37,9 @@ pub(all) struct InflateOptions {
   /// Optional preset dictionary used by the compressed stream.
   dictionary : FixedArray[Byte]?
   /// Maximum allowed uncompressed output size.
-  max_output_size : Int
+  max_output_size : Int32
   /// Maximum allowed compressed input size.
-  max_input_size : Int
+  max_input_size : Int32
 } derive(Debug)
 
 ///|
@@ -67,13 +67,13 @@ pub fn InflateOptions::default() -> InflateOptions {
 /// out of band when one is used.
 pub(all) struct GzipOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
-  level : Int
+  level : Int32
   /// Memory level hint, expected to be 0-12. Use 0 to let fzip choose automatically.
-  mem : Int
+  mem : Int32
   /// Optional preset dictionary for the inner DEFLATE stream.
   dictionary : FixedArray[Byte]?
   /// Unix timestamp in seconds, or 0 to omit it from the header.
-  mtime : Int
+  mtime : Int32
   /// Optional original filename to store in the GZIP header as single-byte data.
   filename : String
 } derive(Debug)
@@ -100,9 +100,9 @@ pub(all) struct GunzipOptions {
   /// Optional preset dictionary used by the inner DEFLATE stream.
   dictionary : FixedArray[Byte]?
   /// Maximum allowed uncompressed output size.
-  max_output_size : Int
+  max_output_size : Int32
   /// Maximum allowed size of the complete compressed GZIP stream.
-  max_input_size : Int
+  max_input_size : Int32
   /// Whether to verify the GZIP CRC-32 checksum.
   verify_checksum : Bool
 } derive(Debug)
@@ -130,9 +130,9 @@ pub fn GunzipOptions::default() -> GunzipOptions {
 /// decompression must use the same dictionary.
 pub(all) struct ZlibOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
-  level : Int
+  level : Int32
   /// Memory level hint, expected to be 0-12. Use 0 to let fzip choose automatically.
-  mem : Int
+  mem : Int32
   /// Optional preset dictionary for the inner DEFLATE stream.
   dictionary : FixedArray[Byte]?
 } derive(Debug)
@@ -159,9 +159,9 @@ pub(all) struct UnzlibOptions {
   /// Optional preset dictionary required by the Zlib stream.
   dictionary : FixedArray[Byte]?
   /// Maximum allowed uncompressed output size.
-  max_output_size : Int
+  max_output_size : Int32
   /// Maximum allowed compressed input size.
-  max_input_size : Int
+  max_input_size : Int32
   /// Whether to verify the Zlib Adler-32 checksum.
   verify_checksum : Bool
 } derive(Debug)
@@ -189,19 +189,19 @@ pub fn UnzlibOptions::default() -> UnzlibOptions {
 /// Extra fields are written as `(header_id, data)` pairs.
 pub(all) struct ZipEntryOptions {
   /// Compression level, expected to be 0-9; 0 stores entries and non-zero values deflate them.
-  level : Int
+  level : Int32
   /// Memory level hint for entry compression, expected to be 0-12.
-  mem : Int
+  mem : Int32
   /// ZIP "version made by" operating system code, such as 0 for MS-DOS or 3 for Unix.
-  os : Int
+  os : Int32
   /// External file attributes written into central directory entries.
-  attrs : Int
+  attrs : Int32
   /// Extra fields written to local and central directory headers.
-  extra : Array[(Int, FixedArray[Byte])]
+  extra : Array[(Int32, FixedArray[Byte])]
   /// Central directory file comment.
   comment : String
   /// Modification time value written into ZIP headers.
-  mtime : Int
+  mtime : Int32
 } derive(Debug)
 
 ///|
@@ -240,11 +240,11 @@ pub(all) struct UnzipFileInfo {
   /// Entry path stored in the archive.
   name : String
   /// Compressed size in bytes.
-  size : Int
+  size : Int32
   /// Uncompressed size in bytes.
-  original_size : Int
+  original_size : Int32
   /// ZIP compression method, usually 0 for stored or 8 for deflated.
-  compression : Int
+  compression : Int32
 } derive(Debug)
 
 ///|

@@ -4,7 +4,7 @@
 /// By default this returns UTF-8 bytes. When `latin1` is `true`, each UTF-16
 /// code unit is truncated to one byte, which is useful for legacy ZIP metadata
 /// that is explicitly stored as Latin-1 compatible byte data.
-pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
+pub fn str_to_u8(s : String, latin1~ : Bool = false) -> FixedArray[Byte] {
   if latin1 {
     let ar = FixedArray::make(s.length(), b'\x00')
     for i in 0..<s.length() {
@@ -79,9 +79,9 @@ pub fn str_to_u8(s : String, latin1? : Bool = false) -> FixedArray[Byte] {
 /// code point. `offset` and `len` select the input range.
 pub fn str_from_u8(
   data : FixedArray[Byte],
-  latin1? : Bool = false,
-  offset? : Int = 0,
-  len? : Int = -1,
+  latin1~ : Bool = false,
+  offset~ : Int32 = 0,
+  len~ : Int32 = -1,
 ) -> String raise FzipError {
   let actual_len = if len < 0 { data.length() - offset } else { len }
   let end = offset + actual_len

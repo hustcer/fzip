@@ -1,13 +1,13 @@
 ///|
 /// Largest positive Int value, used to clamp capacity math before allocation
-fn max_int_val() -> Int {
+fn max_int_val() -> Int32 {
   ((-1).reinterpret_as_uint() >> 1).reinterpret_as_int()
 }
 
 ///|
 /// Saturating add for internal non-negative buffer sizing math.
 /// Panics on negative inputs so invariant violations fail fast.
-fn sat_add(a : Int, b : Int) -> Int {
+fn sat_add(a : Int32, b : Int32) -> Int32 {
   guard! a >= 0 && b >= 0
   let max_i = max_int_val()
   if a > max_i - b {
@@ -20,7 +20,7 @@ fn sat_add(a : Int, b : Int) -> Int {
 ///|
 /// Saturating multiply for internal non-negative sizing math.
 /// Panics on negative inputs so invariant violations fail fast.
-fn sat_mul(a : Int, b : Int) -> Int {
+fn sat_mul(a : Int32, b : Int32) -> Int32 {
   guard! a >= 0 && b >= 0
   let max_i = max_int_val()
   if a == 0 || b == 0 {
@@ -34,7 +34,12 @@ fn sat_mul(a : Int, b : Int) -> Int {
 
 ///|
 /// Compute required output capacity without letting intermediate sums wrap
-fn out_capacity_need(pre : Int, pos : Int, bl : Int, post : Int) -> Int {
+fn out_capacity_need(
+  pre : Int32,
+  pos : Int32,
+  bl : Int32,
+  post : Int32,
+) -> Int32 {
   let with_pre = sat_add(pre, shft(pos))
   let with_block = sat_add(with_pre, bl)
   let with_header = sat_add(with_block, 8)
@@ -43,7 +48,7 @@ fn out_capacity_need(pre : Int, pos : Int, bl : Int, post : Int) -> Int {
 
 ///|
 /// Grow output capacity without overflowing the doubling step
-fn grown_out_capacity(cur : Int, need : Int) -> Int {
+fn grown_out_capacity(cur : Int32, need : Int32) -> Int32 {
   let max_i = max_int_val()
   let safe_need = if need < 0 { max_i } else { need }
   let doubled = if cur > 0 && cur <= max_i / 2 { cur * 2 } else { max_i }
@@ -55,24 +60,24 @@ fn grown_out_capacity(cur : Int, need : Int) -> Int {
 }
 
 ///|
-let small_fixed_block_threshold : Int = 1024
+let small_fixed_block_threshold : Int32 = 1024
 
 ///|
-let periodic_dynamic_block_limit : Int = 4096
+let periodic_dynamic_block_limit : Int32 = 4096
 
 ///|
-let periodic_non_overlap_distance : Int = 258
+let periodic_non_overlap_distance : Int32 = 258
 
 ///|
 /// Write a stored (uncompressed) block
 /// Returns new bit position
 fn wfblk(
   out : FixedArray[Byte],
-  pos : Int,
+  pos : Int32,
   dat : FixedArray[Byte],
-  dat_start : Int,
-  dat_len : Int,
-) -> Int {
+  dat_start : Int32,
+  dat_len : Int32,
+) -> Int32 {
   let o = shft(pos + 2)
   out[o] = (dat_len & 255).to_byte()
   out[o + 1] = (dat_len >> 8).to_byte()
@@ -86,14 +91,14 @@ fn wfblk(
 /// Write symbols with given encoding tables
 fn write_syms(
   out : FixedArray[Byte],
-  lm_enc : FixedArray[Int],
+  lm_enc : FixedArray[Int32],
   ll : FixedArray[Byte],
-  dm_enc : FixedArray[Int],
+  dm_enc : FixedArray[Int32],
   dl : FixedArray[Byte],
-  syms : FixedArray[Int],
-  li : Int,
-  p : Int,
-) -> Int {
+  syms : FixedArray[Int32],
+  li : Int32,
+  p : Int32,
+) -> Int32 {
   let mut p = p
   for i in 0..<li {
     let sym = syms[i]
@@ -126,16 +131,16 @@ fn write_syms(
 fn wblk(
   dat : FixedArray[Byte],
   out : FixedArray[Byte],
-  final_ : Int,
-  syms : FixedArray[Int],
-  lf : FixedArray[Int],
-  df : FixedArray[Int],
-  eb : Int,
-  li : Int,
-  bs : Int,
-  bl : Int,
-  p : Int,
-) -> Int {
+  final_ : Int32,
+  syms : FixedArray[Int32],
+  lf : FixedArray[Int32],
+  df : FixedArray[Int32],
+  eb : Int32,
+  li : Int32,
+  bs : Int32,
+  bl : Int32,
+  p : Int32,
+) -> Int32 {
   let mut p = p
   wbits(out, p, final_)
   p += 1
@@ -154,7 +159,7 @@ fn wblk(
   let (ddt, mdb) = h_tree(df, 15)
   let (lclt, nlc) = lc_gen(dlt)
   let (lcdt, ndc) = lc_gen(ddt)
-  let lcfreq : FixedArray[Int] = FixedArray::make(19, 0)
+  let lcfreq : FixedArray[Int32] = FixedArray::make(19, 0)
   for i in 0..<lclt.length() {
     lcfreq[lclt[i] & 31] += 1
   }
@@ -206,7 +211,7 @@ fn wblk(
       wbits(out, p + 3 * i, if ci < lct_len { lct[ci].to_int() } else { 0 })
     }
     p += 3 * nlcc
-    let lcts : Array[FixedArray[Int]] = [lclt, lcdt]
+    let lcts : Array[FixedArray[Int32]] = [lclt, lcdt]
     for it in 0..<2 {
       let clct = lcts[it]
       for i in 0..<clct.length() {
@@ -230,18 +235,18 @@ fn wblk(
 ///|
 /// Internal deflate state for streaming
 priv struct DeflateState {
-  mut head : FixedArray[Int]? // hash head
-  mut prev : FixedArray[Int]? // hash chain prev
-  mut i : Int // current index
-  z : Int // end index
-  mut w : Int // wait index
-  mut r : Int // remainder byte info
-  l : Int // last chunk flag
+  mut head : FixedArray[Int32]? // hash head
+  mut prev : FixedArray[Int32]? // hash chain prev
+  mut i : Int32 // current index
+  z : Int32 // end index
+  mut w : Int32 // wait index
+  mut r : Int32 // remainder byte info
+  l : Int32 // last chunk flag
 }
 
 ///|
 /// Compute memory level for compression
-fn compute_mem_level(len : Int) -> Int {
+fn compute_mem_level(len : Int32) -> Int32 {
   // Aggressive memory strategy for small data to reduce hash table overhead
   if len < small_data_mem_threshold {
     return 10 // head array = 2^10 = 1KB (vs 128KB before)
@@ -266,7 +271,7 @@ fn compute_mem_level(len : Int) -> Int {
 
 ///|
 /// Fast compressibility detection via sampling
-fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
+fn is_compressible(dat : FixedArray[Byte], start : Int32, len : Int32) -> Bool {
   if len < min_compressibility_check_len {
     return true
   }
@@ -284,7 +289,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
     }
     if unique_count > high_entropy_unique_threshold {
       // Second pass: frequency analysis (only for high-entropy candidates)
-      let freq : FixedArray[Int] = FixedArray::make(256, 0)
+      let freq : FixedArray[Int32] = FixedArray::make(256, 0)
       for i in 0..<len {
         freq[dat[start + i].to_int()] += 1
       }
@@ -299,7 +304,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
         return true
       }
       // Near-uniform: check periodicity before declaring incompressible
-      let dists : FixedArray[Int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+      let dists : FixedArray[Int32] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
       for di in 0..<dists.length() {
         let d = dists[di]
         if d < len {
@@ -349,7 +354,7 @@ fn is_compressible(dat : FixedArray[Byte], start : Int, len : Int) -> Bool {
 }
 
 ///|
-fn is_all_same(dat : FixedArray[Byte], len : Int) -> Bool {
+fn is_all_same(dat : FixedArray[Byte], len : Int32) -> Bool {
   if len <= 1 {
     return true
   }
@@ -365,19 +370,19 @@ fn is_all_same(dat : FixedArray[Byte], len : Int) -> Bool {
 ///|
 fn dflt_rle_block(
   dat : FixedArray[Byte],
-  pre : Int,
-  post : Int,
+  pre : Int32,
+  post : Int32,
   st : DeflateState,
-  crc_state? : CRC32State? = None,
-  adler_state? : AdlerState? = None,
-) -> (FixedArray[Byte], Int) {
+  crc_state~ : CRC32State? = None,
+  adler_state~ : AdlerState? = None,
+) -> (FixedArray[Byte], Int32) {
   let s = if st.z != 0 { st.z } else { dat.length() }
   let o_size = sat_add(sat_add(pre, s), sat_add(16, post))
   let mut o = FixedArray::make(o_size, b'\x00')
   let syms_size = s / 258 + 4
-  let syms : FixedArray[Int] = FixedArray::make(syms_size, 0)
-  let lf : FixedArray[Int] = FixedArray::make(288, 0)
-  let df : FixedArray[Int] = FixedArray::make(32, 0)
+  let syms : FixedArray[Int32] = FixedArray::make(syms_size, 0)
+  let lf : FixedArray[Int32] = FixedArray::make(288, 0)
+  let df : FixedArray[Int32] = FixedArray::make(32, 0)
   let mut li = 0
   let b = dat[0].to_int()
   syms[li] = b
@@ -415,7 +420,7 @@ fn dflt_rle_block(
 }
 
 ///|
-fn is_periodic(dat : FixedArray[Byte], len : Int, period : Int) -> Bool {
+fn is_periodic(dat : FixedArray[Byte], len : Int32, period : Int32) -> Bool {
   if period <= 0 || period >= len {
     return false
   }
@@ -428,8 +433,8 @@ fn is_periodic(dat : FixedArray[Byte], len : Int, period : Int) -> Bool {
 }
 
 ///|
-fn detect_period(dat : FixedArray[Byte], len : Int) -> Int {
-  let periods : FixedArray[Int] = [2, 4, 8, 16, 32, 64, 128, 256, 512]
+fn detect_period(dat : FixedArray[Byte], len : Int32) -> Int32 {
+  let periods : FixedArray[Int32] = [2, 4, 8, 16, 32, 64, 128, 256, 512]
   for i in 0..<periods.length() {
     let p = periods[i]
     if p * 2 <= len && is_periodic(dat, len, p) {
@@ -442,13 +447,13 @@ fn detect_period(dat : FixedArray[Byte], len : Int) -> Int {
 ///|
 fn dflt_periodic_block(
   dat : FixedArray[Byte],
-  period : Int,
-  pre : Int,
-  post : Int,
+  period : Int32,
+  pre : Int32,
+  post : Int32,
   st : DeflateState,
-  crc_state? : CRC32State? = None,
-  adler_state? : AdlerState? = None,
-) -> (FixedArray[Byte], Int) {
+  crc_state~ : CRC32State? = None,
+  adler_state~ : AdlerState? = None,
+) -> (FixedArray[Byte], Int32) {
   let s = if st.z != 0 { st.z } else { dat.length() }
   let use_fixed = s > periodic_dynamic_block_limit
   let main_dist = if !use_fixed {
@@ -487,12 +492,12 @@ fn dflt_periodic_block(
     } else {
       (main_dist - literal_seed + period - 1) / period
     }
-    let syms_a : FixedArray[Int] = FixedArray::make(
+    let syms_a : FixedArray[Int32] = FixedArray::make(
       literal_seed + seed_match_cap + 2,
       0,
     )
-    let lf_a : FixedArray[Int] = FixedArray::make(288, 0)
-    let df_a : FixedArray[Int] = FixedArray::make(32, 0)
+    let lf_a : FixedArray[Int32] = FixedArray::make(288, 0)
+    let df_a : FixedArray[Int32] = FixedArray::make(32, 0)
     let mut li_a = 0
     for i in 0..<literal_seed {
       let b = dat[i].to_int()
@@ -515,12 +520,12 @@ fn dflt_periodic_block(
       }
     }
     let dc = revfd[main_dist]
-    let syms_b : FixedArray[Int] = FixedArray::make(
+    let syms_b : FixedArray[Int32] = FixedArray::make(
       (s - main_dist + 257) / 258 + 4,
       0,
     )
-    let lf_b : FixedArray[Int] = FixedArray::make(288, 0)
-    let df_b : FixedArray[Int] = FixedArray::make(32, 0)
+    let lf_b : FixedArray[Int32] = FixedArray::make(288, 0)
+    let df_b : FixedArray[Int32] = FixedArray::make(32, 0)
     let mut li_b = 0
     let mut rem = s - main_dist
     while rem >= 3 {
@@ -572,12 +577,12 @@ fn dflt_periodic_block(
   } else {
     // Small periodic data: one block, distance == period (the few literal seed
     // symbols barely affect the tree, so splitting would only add overhead).
-    let syms : FixedArray[Int] = FixedArray::make(
+    let syms : FixedArray[Int32] = FixedArray::make(
       period + (s - main_dist + 257) / 258 + 4,
       0,
     )
-    let lf : FixedArray[Int] = FixedArray::make(288, 0)
-    let df : FixedArray[Int] = FixedArray::make(32, 0)
+    let lf : FixedArray[Int32] = FixedArray::make(288, 0)
+    let df : FixedArray[Int32] = FixedArray::make(32, 0)
     let mut li = 0
     for i in 0..<period {
       let b = dat[i].to_int()
@@ -622,7 +627,7 @@ fn dflt_periodic_block(
 
 ///|
 /// Ensure output buffer has enough capacity, growing if needed
-fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
+fn ensure_out(o : FixedArray[Byte], need : Int32) -> FixedArray[Byte] {
   let need = if need < 0 { max_int_val() } else { need }
   if need <= o.length() {
     return o
@@ -634,32 +639,32 @@ fn ensure_out(o : FixedArray[Byte], need : Int) -> FixedArray[Byte] {
 }
 
 ///|
-let dflt_head_pool : Array[FixedArray[Int]] = []
+let dflt_head_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let dflt_prev_pool : Array[FixedArray[Int]] = []
+let dflt_prev_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let dflt_syms_pool : Array[FixedArray[Int]] = []
+let dflt_syms_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let dflt_lf_pool : Array[FixedArray[Int]] = []
+let dflt_lf_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let dflt_df_pool : Array[FixedArray[Int]] = []
+let dflt_df_pool : Array[FixedArray[Int32]] = []
 
 ///|
 /// Core DEFLATE compression function
 fn dflt(
   dat : FixedArray[Byte],
-  lvl : Int,
-  plvl : Int,
-  pre : Int,
-  post : Int,
+  lvl : Int32,
+  plvl : Int32,
+  pre : Int32,
+  post : Int32,
   st : DeflateState,
-  crc_state? : CRC32State? = None,
-  adler_state? : AdlerState? = None,
-) -> (FixedArray[Byte], Int) {
+  crc_state~ : CRC32State? = None,
+  adler_state~ : AdlerState? = None,
+) -> (FixedArray[Byte], Int32) {
   let s = if st.z != 0 { st.z } else { dat.length() }
   let block_count = if s == 0 { 1 } else { 1 + (s - 1) / 7000 }
   let block_overhead = sat_mul(block_count, 5)
@@ -1028,12 +1033,12 @@ fn dflt(
 fn dopt(
   dat : FixedArray[Byte],
   opt : DeflateOptions,
-  pre : Int,
-  post : Int,
+  pre : Int32,
+  post : Int32,
   st : DeflateState?,
-  crc_state? : CRC32State? = None,
-  adler_state? : AdlerState? = None,
-) -> (FixedArray[Byte], Int) {
+  crc_state~ : CRC32State? = None,
+  adler_state~ : AdlerState? = None,
+) -> (FixedArray[Byte], Int32) {
   let (dat, st) = match st {
     Some(s) => (dat, s)
     None => {
@@ -1085,7 +1090,7 @@ fn dopt(
 /// framing, or when you need the exact DEFLATE payload for ZIP entries.
 pub fn deflate_sync(
   data : FixedArray[Byte],
-  opts? : DeflateOptions = DeflateOptions::default(),
+  opts~ : DeflateOptions = DeflateOptions::default(),
 ) -> FixedArray[Byte] {
   let (buf, len) = dopt(data, opts, 0, 0, None)
   trim_buf(buf, len)

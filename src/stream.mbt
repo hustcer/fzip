@@ -30,7 +30,7 @@ pub(all) struct DeflateStream {
 ///|
 /// Create a raw DEFLATE compression stream.
 pub fn DeflateStream::new(
-  opts? : DeflateOptions = DeflateOptions::default(),
+  opts~ : DeflateOptions = DeflateOptions::default(),
 ) -> DeflateStream {
   { ondata: None, o: opts, chunks: [], }
 }
@@ -43,7 +43,7 @@ pub fn DeflateStream::new(
 pub fn DeflateStream::push(
   self : DeflateStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit {
   self.chunks.push(chunk)
   if final_ {
@@ -89,7 +89,7 @@ pub(all) struct InflateStream {
 ///|
 /// Create a raw DEFLATE decompression stream.
 pub fn InflateStream::new(
-  opts? : InflateOptions = InflateOptions::default(),
+  opts~ : InflateOptions = InflateOptions::default(),
 ) -> InflateStream {
   { ondata: None, chunks: [], opts, }
 }
@@ -102,7 +102,7 @@ pub fn InflateStream::new(
 pub fn InflateStream::push(
   self : InflateStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit raise FzipError {
   self.chunks.push(chunk)
   if final_ {
@@ -131,7 +131,7 @@ pub(all) struct GzipStream {
 ///|
 /// Create a GZIP compression stream.
 pub fn GzipStream::new(
-  opts? : GzipOptions = GzipOptions::default(),
+  opts~ : GzipOptions = GzipOptions::default(),
 ) -> GzipStream {
   { ondata: None, opts, chunks: [], }
 }
@@ -141,7 +141,7 @@ pub fn GzipStream::new(
 pub fn GzipStream::push(
   self : GzipStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit {
   self.chunks.push(chunk)
   if final_ {
@@ -170,7 +170,7 @@ pub(all) struct GunzipStream {
 ///|
 /// Create a GZIP decompression stream.
 pub fn GunzipStream::new(
-  opts? : GunzipOptions = GunzipOptions::default(),
+  opts~ : GunzipOptions = GunzipOptions::default(),
 ) -> GunzipStream {
   { ondata: None, opts, chunks: [], }
 }
@@ -180,7 +180,7 @@ pub fn GunzipStream::new(
 pub fn GunzipStream::push(
   self : GunzipStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit raise FzipError {
   self.chunks.push(chunk)
   if final_ {
@@ -209,7 +209,7 @@ pub(all) struct ZlibStream {
 ///|
 /// Create a Zlib compression stream.
 pub fn ZlibStream::new(
-  opts? : ZlibOptions = ZlibOptions::default(),
+  opts~ : ZlibOptions = ZlibOptions::default(),
 ) -> ZlibStream {
   { ondata: None, opts, chunks: [], }
 }
@@ -219,7 +219,7 @@ pub fn ZlibStream::new(
 pub fn ZlibStream::push(
   self : ZlibStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit {
   self.chunks.push(chunk)
   if final_ {
@@ -248,7 +248,7 @@ pub(all) struct UnzlibStream {
 ///|
 /// Create a Zlib decompression stream.
 pub fn UnzlibStream::new(
-  opts? : UnzlibOptions = UnzlibOptions::default(),
+  opts~ : UnzlibOptions = UnzlibOptions::default(),
 ) -> UnzlibStream {
   { ondata: None, opts, chunks: [], }
 }
@@ -258,7 +258,7 @@ pub fn UnzlibStream::new(
 pub fn UnzlibStream::push(
   self : UnzlibStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit raise FzipError {
   self.chunks.push(chunk)
   if final_ {
@@ -287,7 +287,7 @@ pub(all) struct DecompressStream {
 ///|
 /// Create an auto-detecting decompression stream.
 pub fn DecompressStream::new(
-  opts? : InflateOptions = InflateOptions::default(),
+  opts~ : InflateOptions = InflateOptions::default(),
 ) -> DecompressStream {
   { ondata: None, opts, chunks: [], }
 }
@@ -297,7 +297,7 @@ pub fn DecompressStream::new(
 pub fn DecompressStream::push(
   self : DecompressStream,
   chunk : FixedArray[Byte],
-  final_? : Bool = false,
+  final_~ : Bool = false,
 ) -> Unit raise FzipError {
   self.chunks.push(chunk)
   if final_ {

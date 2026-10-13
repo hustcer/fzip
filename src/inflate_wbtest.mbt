@@ -341,7 +341,7 @@ test "inflt/tuple_return/too_small_buf_returns_error" {
   let data = FixedArray::make(512, b'A')
   let compressed = deflate_sync(data)
   let out = FixedArray::make(8, b'\x00')
-  let result : Result[(FixedArray[Byte], Int), FzipError] = fzip_result(() => {
+  let result : Result[(FixedArray[Byte], Int32), FzipError] = fzip_result(() => {
     inflt(
       compressed,
       InflateState::new(2),

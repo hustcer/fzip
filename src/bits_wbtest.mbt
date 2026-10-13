@@ -1,6 +1,6 @@
 ///|
 /// Read bits from data starting at bit position p, masked with m (test-only)
-fn bits(d : FixedArray[Byte], p : Int, m : Int) -> Int {
+fn bits(d : FixedArray[Byte], p : Int32, m : Int32) -> Int32 {
   let o = p / 8
   let v = d[o].to_int() |
     (if o + 1 < d.length() { d[o + 1].to_int() << 8 } else { 0 })
@@ -9,7 +9,7 @@ fn bits(d : FixedArray[Byte], p : Int, m : Int) -> Int {
 
 ///|
 /// Read 16+ bits from data starting at bit position p (test-only)
-fn bits16(d : FixedArray[Byte], p : Int) -> Int {
+fn bits16(d : FixedArray[Byte], p : Int32) -> Int32 {
   let o = p / 8
   let v = d[o].to_int() |
     (if o + 1 < d.length() { d[o + 1].to_int() << 8 } else { 0 }) |
@@ -26,7 +26,7 @@ fn bits16(d : FixedArray[Byte], p : Int) -> Int {
 /// `read_zip64_int` for any field that originates outside the writer.
 /// `b8` stays here because the test fixtures need a quick raw 8-byte
 /// reader and the inputs are trusted.
-fn b8(d : FixedArray[Byte], b : Int) -> Int64 raise FzipError {
+fn b8(d : FixedArray[Byte], b : Int32) -> Int64 raise FzipError {
   if b + 7 >= d.length() {
     raise fzip_err(UnexpectedEOF, msg="not enough bytes for b8")
   }

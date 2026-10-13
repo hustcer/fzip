@@ -22,7 +22,7 @@ test "h_map - fixed length tree" {
 
 ///|
 test "h_tree - simple frequency table" {
-  let freq : FixedArray[Int] = FixedArray::make(4, 0)
+  let freq : FixedArray[Int32] = FixedArray::make(4, 0)
   freq[0] = 5
   freq[1] = 3
   freq[2] = 1
@@ -56,7 +56,7 @@ test "rev - bit reversal table" {
 ///|
 test "huffman array pool reuse" {
   let initial_pool_len = h_tree_s_pool.length()
-  let freq1 : FixedArray[Int] = FixedArray::make(4, 0)
+  let freq1 : FixedArray[Int32] = FixedArray::make(4, 0)
   freq1[0] = 5
   freq1[1] = 3
   freq1[2] = 1
@@ -65,7 +65,7 @@ test "huffman array pool reuse" {
   let pool_len_1 = h_tree_s_pool.length()
   assert_true(pool_len_1 > initial_pool_len || pool_len_1 == initial_pool_len)
 
-  let freq2 : FixedArray[Int] = FixedArray::make(5, 0)
+  let freq2 : FixedArray[Int32] = FixedArray::make(5, 0)
   freq2[0] = 10
   freq2[1] = 2
   freq2[2] = 2
@@ -80,7 +80,7 @@ test "huffman array pool reuse" {
 ///|
 test "huffman pool correctness - multiple trees" {
   // Verify that pool reuse produces correct code lengths
-  let freq1 : FixedArray[Int] = FixedArray::make(6, 0)
+  let freq1 : FixedArray[Int32] = FixedArray::make(6, 0)
   freq1[0] = 10
   freq1[1] = 5
   freq1[2] = 3
@@ -91,7 +91,7 @@ test "huffman pool correctness - multiple trees" {
   assert_true(max_bits1 > 0 && max_bits1 <= 15)
   assert_eq(codes1.length(), 6)
 
-  let freq2 : FixedArray[Int] = FixedArray::make(8, 0)
+  let freq2 : FixedArray[Int32] = FixedArray::make(8, 0)
   freq2[0] = 20
   freq2[1] = 15
   freq2[2] = 10

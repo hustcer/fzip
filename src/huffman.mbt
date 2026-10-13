@@ -3,9 +3,9 @@
 /// Returns (b: base values array of 31, r: reverse map)
 fn freb(
   eb : FixedArray[Byte],
-  start : Int,
-) -> (FixedArray[Int], FixedArray[Int]) {
-  let b : FixedArray[Int] = FixedArray::make(31, 0)
+  start : Int32,
+) -> (FixedArray[Int32], FixedArray[Int32]) {
+  let b : FixedArray[Int32] = FixedArray::make(31, 0)
   let mut s = start
   for i in 0..<31 {
     // In JS: b[i] = start += 1 << eb[i - 1]
@@ -15,7 +15,7 @@ fn freb(
     b[i] = s
   }
   // numbers here are at max 18 bits
-  let r : FixedArray[Int] = FixedArray::make(b[30], 0)
+  let r : FixedArray[Int32] = FixedArray::make(b[30], 0)
   for i in 1..<30 {
     for j in b[i]..<b[i + 1] {
       r[j] = ((j - b[i]) << 5) | i
@@ -27,21 +27,21 @@ fn freb(
 ///|
 /// Create Huffman code mapping from code lengths
 /// cd: code lengths, mb: max bits, r: 0=encode, 1=decode
-fn h_map(cd : FixedArray[Byte], mb : Int, r : Int) -> FixedArray[Int] {
+fn h_map(cd : FixedArray[Byte], mb : Int32, r : Int32) -> FixedArray[Int32] {
   let s = cd.length()
   // count codes of each length
-  let l : FixedArray[Int] = FixedArray::make(mb, 0)
+  let l : FixedArray[Int32] = FixedArray::make(mb, 0)
   for i in 0..<s {
     if cd[i].to_int() != 0 {
       l[cd[i].to_int() - 1] = l[cd[i].to_int() - 1] + 1
     }
   }
   // minimum code for each length
-  let le : FixedArray[Int] = FixedArray::make(mb, 0)
+  let le : FixedArray[Int32] = FixedArray::make(mb, 0)
   for i in 1..<mb {
     le[i] = (le[i - 1] + l[i - 1]) << 1
   }
-  let co : FixedArray[Int] = if r != 0 {
+  let co : FixedArray[Int32] = if r != 0 {
     let co2 = FixedArray::make(1 << mb, 0)
     let rvb = 15 - mb
     for i in 0..<s {
@@ -74,13 +74,13 @@ fn h_map(cd : FixedArray[Byte], mb : Int, r : Int) -> FixedArray[Int] {
 ///|
 /// Recursively get max depth and assign code lengths using implicit array tree
 fn ln_node(
-  node_idx : Int,
-  s_arr : FixedArray[Int],
-  l_arr : FixedArray[Int],
-  r_arr : FixedArray[Int],
-  lengths : FixedArray[Int],
-  d : Int,
-) -> Int {
+  node_idx : Int32,
+  s_arr : FixedArray[Int32],
+  l_arr : FixedArray[Int32],
+  r_arr : FixedArray[Int32],
+  lengths : FixedArray[Int32],
+  d : Int32,
+) -> Int32 {
   if s_arr[node_idx] == -1 {
     let left = l_arr[node_idx]
     let right = r_arr[node_idx]
@@ -106,22 +106,22 @@ fn ln_node(
 }
 
 ///|
-let h_tree_s_pool : Array[FixedArray[Int]] = []
+let h_tree_s_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let h_tree_f_pool : Array[FixedArray[Int]] = []
+let h_tree_f_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let h_tree_l_pool : Array[FixedArray[Int]] = []
+let h_tree_l_pool : Array[FixedArray[Int32]] = []
 
 ///|
-let h_tree_r_pool : Array[FixedArray[Int]] = []
+let h_tree_r_pool : Array[FixedArray[Int32]] = []
 
 ///|
 /// Create code lengths from a frequency table
 /// d: frequency table, mb: max allowed bits
 /// Returns (t: code lengths, l: max bits used)
-fn h_tree(d : FixedArray[Int], mb : Int) -> (FixedArray[Byte], Int) {
+fn h_tree(d : FixedArray[Int32], mb : Int32) -> (FixedArray[Byte], Int32) {
   let et : FixedArray[Byte] = FixedArray::make(0, b'\x00')
   let s_arr = match h_tree_s_pool.pop() {
     Some(arr) => arr
@@ -139,7 +139,7 @@ fn h_tree(d : FixedArray[Int], mb : Int) -> (FixedArray[Byte], Int) {
     Some(arr) => arr
     None => FixedArray::make(600, -1)
   }
-  let nodes : Array[Int] = []
+  let nodes : Array[Int32] = []
   let mut next_node_idx = 0
   for i in 0..<d.length() {
     if d[i] != 0 {
@@ -152,7 +152,7 @@ fn h_tree(d : FixedArray[Int], mb : Int) -> (FixedArray[Byte], Int) {
     }
   }
   let s = nodes.length()
-  let t2 : Array[Int] = []
+  let t2 : Array[Int32] = []
   for i in 0..<s {
     t2.push(nodes[i])
   }
@@ -229,7 +229,7 @@ fn h_tree(d : FixedArray[Int], mb : Int) -> (FixedArray[Byte], Int) {
     }
   }
   // Compute code lengths
-  let tr : FixedArray[Int] = FixedArray::make(max_sym + 1, 0)
+  let tr : FixedArray[Int32] = FixedArray::make(max_sym + 1, 0)
   let mut mbt = ln_node(nodes[i1 - 1], s_arr, l_arr, r_arr, tr, 0)
   if mbt > mb {
     // Limit code lengths to mb
@@ -291,7 +291,7 @@ fn h_tree(d : FixedArray[Int], mb : Int) -> (FixedArray[Byte], Int) {
 ///|
 /// Generate length codes from a code length array
 /// Returns (codes array, count of meaningful entries)
-fn lc_gen(c : FixedArray[Byte]) -> (FixedArray[Int], Int) {
+fn lc_gen(c : FixedArray[Byte]) -> (FixedArray[Int32], Int32) {
   let mut s = c.length()
   // Find last nonzero
   while s > 0 && c[s - 1] == b'\x00' {
@@ -301,7 +301,7 @@ fn lc_gen(c : FixedArray[Byte]) -> (FixedArray[Int], Int) {
     // Return a single zero-length code entry (represents 1 symbol with length 0)
     return (FixedArray::make(1, 0), 1)
   }
-  let cl : FixedArray[Int] = FixedArray::make(s * 3, 0)
+  let cl : FixedArray[Int32] = FixedArray::make(s * 3, 0)
   let mut cli = 0
   let mut cln = c[0].to_int()
   let mut cls = 1
@@ -351,7 +351,7 @@ fn lc_gen(c : FixedArray[Byte]) -> (FixedArray[Int], Int) {
     }
   }
   // Return slice of used portion
-  let result : FixedArray[Int] = FixedArray::make(cli, 0)
+  let result : FixedArray[Int32] = FixedArray::make(cli, 0)
   for i in 0..<cli {
     result[i] = cl[i]
   }
@@ -360,7 +360,7 @@ fn lc_gen(c : FixedArray[Byte]) -> (FixedArray[Int], Int) {
 
 ///|
 /// Calculate output bit length from frequency and code length tables
-fn clen(cf : FixedArray[Int], cl : FixedArray[Byte]) -> Int {
+fn clen(cf : FixedArray[Int32], cl : FixedArray[Byte]) -> Int32 {
   let mut l = 0
   for i in 0..<cl.length() {
     if i < cf.length() {
@@ -372,43 +372,43 @@ fn clen(cf : FixedArray[Int], cl : FixedArray[Byte]) -> Int {
 
 ///|
 // Derived constants from freb
-let fl : FixedArray[Int] = {
+let fl : FixedArray[Int32] = {
   let (b, _) = freb(fleb, 2)
   b[28] = 258
   b
 }
 
 ///|
-let revfl : FixedArray[Int] = {
+let revfl : FixedArray[Int32] = {
   let (_, r) = freb(fleb, 2)
   r[258] = 28
   r
 }
 
 ///|
-let fd : FixedArray[Int] = {
+let fd : FixedArray[Int32] = {
   let (b, _) = freb(fdeb, 0)
   b
 }
 
 ///|
-let revfd : FixedArray[Int] = {
+let revfd : FixedArray[Int32] = {
   let (_, r) = freb(fdeb, 0)
   r
 }
 
 ///|
 /// Fixed length encoding map
-let flm : FixedArray[Int] = h_map(flt, 9, 0)
+let flm : FixedArray[Int32] = h_map(flt, 9, 0)
 
 ///|
 /// Fixed length decoding map
-let flrm : FixedArray[Int] = h_map(flt, 9, 1)
+let flrm : FixedArray[Int32] = h_map(flt, 9, 1)
 
 ///|
 /// Fixed distance encoding map
-let fdm : FixedArray[Int] = h_map(fdt, 5, 0)
+let fdm : FixedArray[Int32] = h_map(fdt, 5, 0)
 
 ///|
 /// Fixed distance decoding map
-let fdrm : FixedArray[Int] = h_map(fdt, 5, 1)
+let fdrm : FixedArray[Int32] = h_map(fdt, 5, 1)

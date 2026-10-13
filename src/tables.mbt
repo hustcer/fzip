@@ -26,8 +26,8 @@ let clim : FixedArray[Byte] = [
 
 ///|
 /// 15-bit reversal table (32768 entries)
-let rev : FixedArray[Int] = {
-  let t : FixedArray[Int] = FixedArray::make(32768, 0)
+let rev : FixedArray[Int32] = {
+  let t : FixedArray[Int32] = FixedArray::make(32768, 0)
   for i in 0..<32768 {
     let mut x = ((i & 0xAAAA) >> 1) | ((i & 0x5555) << 1)
     x = ((x & 0xCCCC) >> 2) | ((x & 0x3333) << 2)
@@ -63,6 +63,6 @@ let fdt : FixedArray[Byte] = FixedArray::make(32, b'\x05')
 ///|
 /// Deflate options table: (nice << 13) | chain
 /// 9 entries for levels 1-9
-let deo : FixedArray[Int] = [
+let deo : FixedArray[Int32] = [
   65540, 131080, 131088, 131104, 262176, 1048704, 1048832, 2114560, 2117632,
 ]

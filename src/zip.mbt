@@ -53,9 +53,9 @@ fn is_unsafe_path(path : String) -> Bool {
 ///   inflating the entry's bytes never reads past the archive.
 fn local_data_offset(
   data : FixedArray[Byte],
-  local_offset : Int,
-  compressed_size : Int,
-) -> Int raise FzipError {
+  local_offset : Int32,
+  compressed_size : Int32,
+) -> Int32 raise FzipError {
   // Use subtraction-form for the upper bound: an additive form
   // (`local_offset + 30 > data.length()`) wraps to a negative Int when
   // `local_offset` is near `Int` max — for example, a malformed central
@@ -109,13 +109,13 @@ fn local_data_offset(
 /// `compressed_size` and `uncompressed_size` (or `local_offset` and either
 /// of the sizes — they're all `Int`).
 priv struct ZipEntryHeader {
-  compression : Int
-  crc : UInt
-  compressed_size : Int
-  uncompressed_size : Int
+  compression : Int32
+  crc : UInt32
+  compressed_size : Int32
+  uncompressed_size : Int32
   name : String
-  next_offset : Int
-  local_offset : Int
+  next_offset : Int32
+  local_offset : Int32
 }
 
 ///|
@@ -132,10 +132,10 @@ priv struct ZipEntryHeader {
 ///   value never propagates as a real number.
 fn read_central_directory_entry(
   data : FixedArray[Byte],
-  offset : Int,
-  cd_end : Int,
+  offset : Int32,
+  cd_end : Int32,
   zip64 : Bool,
-  read_crc? : Bool = false,
+  read_crc~ : Bool = false,
 ) -> ZipEntryHeader raise FzipError {
   // Subtraction-form bounds checks. `offset + 46 > cd_end` would wrap on
   // `offset >= 2^31 - 46`, which is reachable in a multi-GiB archive whose
@@ -246,7 +246,7 @@ fn read_central_directory_entry(
 
 ///|
 /// Validate a value that will be written to a 16-bit ZIP metadata field.
-fn validate_zip_u16(value : Int, context : String) -> Unit raise FzipError {
+fn validate_zip_u16(value : Int32, context : String) -> Unit raise FzipError {
   if value < 0 || value > zip_uint16_max {
     raise fzip_err(InvalidZipData, msg=context + " exceeds 16-bit ZIP field")
   }
@@ -259,9 +259,9 @@ fn validate_zip_u16(value : Int, context : String) -> Unit raise FzipError {
 /// caller-provided fields cannot wrap the `Int` sum and later make `wzh` write
 /// past the allocated output buffer.
 fn exfl(
-  ex : Array[(Int, FixedArray[Byte])],
-  context? : String = "ZIP extra fields",
-) -> Int raise FzipError {
+  ex : Array[(Int32, FixedArray[Byte])],
+  context~ : String = "ZIP extra fields",
+) -> Int32 raise FzipError {
   let mut total = 0L
   let max_extra = max_extra_field_length.to_int64()
   for i in 0..<ex.length() {
@@ -283,7 +283,7 @@ fn exfl(
 
 ///|
 /// Validate sync ZIP input size before scanning metadata.
-fn validate_zip_input_len(len : Int) -> Unit raise FzipError {
+fn validate_zip_input_len(len : Int32) -> Unit raise FzipError {
   if len > default_max_input_size {
     raise fzip_err(
       InvalidZipData,
@@ -294,7 +294,7 @@ fn validate_zip_input_len(len : Int) -> Unit raise FzipError {
 
 ///|
 /// Validate entry count before allocating result arrays or writer layout state.
-fn validate_zip_entry_count(entries : Int) -> Unit raise FzipError {
+fn validate_zip_entry_count(entries : Int32) -> Unit raise FzipError {
   if entries > max_zip_entries {
     raise fzip_err(
       InvalidZipData,
@@ -305,7 +305,10 @@ fn validate_zip_entry_count(entries : Int) -> Unit raise FzipError {
 
 ///|
 /// Add an entry's uncompressed size to the sync extraction budget.
-fn add_zip_output_budget(total : Int, entry_size : Int) -> Int raise FzipError {
+fn add_zip_output_budget(
+  total : Int32,
+  entry_size : Int32,
+) -> Int32 raise FzipError {
   if entry_size < 0 {
     raise fzip_err(InvalidZipData, msg="negative ZIP entry output size")
   }
@@ -328,8 +331,8 @@ fn add_zip_output_budget(total : Int, entry_size : Int) -> Int raise FzipError {
 /// Validate a deflated ZIP entry's declared compression ratio without using
 /// multiplication that can overflow `Int`.
 fn validate_zip_compression_ratio(
-  compressed_size : Int,
-  uncompressed_size : Int,
+  compressed_size : Int32,
+  uncompressed_size : Int32,
 ) -> Unit raise FzipError {
   if compressed_size < 0 || uncompressed_size < 0 {
     raise fzip_err(InvalidZipData, msg="negative ZIP entry size")
@@ -359,7 +362,7 @@ fn validate_zip_compression_ratio(
 
 ///|
 /// Validate extracted ZIP entry content against the central-directory CRC-32.
-fn validate_zip_crc(actual : UInt, expected : UInt) -> Unit raise FzipError {
+fn validate_zip_crc(actual : UInt32, expected : UInt32) -> Unit raise FzipError {
   if actual != expected {
     raise fzip_err(InvalidChecksum, msg="ZIP entry CRC-32 mismatch")
   }
@@ -367,7 +370,7 @@ fn validate_zip_crc(actual : UInt, expected : UInt) -> Unit raise FzipError {
 
 ///|
 /// Deflate bit flag for ZIP
-fn dbf(l : Int) -> Int {
+fn dbf(l : Int32) -> Int32 {
   if l == 1 {
     3
   } else if l < 6 {
@@ -402,23 +405,23 @@ fn dbf(l : Int) -> Int {
 /// the high byte of `version made by`.
 fn wzh(
   d : FixedArray[Byte],
-  b : Int,
+  b : Int32,
   fn_data : FixedArray[Byte],
   is_utf8 : Bool,
-  compression : Int,
-  flag : Int,
-  crc_val : Int,
-  c_size : UInt,
-  u_size : UInt,
-  mtime : Int,
-  os : Int,
-  attrs : Int,
-  extra : Array[(Int, FixedArray[Byte])],
-  cd_local_offset : UInt?,
+  compression : Int32,
+  flag : Int32,
+  crc_val : Int32,
+  c_size : UInt32,
+  u_size : UInt32,
+  mtime : Int32,
+  os : Int32,
+  attrs : Int32,
+  extra : Array[(Int32, FixedArray[Byte])],
+  cd_local_offset : UInt32?,
   comment : FixedArray[Byte]?,
-  version_needed? : Int = 20,
-  version_made_by_low? : Int = 20,
-) -> Int raise FzipError {
+  version_needed~ : Int32 = 20,
+  version_made_by_low~ : Int32 = 20,
+) -> Int32 raise FzipError {
   let fl = fn_data.length()
   let exl = exfl(extra)
   let col = match comment {
@@ -520,7 +523,7 @@ fn wzh(
 /// ordering.
 fn wzf(
   o : FixedArray[Byte],
-  b : Int,
+  b : Int32,
   entries : Int64,
   cd_size : Int64,
   cd_offset : Int64,
@@ -581,7 +584,7 @@ priv struct ZipEntryComputed {
   fn_data : FixedArray[Byte]
   compressed : FixedArray[Byte]
   is_utf8 : Bool
-  crc_val : Int
+  crc_val : Int32
   compressed_size : Int64
   uncompressed_size : Int64
   zip64_local : Bool
@@ -603,7 +606,7 @@ priv struct ZipEntryLayout {
   fn_data : FixedArray[Byte]
   compressed : FixedArray[Byte]
   is_utf8 : Bool
-  crc_val : Int
+  crc_val : Int32
   compressed_size : Int64
   uncompressed_size : Int64
   local_offset : Int64
@@ -631,7 +634,7 @@ priv struct ZipLayout {
   cd_size : Int64
   total_size : Int64
   archive_zip64 : Bool
-  sanitized_extra : Array[(Int, FixedArray[Byte])]
+  sanitized_extra : Array[(Int32, FixedArray[Byte])]
 }
 
 ///|
@@ -640,9 +643,9 @@ priv struct ZipLayout {
 /// removes any conflicting entries; PR5c emits a real ZIP64 extra field
 /// for entries that need one. Other extra fields pass through.
 fn sanitize_user_extra(
-  extra : Array[(Int, FixedArray[Byte])],
-) -> Array[(Int, FixedArray[Byte])] raise FzipError {
-  let result : Array[(Int, FixedArray[Byte])] = []
+  extra : Array[(Int32, FixedArray[Byte])],
+) -> Array[(Int32, FixedArray[Byte])] raise FzipError {
+  let result : Array[(Int32, FixedArray[Byte])] = []
   for kv in extra {
     let (id, data) = kv
     validate_zip_u16(id, "ZIP extra field id")
@@ -851,7 +854,7 @@ fn build_zip_sync(
   // Local headers + compressed data
   for entry in layout.entries {
     let lo = entry.local_offset.to_int()
-    let local_extras : Array[(Int, FixedArray[Byte])] = []
+    let local_extras : Array[(Int32, FixedArray[Byte])] = []
     for kv in layout.sanitized_extra {
       local_extras.push(kv)
     }
@@ -904,7 +907,7 @@ fn build_zip_sync(
     let zip64_cd = entry.cd_overflow_uncompressed ||
       entry.cd_overflow_compressed ||
       entry.cd_overflow_local_offset
-    let cd_extras : Array[(Int, FixedArray[Byte])] = []
+    let cd_extras : Array[(Int32, FixedArray[Byte])] = []
     for kv in layout.sanitized_extra {
       cd_extras.push(kv)
     }
@@ -1018,7 +1021,7 @@ fn build_zip_sync(
 /// `zip_sync_checked`.
 pub fn zip_sync(
   files : Array[(String, FixedArray[Byte])],
-  opts? : ZipEntryOptions = ZipEntryOptions::default(),
+  opts~ : ZipEntryOptions = ZipEntryOptions::default(),
 ) -> FixedArray[Byte] {
   build_zip_sync(files, opts, ZipBuildOpts::default()) catch {
     FzipError(message~, ..) =>
@@ -1051,7 +1054,7 @@ pub fn zip_sync(
 /// produces byte-identical output.
 pub fn zip_sync_checked(
   files : Array[(String, FixedArray[Byte])],
-  opts? : ZipEntryOptions = ZipEntryOptions::default(),
+  opts~ : ZipEntryOptions = ZipEntryOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   build_zip_sync(files, opts, ZipBuildOpts::default())
 }
@@ -1066,9 +1069,9 @@ pub fn zip_sync_checked(
 /// archives never come close to `max_int_val()` entries — even at 30 bytes
 /// per local header, that would be tens of GiB of metadata.
 priv struct ZipCdInfo {
-  entries : Int
-  offset : Int
-  size : Int
+  entries : Int32
+  offset : Int32
+  size : Int32
   zip64 : Bool
 }
 
@@ -1077,10 +1080,10 @@ priv struct ZipCdInfo {
 /// decisions have been made.
 fn read_classic_cd_info(
   data : FixedArray[Byte],
-  entries_disk : Int,
-  entries_total : Int,
-  cd_size_classic : UInt,
-  cd_offset_classic : UInt,
+  entries_disk : Int32,
+  entries_total : Int32,
+  cd_size_classic : UInt32,
+  cd_offset_classic : UInt32,
 ) -> ZipCdInfo raise FzipError {
   if entries_disk != entries_total {
     raise fzip_err(
@@ -1106,7 +1109,7 @@ fn read_classic_cd_info(
 /// Parse the ZIP64 EOCD locator + record immediately before a classic EOCD.
 fn read_zip64_cd_info(
   data : FixedArray[Byte],
-  eocd : Int,
+  eocd : Int32,
 ) -> ZipCdInfo raise FzipError {
   if eocd < 20 || b4(data, eocd - 20) != zip64_locator_signature {
     raise fzip_err(InvalidZipData, msg="ZIP64 locator missing")
@@ -1219,10 +1222,10 @@ fn read_zip64_cd_info(
 /// directory while fzip follows a valid but inconsistent ZIP64 locator.
 fn validate_zip64_cd_matches_classic(
   info : ZipCdInfo,
-  entries_disk : Int,
-  entries_total : Int,
-  cd_size_classic : UInt,
-  cd_offset_classic : UInt,
+  entries_disk : Int32,
+  entries_total : Int32,
+  cd_size_classic : UInt32,
+  cd_offset_classic : UInt32,
   count_sentinel : Bool,
   size_sentinel : Bool,
   offset_sentinel : Bool,
@@ -1278,7 +1281,7 @@ fn validate_zip64_cd_matches_classic(
 /// comment length is consistent with the candidate's distance from the end
 /// of `data`. Without that check, a `0x06054B50` byte sequence inside the
 /// EOCD comment or earlier payload could be mistaken for the record itself.
-fn find_eocd(data : FixedArray[Byte]) -> Int raise FzipError {
+fn find_eocd(data : FixedArray[Byte]) -> Int32 raise FzipError {
   if data.length() < 22 {
     raise fzip_err(InvalidZipData, msg="data too short for zip archive")
   }
@@ -1313,7 +1316,7 @@ fn find_eocd(data : FixedArray[Byte]) -> Int raise FzipError {
 /// If any other classic field is a sentinel, ZIP64 metadata is required.
 fn read_central_directory_info(
   data : FixedArray[Byte],
-  eocd : Int,
+  eocd : Int32,
 ) -> ZipCdInfo raise FzipError {
   // Classic EOCD layout (offsets relative to the signature):
   //   +0   signature (4)        +4   disk number (2)
@@ -1391,7 +1394,7 @@ fn read_central_directory_info(
 /// ratio checks to reduce zip-bomb risk.
 pub fn unzip_sync(
   data : FixedArray[Byte],
-  opts? : UnzipOptions = UnzipOptions::default(),
+  opts~ : UnzipOptions = UnzipOptions::default(),
 ) -> Array[(String, FixedArray[Byte])] raise FzipError {
   validate_zip_input_len(data.length())
   let files : Array[(String, FixedArray[Byte])] = []

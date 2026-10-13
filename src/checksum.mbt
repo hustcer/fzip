@@ -1,7 +1,7 @@
 ///|
 /// CRC-32 lookup table (generated from polynomial 0xEDB88320)
-let crct : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let mut c = i.reinterpret_as_uint()
     for _k in 0..<8 {
@@ -14,8 +14,8 @@ let crct : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-4 CRC-32 table 1 (one extra CRC step from crct)
-let crct1 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct1 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -25,8 +25,8 @@ let crct1 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-4 CRC-32 table 2 (two extra CRC steps from crct)
-let crct2 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct2 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct1[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -36,8 +36,8 @@ let crct2 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-4 CRC-32 table 3 (three extra CRC steps from crct)
-let crct3 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct3 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct2[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -47,8 +47,8 @@ let crct3 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-8 CRC-32 table 4 (four extra CRC steps from crct)
-let crct4 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct4 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct3[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -58,8 +58,8 @@ let crct4 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-8 CRC-32 table 5 (five extra CRC steps from crct)
-let crct5 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct5 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct4[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -69,8 +69,8 @@ let crct5 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-8 CRC-32 table 6 (six extra CRC steps from crct)
-let crct6 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct6 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct5[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -80,8 +80,8 @@ let crct6 : FixedArray[UInt] = {
 
 ///|
 /// Slice-by-8 CRC-32 table 7 (seven extra CRC steps from crct)
-let crct7 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct7 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct6[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -93,8 +93,8 @@ let crct7 : FixedArray[UInt] = {
 /// Slice-by-16 CRC-32 tables 8..15 (each adds one more CRC step).
 /// Extending the slice-by-8 ladder to 16 bytes/iteration halves the loop trip
 /// count for large buffers.
-let crct8 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct8 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct7[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -103,8 +103,8 @@ let crct8 : FixedArray[UInt] = {
 }
 
 ///|
-let crct9 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct9 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct8[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -113,8 +113,8 @@ let crct9 : FixedArray[UInt] = {
 }
 
 ///|
-let crct10 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct10 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct9[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -123,8 +123,8 @@ let crct10 : FixedArray[UInt] = {
 }
 
 ///|
-let crct11 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct11 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct10[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -133,8 +133,8 @@ let crct11 : FixedArray[UInt] = {
 }
 
 ///|
-let crct12 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct12 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct11[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -143,8 +143,8 @@ let crct12 : FixedArray[UInt] = {
 }
 
 ///|
-let crct13 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct13 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct12[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -153,8 +153,8 @@ let crct13 : FixedArray[UInt] = {
 }
 
 ///|
-let crct14 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct14 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct13[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -163,8 +163,8 @@ let crct14 : FixedArray[UInt] = {
 }
 
 ///|
-let crct15 : FixedArray[UInt] = {
-  let t : FixedArray[UInt] = FixedArray::make(256, 0U)
+let crct15 : FixedArray[UInt32] = {
+  let t : FixedArray[UInt32] = FixedArray::make(256, 0U)
   for i in 0..<256 {
     let c = crct14[i]
     t[i] = crct[(c & 0xFFU).reinterpret_as_int()] ^ (c >> 8)
@@ -176,11 +176,11 @@ let crct15 : FixedArray[UInt] = {
 /// Update an internal CRC-32 state over a byte range using Slice-by-16,
 /// falling back to Slice-by-8 then a byte loop for the tail.
 fn crc32_update_range(
-  crc : UInt,
+  crc : UInt32,
   data : FixedArray[Byte],
-  offset : Int,
-  len : Int,
-) -> UInt {
+  offset : Int32,
+  len : Int32,
+) -> UInt32 {
   let end = offset + len
   let mut c = crc
   let mut i = offset
@@ -244,14 +244,14 @@ fn crc32_update_range(
 ///
 /// The returned value uses the standard reflected CRC-32 polynomial
 /// `0xEDB88320`, matching the checksum stored in GZIP and ZIP records.
-pub fn crc32(data : FixedArray[Byte]) -> UInt {
+pub fn crc32(data : FixedArray[Byte]) -> UInt32 {
   crc32_update_range(0xFFFFFFFFU, data, 0, data.length()) ^ 0xFFFFFFFFU
 }
 
 ///|
 /// Incremental CRC-32 state
 priv struct CRC32State {
-  mut c : UInt
+  mut c : UInt32
 }
 
 ///|
@@ -270,15 +270,15 @@ fn CRC32State::push(self : CRC32State, data : FixedArray[Byte]) -> Unit {
 fn CRC32State::push_range(
   self : CRC32State,
   data : FixedArray[Byte],
-  offset : Int,
-  len : Int,
+  offset : Int32,
+  len : Int32,
 ) -> Unit {
   self.c = crc32_update_range(self.c, data, offset, len)
 }
 
 ///|
 /// Get the final CRC-32 value
-fn CRC32State::digest(self : CRC32State) -> UInt {
+fn CRC32State::digest(self : CRC32State) -> UInt32 {
   self.c ^ 0xFFFFFFFFU
 }
 
@@ -287,9 +287,9 @@ fn CRC32State::digest(self : CRC32State) -> UInt {
 ///
 /// The returned `UInt` uses fzip's little-endian footer representation, so it
 /// matches the value read from Zlib streams by fzip's byte readers.
-pub fn adler32(data : FixedArray[Byte]) -> UInt {
-  let mut a : UInt = 1U
-  let mut b : UInt = 0U
+pub fn adler32(data : FixedArray[Byte]) -> UInt32 {
+  let mut a : UInt32 = 1U
+  let mut b : UInt32 = 0U
   let l = data.length()
   let mut i = 0
   while i < l {
@@ -337,8 +337,8 @@ pub fn adler32(data : FixedArray[Byte]) -> UInt {
 ///|
 /// Incremental Adler-32 state
 priv struct AdlerState {
-  mut a : UInt
-  mut b : UInt
+  mut a : UInt32
+  mut b : UInt32
 }
 
 ///|
@@ -399,8 +399,8 @@ fn AdlerState::push(self : AdlerState, data : FixedArray[Byte]) -> Unit {
 fn AdlerState::push_range(
   self : AdlerState,
   data : FixedArray[Byte],
-  offset : Int,
-  len : Int,
+  offset : Int32,
+  len : Int32,
 ) -> Unit {
   let mut n = self.a
   let mut m = self.b
@@ -449,7 +449,7 @@ fn AdlerState::push_range(
 
 ///|
 /// Get the final Adler-32 value
-fn AdlerState::digest(self : AdlerState) -> UInt {
+fn AdlerState::digest(self : AdlerState) -> UInt32 {
   let a = self.a % 65521U
   let b = self.b % 65521U
   ((a & 0xFFU) << 24) | ((a & 0xFF00U) << 8) | ((b & 0xFFU) << 8) | (b >> 8)

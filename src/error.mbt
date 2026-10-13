@@ -95,7 +95,7 @@ pub(all) suberror FzipError {
 }
 
 ///|
-fn fzip_error_code_to_int(code : FzipErrorCode) -> Int {
+fn fzip_error_code_to_int(code : FzipErrorCode) -> Int32 {
   match code {
     UnexpectedEOF => 0
     InvalidBlockType => 1
@@ -118,7 +118,7 @@ fn fzip_error_code_to_int(code : FzipErrorCode) -> Int {
 }
 
 ///|
-fn fzip_err(code : FzipErrorCode, msg? : String = "") -> FzipError {
+fn fzip_err(code : FzipErrorCode, msg~ : String = "") -> FzipError {
   let message = if msg != "" {
     msg
   } else {

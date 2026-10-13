@@ -6,7 +6,7 @@
 /// `deflate_sync` or `zlib_sync` when you need those formats explicitly.
 pub fn compress_sync(
   data : FixedArray[Byte],
-  opts? : GzipOptions = GzipOptions::default(),
+  opts~ : GzipOptions = GzipOptions::default(),
 ) -> FixedArray[Byte] {
   gzip_sync(data, opts~)
 }
@@ -22,7 +22,7 @@ pub fn compress_sync(
 /// output allocation follows the GZIP ISIZE footer.
 pub fn decompress_sync(
   data : FixedArray[Byte],
-  opts? : InflateOptions = InflateOptions::default(),
+  opts~ : InflateOptions = InflateOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   if data.length() < 3 {
     return inflate_sync(data, opts~)

@@ -1,12 +1,12 @@
 ///|
 /// Get end of byte boundary
-fn shft(p : Int) -> Int {
+fn shft(p : Int32) -> Int32 {
   (p + 7) / 8
 }
 
 ///|
 /// Write bits to data at bit position p
-fn wbits(d : FixedArray[Byte], p : Int, v : Int) -> Unit {
+fn wbits(d : FixedArray[Byte], p : Int32, v : Int32) -> Unit {
   let v = v << (p & 7)
   let o = p / 8
   d[o] = (d[o].to_int() | v).to_byte()
@@ -17,7 +17,7 @@ fn wbits(d : FixedArray[Byte], p : Int, v : Int) -> Unit {
 
 ///|
 /// Write 16+ bits to data at bit position p
-fn wbits16(d : FixedArray[Byte], p : Int, v : Int) -> Unit {
+fn wbits16(d : FixedArray[Byte], p : Int32, v : Int32) -> Unit {
   let v = v << (p & 7)
   let o = p / 8
   d[o] = (d[o].to_int() | v).to_byte()
@@ -31,7 +31,7 @@ fn wbits16(d : FixedArray[Byte], p : Int, v : Int) -> Unit {
 
 ///|
 /// Read 2 bytes (little-endian) from data at offset b
-fn b2(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
+fn b2(d : FixedArray[Byte], b : Int32) -> Int32 raise FzipError {
   if b + 1 >= d.length() {
     raise fzip_err(UnexpectedEOF, msg="not enough bytes for b2")
   }
@@ -40,7 +40,7 @@ fn b2(d : FixedArray[Byte], b : Int) -> Int raise FzipError {
 
 ///|
 /// Read 4 bytes (little-endian unsigned) from data at offset b
-fn b4(d : FixedArray[Byte], b : Int) -> UInt raise FzipError {
+fn b4(d : FixedArray[Byte], b : Int32) -> UInt32 raise FzipError {
   if b + 3 >= d.length() {
     raise fzip_err(UnexpectedEOF, msg="not enough bytes for b4")
   }
@@ -52,7 +52,7 @@ fn b4(d : FixedArray[Byte], b : Int) -> UInt raise FzipError {
 
 ///|
 /// Write bytes (little-endian) to data at offset b
-fn wbytes(d : FixedArray[Byte], b : Int, v : Int) -> Unit {
+fn wbytes(d : FixedArray[Byte], b : Int32, v : Int32) -> Unit {
   let mut v = v.reinterpret_as_uint()
   let mut b = b
   while v > 0U {
@@ -66,7 +66,7 @@ fn wbytes(d : FixedArray[Byte], b : Int, v : Int) -> Unit {
 /// Write a 2-byte little-endian value, always emitting both bytes (including
 /// any leading zero byte). Caller must ensure value fits in `0..=0xffff`;
 /// `Int::to_byte()` truncates to the low 8 bits.
-fn w2(d : FixedArray[Byte], offset : Int, value : Int) -> Unit {
+fn w2(d : FixedArray[Byte], offset : Int32, value : Int32) -> Unit {
   d[offset] = value.to_byte()
   d[offset + 1] = (value >> 8).to_byte()
 }
@@ -74,7 +74,7 @@ fn w2(d : FixedArray[Byte], offset : Int, value : Int) -> Unit {
 ///|
 /// Write a 4-byte little-endian unsigned value, always emitting four bytes.
 /// Takes `UInt` because `0xffffffff` does not fit in a 32-bit signed `Int`.
-fn w4(d : FixedArray[Byte], offset : Int, value : UInt) -> Unit {
+fn w4(d : FixedArray[Byte], offset : Int32, value : UInt32) -> Unit {
   d[offset] = value.to_byte()
   d[offset + 1] = (value >> 8).to_byte()
   d[offset + 2] = (value >> 16).to_byte()
@@ -85,7 +85,7 @@ fn w4(d : FixedArray[Byte], offset : Int, value : UInt) -> Unit {
 /// Write an 8-byte little-endian value, always emitting eight bytes (including
 /// any leading zero bytes). Raw — does not validate. ZIP metadata callers must
 /// validate via `write_zip64_int` before calling this directly.
-fn w8(d : FixedArray[Byte], offset : Int, value : Int64) -> Unit {
+fn w8(d : FixedArray[Byte], offset : Int32, value : Int64) -> Unit {
   w4(d, offset, value.to_int().reinterpret_as_uint())
   w4(d, offset + 4, (value >> 32).to_int().reinterpret_as_uint())
 }
@@ -94,8 +94,8 @@ fn w8(d : FixedArray[Byte], offset : Int, value : Int64) -> Unit {
 /// Slice a FixedArray (copy)
 fn slc(
   v : FixedArray[Byte],
-  s : Int,
-  e? : Int = v.length(),
+  s : Int32,
+  e~ : Int32 = v.length(),
 ) -> FixedArray[Byte] {
   let start = if s < 0 { 0 } else { s }
   let end = if e > v.length() { v.length() } else { e }
@@ -113,7 +113,7 @@ fn slc(
 fn fa_set(
   dst : FixedArray[Byte],
   src : FixedArray[Byte],
-  offset? : Int = 0,
+  offset~ : Int32 = 0,
 ) -> Unit {
   let len = if src.length() > dst.length() - offset {
     dst.length() - offset
@@ -127,7 +127,7 @@ fn fa_set(
 
 ///|
 /// Find max value in FixedArray
-fn max_val(a : FixedArray[Byte]) -> Int {
+fn max_val(a : FixedArray[Byte]) -> Int32 {
   a.fold(init=a[0].to_int(), fn(m, b) {
     let v = b.to_int()
     if v > m {
@@ -140,7 +140,7 @@ fn max_val(a : FixedArray[Byte]) -> Int {
 
 ///|
 /// Trim buffer to actual length (avoid copy if already exact size)
-fn trim_buf(buf : FixedArray[Byte], len : Int) -> FixedArray[Byte] {
+fn trim_buf(buf : FixedArray[Byte], len : Int32) -> FixedArray[Byte] {
   if len < buf.length() {
     slc(buf, 0, e=len)
   } else {

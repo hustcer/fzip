@@ -5,7 +5,7 @@
 /// `Zip64ValueTooLarge`, so the sync APIs never silently allocate or index
 /// past `Int` range. `context` is included in the error message to identify
 /// which ZIP64 field tripped the check.
-fn zip64_to_int(v : Int64, context : String) -> Int raise FzipError {
+fn zip64_to_int(v : Int64, context : String) -> Int32 raise FzipError {
   if v < 0L {
     raise fzip_err(Zip64ValueTooLarge, msg=context + ": negative value")
   }
@@ -28,9 +28,9 @@ fn zip64_to_int(v : Int64, context : String) -> Int raise FzipError {
 /// that originates outside the writer.
 fn read_zip64_int(
   data : FixedArray[Byte],
-  offset : Int,
+  offset : Int32,
   context : String,
-) -> Int raise FzipError {
+) -> Int32 raise FzipError {
   let lo = b4(data, offset)
   let hi = b4(data, offset + 4)
   if hi != 0U {
@@ -55,7 +55,7 @@ fn read_zip64_int(
 /// Classic ZIP fields can legally describe values above MoonBit's signed
 /// `Int` ceiling. Reject those before reinterpretation so a value like
 /// `0x80000000` cannot become negative and bypass later bounds checks.
-fn zip32_to_int(v : UInt, context : String) -> Int raise FzipError {
+fn zip32_to_int(v : UInt32, context : String) -> Int32 raise FzipError {
   if v > max_int_val().reinterpret_as_uint() {
     raise fzip_err(
       Zip64ValueTooLarge,
@@ -70,7 +70,7 @@ fn zip32_to_int(v : UInt, context : String) -> Int raise FzipError {
 /// `Int` range, then writes it as a fixed 8-byte little-endian value via `w8`.
 fn write_zip64_int(
   data : FixedArray[Byte],
-  offset : Int,
+  offset : Int32,
   value : Int64,
   context : String,
 ) -> Unit raise FzipError {
@@ -85,9 +85,9 @@ fn write_zip64_int(
 /// confusing compressed size, uncompressed size, and local header offset —
 /// which are otherwise indistinguishable `Int`s.
 priv struct ZipEntrySizes {
-  compressed : Int
-  uncompressed : Int
-  local_offset : Int
+  compressed : Int32
+  uncompressed : Int32
+  local_offset : Int32
 }
 
 ///|
@@ -110,11 +110,11 @@ priv struct ZipEntrySizes {
 ///   as the sync API's `Int`.
 fn read_zip64_entry_extra(
   data : FixedArray[Byte],
-  extra_offset : Int,
-  extra_len : Int,
-  classic_compressed~ : UInt,
-  classic_uncompressed~ : UInt,
-  classic_local_offset~ : UInt,
+  extra_offset : Int32,
+  extra_len : Int32,
+  classic_compressed~ : UInt32,
+  classic_uncompressed~ : UInt32,
+  classic_local_offset~ : UInt32,
 ) -> ZipEntrySizes raise FzipError {
   if extra_len > max_extra_field_length {
     raise fzip_err(ExtraFieldTooLong, msg="extra field length exceeds maximum")
@@ -274,7 +274,7 @@ fn build_zip64_extra_cd_payload(
 /// overflowing.
 fn write_zip64_eocd_record(
   d : FixedArray[Byte],
-  b : Int,
+  b : Int32,
   entries : Int64,
   cd_size : Int64,
   cd_offset : Int64,
@@ -299,7 +299,7 @@ fn write_zip64_eocd_record(
 /// total disks = 1.
 fn write_zip64_locator(
   d : FixedArray[Byte],
-  b : Int,
+  b : Int32,
   zip64_eocd_offset : Int64,
 ) -> Unit raise FzipError {
   w4(d, b, zip64_locator_signature)

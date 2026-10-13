@@ -2,25 +2,25 @@
 /// Default maximum uncompressed output size for defensive decompression.
 ///
 /// Used as the default value in decompression option structs.
-pub let default_max_output_size : Int = 104857600
+pub let default_max_output_size : Int32 = 104857600
 
 ///|
 /// Default maximum compressed input size for defensive decompression.
 ///
 /// Used as the default value in decompression option structs.
-pub let default_max_input_size : Int = 1073741824
+pub let default_max_input_size : Int32 = 1073741824
 
 ///|
 /// ZIP central directory file-header signature.
-pub let zip_cd_signature : UInt = 0x02014B50U
+pub let zip_cd_signature : UInt32 = 0x02014B50U
 
 ///|
 /// ZIP local file-header signature.
-pub let zip_local_signature : UInt = 0x04034B50U
+pub let zip_local_signature : UInt32 = 0x04034B50U
 
 ///|
 /// ZIP end-of-central-directory signature.
-pub let zip_eocd_signature : UInt = 0x06054B50U
+pub let zip_eocd_signature : UInt32 = 0x06054B50U
 
 ///|
 /// ZIP64 end-of-central-directory record signature (PKWARE APPNOTE §4.3.14).
@@ -29,78 +29,78 @@ pub let zip_eocd_signature : UInt = 0x06054B50U
 /// deprecated alias for source compatibility. The actual ZIP64 EOCD locator
 /// signature is `zip64_locator_signature` below.
 #alias(zip64_eocd_locator_signature, deprecated)
-pub let zip64_eocd_signature : UInt = 0x06064B50U
+pub let zip64_eocd_signature : UInt32 = 0x06064B50U
 
 ///|
 /// ZIP64 end-of-central-directory locator signature (PKWARE APPNOTE §4.3.15).
-pub let zip64_locator_signature : UInt = 0x07064B50U
+pub let zip64_locator_signature : UInt32 = 0x07064B50U
 
 ///|
 /// ZIP64 extended information extra field header id (PKWARE APPNOTE §4.5.3).
-let zip64_extra_field_id : Int = 0x0001
+let zip64_extra_field_id : Int32 = 0x0001
 
 ///|
 /// Maximum value for a 16-bit ZIP field. Used as the ZIP64 promotion sentinel
 /// for the entry-count field in the classic EOCD record.
-let zip_uint16_max : Int = 65535
+let zip_uint16_max : Int32 = 65535
 
 ///|
 /// Maximum value for a 32-bit ZIP field. Used as the ZIP64 promotion sentinel
 /// for size/offset fields in classic ZIP headers and the EOCD record.
-let zip_uint32_max : UInt = 0xffffffffU
+let zip_uint32_max : UInt32 = 0xffffffffU
 
 ///|
 /// Maximum total extra-field length accepted on a single local or central
 /// directory entry. Larger values are rejected with `ExtraFieldTooLong`
 /// before scanning individual extra fields, so an oversized declared length
 /// cannot drive a long parser scan.
-let max_extra_field_length : Int = 4096
+let max_extra_field_length : Int32 = 4096
 
 ///|
 /// Maximum filename length accepted while reading ZIP central directory entries.
-pub let max_filename_length : Int = 4096
+pub let max_filename_length : Int32 = 4096
 
 ///|
 /// Maximum number of ZIP entries accepted by the sync ZIP reader/writer.
 /// This keeps archive metadata from driving unbounded result-array growth.
-let max_zip_entries : Int = 100000
+let max_zip_entries : Int32 = 100000
 
 ///|
 /// Maximum total uncompressed output bytes returned by one `unzip_sync` call.
-let max_zip_total_output_size : Int = default_max_output_size
+let max_zip_total_output_size : Int32 = default_max_output_size
 
 // Compressibility detection thresholds
 
 ///|
 /// Minimum input length before the compressor samples data for compressibility.
-pub let min_compressibility_check_len : Int = 128
+pub let min_compressibility_check_len : Int32 = 128
 
 ///|
 /// Size below which compressibility detection scans the whole input.
-pub let full_scan_threshold : Int = 8192
+pub let full_scan_threshold : Int32 = 8192
 
 ///|
 /// Unique-byte threshold that marks small inputs as high entropy candidates.
-pub let high_entropy_unique_threshold : Int = 240
+pub let high_entropy_unique_threshold : Int32 = 240
 
 ///|
 /// Frequency-skew divisor used to detect compressible high-entropy inputs.
-pub let freq_skew_shift : Int = 5
+pub let freq_skew_shift : Int32 = 5
 
 ///|
 /// Number of positions sampled when checking high-entropy data for periodicity.
-pub let periodicity_check_samples : Int = 64
+pub let periodicity_check_samples : Int32 = 64
 
 ///|
 /// Unique-byte threshold in sampled large inputs that suggests incompressibility.
-pub let sampling_entropy_threshold : Int = 200
+pub let sampling_entropy_threshold : Int32 = 200
 
 ///|
 /// Sampling stride used by large-input compressibility detection.
-pub let sampling_stride : Int = 64
+pub let sampling_stride : Int32 = 64
 
 // Memory level computation thresholds
 
 ///|
 /// Size below which compression uses a smaller hash table to reduce overhead.
-pub let small_data_mem_threshold : Int = 2048
+pub let small_data_mem_threshold : Int32 = 2048

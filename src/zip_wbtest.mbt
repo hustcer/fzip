@@ -179,10 +179,10 @@ test "zip - stored entry writes correct CRC in local and central headers" {
 /// Entries on disk and total are set to the same value; tweak with `w2`
 /// after the call when a multi-disk-style mismatch is needed for tests.
 fn make_classic_eocd(
-  entries : Int,
-  cd_size : UInt,
-  cd_offset : UInt,
-  comment? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  entries : Int32,
+  cd_size : UInt32,
+  cd_offset : UInt32,
+  comment~ : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
 ) -> FixedArray[Byte] {
   let comment_len = comment.length()
   let buf = FixedArray::make(22 + comment_len, b'\x00')
@@ -202,9 +202,9 @@ fn make_classic_eocd(
 /// Build a 56-byte ZIP64 EOCD record (record_size = 44).
 /// All disk/entries/size/offset fields default to zero.
 fn make_zip64_eocd_record(
-  entries? : Int64 = 0L,
-  cd_size? : Int64 = 0L,
-  cd_offset? : Int64 = 0L,
+  entries~ : Int64 = 0L,
+  cd_size~ : Int64 = 0L,
+  cd_offset~ : Int64 = 0L,
 ) -> FixedArray[Byte] {
   let buf = FixedArray::make(56, b'\x00')
   w4(buf, 0, zip64_eocd_signature)
@@ -255,7 +255,7 @@ test "find_eocd - basic empty archive" {
 ///|
 test "find_eocd - data too short raises InvalidZipData" {
   let arc : FixedArray[Byte] = FixedArray::make(10, b'\x00')
-  let r : Result[Int, FzipError] = fzip_result(() => find_eocd(arc))
+  let r : Result[Int32, FzipError] = fzip_result(() => find_eocd(arc))
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
 }
@@ -264,7 +264,7 @@ test "find_eocd - data too short raises InvalidZipData" {
 test "find_eocd - no signature raises InvalidZipData" {
   // 22 bytes, all zeros — signature won't match.
   let arc : FixedArray[Byte] = FixedArray::make(22, b'\x00')
-  let r : Result[Int, FzipError] = fzip_result(() => find_eocd(arc))
+  let r : Result[Int32, FzipError] = fzip_result(() => find_eocd(arc))
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
   assert_eq(code, InvalidZipData)
 }
@@ -865,14 +865,14 @@ test "read_zip64_entry_extra - rejects oversized classic fallback local offset" 
 /// for use with `read_central_directory_entry`.
 fn make_cd_entry(
   name : FixedArray[Byte],
-  compression : Int,
-  comp_size : UInt,
-  uncomp_size : UInt,
-  local_offset : UInt,
-  extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
-  flag? : Int = 0,
-  comment? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
-  crc? : UInt = 0U,
+  compression : Int32,
+  comp_size : UInt32,
+  uncomp_size : UInt32,
+  local_offset : UInt32,
+  extra~ : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  flag~ : Int32 = 0,
+  comment~ : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  crc~ : UInt32 = 0U,
 ) -> FixedArray[Byte] {
   let name_len = name.length()
   let extra_len = extra.length()
@@ -1134,12 +1134,12 @@ test "unzip_list - trailing bytes inside CD raise InvalidZipData" {
 /// encryption / data-descriptor rejections.
 fn make_local_file_header(
   name : FixedArray[Byte],
-  compression : Int,
-  comp_size : UInt,
-  uncomp_size : UInt,
-  flag? : Int = 0,
-  extra? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
-  data? : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  compression : Int32,
+  comp_size : UInt32,
+  uncomp_size : UInt32,
+  flag~ : Int32 = 0,
+  extra~ : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
+  data~ : FixedArray[Byte] = FixedArray::make(0, b'\x00'),
 ) -> FixedArray[Byte] {
   let nl = name.length()
   let el = extra.length()
@@ -1170,10 +1170,10 @@ fn make_local_file_header(
 
 ///|
 fn make_data_descriptor(
-  crc : UInt,
-  comp_size : UInt,
-  uncomp_size : UInt,
-  signature? : Bool = true,
+  crc : UInt32,
+  comp_size : UInt32,
+  uncomp_size : UInt32,
+  signature~ : Bool = true,
 ) -> FixedArray[Byte] {
   let sig_len = if signature { 4 } else { 0 }
   let buf = FixedArray::make(sig_len + 12, b'\x00')
@@ -1195,7 +1195,7 @@ fn make_data_descriptor(
 fn build_classic_archive(
   name : FixedArray[Byte],
   data : FixedArray[Byte],
-  local_flag? : Int = 0,
+  local_flag~ : Int32 = 0,
 ) -> FixedArray[Byte] {
   let comp = data.length().reinterpret_as_uint()
   let lh = make_local_file_header(name, 0, comp, comp, flag=local_flag, data~)
@@ -1501,7 +1501,7 @@ test "unzip_sync - rejects deflated entry whose actual output exceeds declared s
 /// and silently passes — the rewritten subtraction-form check rejects it.
 test "local_data_offset - rejects local_offset near Int max without overflow" {
   let data : FixedArray[Byte] = FixedArray::make(100, b'\x00')
-  let r : Result[Int, FzipError] = fzip_result(() => {
+  let r : Result[Int32, FzipError] = fzip_result(() => {
     local_data_offset(data, 2147483647, 0)
   })
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
@@ -1516,7 +1516,7 @@ test "local_data_offset - rejects local_offset > data.length() - 30" {
   // A 35-byte buffer leaves room for a 30-byte LFH at offset 0..4. Offset 6
   // would push the 30-byte header end to byte 36, one past the buffer.
   let data : FixedArray[Byte] = FixedArray::make(35, b'\x00')
-  let r : Result[Int, FzipError] = fzip_result(() => {
+  let r : Result[Int32, FzipError] = fzip_result(() => {
     local_data_offset(data, 6, 0)
   })
   guard r is Err(FzipError(code~, ..)) else { fail("expected error") }
@@ -1535,7 +1535,7 @@ test "local_data_offset - rejects oversized filename length that exceeds data_of
   // Set fnl to 65535 and leave exl below the max-extra cap.
   w2(data, 26, 65535)
   w2(data, 28, 0)
-  let r : Result[Int, FzipError] = fzip_result(() => {
+  let r : Result[Int32, FzipError] = fzip_result(() => {
     local_data_offset(data, 0, 0)
   })
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
@@ -1600,7 +1600,7 @@ test "add_zip_output_budget - rejects cumulative zip output over budget" {
     add_zip_output_budget(default_max_output_size - 1, 1),
     content=default_max_output_size.to_string(),
   )
-  let r : Result[Int, FzipError] = fzip_result(() => {
+  let r : Result[Int32, FzipError] = fzip_result(() => {
     add_zip_output_budget(default_max_output_size - 1, 2)
   })
   guard r is Err(FzipError(code~, message~)) else { fail("expected error") }
@@ -1790,8 +1790,8 @@ test "zip_sync (PR5b) - drops user-provided extra id 0x0001 (reserved for ZIP64)
 /// Walk an extra-field block and report whether 0x0001 and 0x5455 are present.
 fn scan_extra_ids(
   data : FixedArray[Byte],
-  offset : Int,
-  length : Int,
+  offset : Int32,
+  length : Int32,
 ) -> (Bool, Bool) raise FzipError {
   let mut p = offset
   let end = offset + length
@@ -2118,7 +2118,7 @@ test "zip_sync_checked (PR5c) - raises ExtraFieldTooLong when user extras overfl
 
 ///|
 test "zip_sync_checked - rejects many small extra fields before length overflow" {
-  let extras : Array[(Int, FixedArray[Byte])] = []
+  let extras : Array[(Int32, FixedArray[Byte])] = []
   for _i in 0..<820 {
     extras.push((0x5455, [b'\x00']))
   }

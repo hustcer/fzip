@@ -1,7 +1,7 @@
 ///|
 /// Convert fzip's little-endian footer representation to the canonical
 /// Adler-32 value used by RFC 1950 DICTID fields.
-fn footer_adler_to_rfc1950(value : UInt) -> UInt {
+fn footer_adler_to_rfc1950(value : UInt32) -> UInt32 {
   ((value & 0x000000FFU) << 24) |
   ((value & 0x0000FF00U) << 8) |
   ((value & 0x00FF0000U) >> 8) |
@@ -12,8 +12,8 @@ fn footer_adler_to_rfc1950(value : UInt) -> UInt {
 /// Write a Zlib DICTID in RFC 1950 network byte order.
 fn write_zlib_dict_id(
   data : FixedArray[Byte],
-  offset : Int,
-  value : UInt,
+  offset : Int32,
+  value : UInt32,
 ) -> Unit {
   data[offset] = (value >> 24).to_byte()
   data[offset + 1] = (value >> 16).to_byte()
@@ -25,8 +25,8 @@ fn write_zlib_dict_id(
 /// Read a Zlib DICTID in RFC 1950 network byte order.
 fn read_zlib_dict_id(
   data : FixedArray[Byte],
-  offset : Int,
-) -> UInt raise FzipError {
+  offset : Int32,
+) -> UInt32 raise FzipError {
   if offset < 0 || offset > data.length() - 4 {
     raise fzip_err(InvalidHeader, msg="invalid zlib dictionary ID")
   }
@@ -73,7 +73,7 @@ fn zlh(c : FixedArray[Byte], o : ZlibOptions) -> Unit {
 fn zls(
   d : FixedArray[Byte],
   dictionary : FixedArray[Byte]?,
-) -> Int raise FzipError {
+) -> Int32 raise FzipError {
   if d.length() < 2 {
     raise fzip_err(InvalidHeader, msg="invalid zlib data")
   }
@@ -111,7 +111,7 @@ fn zls(
 /// decompressing.
 pub fn zlib_sync(
   data : FixedArray[Byte],
-  opts? : ZlibOptions = ZlibOptions::default(),
+  opts~ : ZlibOptions = ZlibOptions::default(),
 ) -> FixedArray[Byte] {
   let a = AdlerState::new()
   let pre = match opts.dictionary {
@@ -141,7 +141,7 @@ pub fn zlib_sync(
 /// even when footer checksum verification is disabled.
 pub fn unzlib_sync(
   data : FixedArray[Byte],
-  opts? : UnzlibOptions = UnzlibOptions::default(),
+  opts~ : UnzlibOptions = UnzlibOptions::default(),
 ) -> FixedArray[Byte] raise FzipError {
   let st = zls(data, opts.dictionary)
   let end = data.length() - 4
