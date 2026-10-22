@@ -6,45 +6,45 @@ import {
 }
 
 // Values
-pub fn adler32(FixedArray[Byte]) -> UInt
+pub fn adler32(FixedArray[Byte]) -> UInt32
 
 pub fn compress_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
 
-pub fn crc32(FixedArray[Byte]) -> UInt
+pub fn crc32(FixedArray[Byte]) -> UInt32
 
 pub fn decompress_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
-pub let default_max_input_size : Int
+pub let default_max_input_size : Int32
 
-pub let default_max_output_size : Int
+pub let default_max_output_size : Int32
 
 pub fn deflate_sync(FixedArray[Byte], opts? : DeflateOptions) -> FixedArray[Byte]
 
-pub let freq_skew_shift : Int
+pub let freq_skew_shift : Int32
 
-pub let full_scan_threshold : Int
+pub let full_scan_threshold : Int32
 
 pub fn gunzip_sync(FixedArray[Byte], opts? : GunzipOptions) -> FixedArray[Byte] raise FzipError
 
 pub fn gzip_sync(FixedArray[Byte], opts? : GzipOptions) -> FixedArray[Byte]
 
-pub let high_entropy_unique_threshold : Int
+pub let high_entropy_unique_threshold : Int32
 
 pub fn inflate_sync(FixedArray[Byte], opts? : InflateOptions) -> FixedArray[Byte] raise FzipError
 
-pub let max_filename_length : Int
+pub let max_filename_length : Int32
 
-pub let min_compressibility_check_len : Int
+pub let min_compressibility_check_len : Int32
 
-pub let periodicity_check_samples : Int
+pub let periodicity_check_samples : Int32
 
-pub let sampling_entropy_threshold : Int
+pub let sampling_entropy_threshold : Int32
 
-pub let sampling_stride : Int
+pub let sampling_stride : Int32
 
-pub let small_data_mem_threshold : Int
+pub let small_data_mem_threshold : Int32
 
-pub fn str_from_u8(FixedArray[Byte], latin1? : Bool, offset? : Int, len? : Int) -> String raise FzipError
+pub fn str_from_u8(FixedArray[Byte], latin1? : Bool, offset? : Int32, len? : Int32) -> String raise FzipError
 
 pub fn str_to_u8(String, latin1? : Bool) -> FixedArray[Byte]
 
@@ -55,15 +55,15 @@ pub fn unzip_sync(FixedArray[Byte], opts? : UnzipOptions) -> Array[(String, Fixe
 pub fn unzlib_sync(FixedArray[Byte], opts? : UnzlibOptions) -> FixedArray[Byte] raise FzipError
 
 #alias(zip64_eocd_locator_signature, deprecated)
-pub let zip64_eocd_signature : UInt
+pub let zip64_eocd_signature : UInt32
 
-pub let zip64_locator_signature : UInt
+pub let zip64_locator_signature : UInt32
 
-pub let zip_cd_signature : UInt
+pub let zip_cd_signature : UInt32
 
-pub let zip_eocd_signature : UInt
+pub let zip_eocd_signature : UInt32
 
-pub let zip_local_signature : UInt
+pub let zip_local_signature : UInt32
 
 pub fn zip_sync(Array[(String, FixedArray[Byte])], opts? : ZipEntryOptions) -> FixedArray[Byte]
 
@@ -85,8 +85,8 @@ pub fn DecompressStream::new(opts? : InflateOptions) -> Self
 pub fn DecompressStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
 pub(all) struct DeflateOptions {
-  level : Int
-  mem : Int
+  level : Int32
+  mem : Int32
   dictionary : FixedArray[Byte]?
 } derive(@debug.Debug)
 pub fn DeflateOptions::default() -> Self
@@ -130,8 +130,8 @@ pub impl Show for FzipErrorCode
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
-  max_output_size : Int
-  max_input_size : Int
+  max_output_size : Int32
+  max_input_size : Int32
   verify_checksum : Bool
 } derive(@debug.Debug)
 pub fn GunzipOptions::default() -> Self
@@ -145,10 +145,10 @@ pub fn GunzipStream::new(opts? : GunzipOptions) -> Self
 pub fn GunzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
 pub(all) struct GzipOptions {
-  level : Int
-  mem : Int
+  level : Int32
+  mem : Int32
   dictionary : FixedArray[Byte]?
-  mtime : Int
+  mtime : Int32
   filename : String
 } derive(@debug.Debug)
 pub fn GzipOptions::default() -> Self
@@ -164,8 +164,8 @@ pub fn GzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 pub(all) struct InflateOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
-  max_output_size : Int
-  max_input_size : Int
+  max_output_size : Int32
+  max_input_size : Int32
 } derive(@debug.Debug)
 pub fn InflateOptions::default() -> Self
 pub fn InflateOptions::to_repr(Self) -> @debug.Repr
@@ -179,9 +179,9 @@ pub fn InflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise
 
 pub(all) struct UnzipFileInfo {
   name : String
-  size : Int
-  original_size : Int
-  compression : Int
+  size : Int32
+  original_size : Int32
+  compression : Int32
 } derive(@debug.Debug)
 pub fn UnzipFileInfo::to_repr(Self) -> @debug.Repr
 
@@ -194,8 +194,8 @@ pub fn UnzipOptions::to_repr(Self) -> @debug.Repr
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
-  max_output_size : Int
-  max_input_size : Int
+  max_output_size : Int32
+  max_input_size : Int32
   verify_checksum : Bool
 } derive(@debug.Debug)
 pub fn UnzlibOptions::default() -> Self
@@ -209,20 +209,20 @@ pub fn UnzlibStream::new(opts? : UnzlibOptions) -> Self
 pub fn UnzlibStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
 pub(all) struct ZipEntryOptions {
-  level : Int
-  mem : Int
-  os : Int
-  attrs : Int
-  extra : Array[(Int, FixedArray[Byte])]
+  level : Int32
+  mem : Int32
+  os : Int32
+  attrs : Int32
+  extra : Array[(Int32, FixedArray[Byte])]
   comment : String
-  mtime : Int
+  mtime : Int32
 } derive(@debug.Debug)
 pub fn ZipEntryOptions::default() -> Self
 pub fn ZipEntryOptions::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ZlibOptions {
-  level : Int
-  mem : Int
+  level : Int32
+  mem : Int32
   dictionary : FixedArray[Byte]?
 } derive(@debug.Debug)
 pub fn ZlibOptions::default() -> Self

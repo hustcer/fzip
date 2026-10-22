@@ -128,6 +128,8 @@ fn fzip_err(code : FzipErrorCode, msg~ : String = "") -> FzipError {
 }
 
 ///|
+/// Capture success or failure as data for fallback logic and error assertions.
+#warnings("-result_error_return")
 fn[T] fzip_result(f : () -> T raise FzipError) -> Result[T, FzipError] {
   try f() catch {
     err => Err(err)
