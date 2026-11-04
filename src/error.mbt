@@ -4,6 +4,7 @@
 /// Most public decompression and archive-reading APIs raise `FzipError` with
 /// one of these codes. The code is intended for programmatic handling while the
 /// error message gives a human-readable explanation.
+#derive(Eq, Debug)
 pub(all) enum FzipErrorCode {
   /// The input ended before the current format could be fully decoded.
   UnexpectedEOF
@@ -42,7 +43,7 @@ pub(all) enum FzipErrorCode {
   /// sync APIs. The archive may be structurally valid; the sync API just
   /// cannot process it.
   Zip64ValueTooLarge
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend FzipErrorCode with Eq::{equal, not_equal}

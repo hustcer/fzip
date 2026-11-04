@@ -6,6 +6,7 @@
 /// `mem` controls the internal hash table size; leave it as `0` to let fzip
 /// choose a size from the input length. `dictionary` can be used when both the
 /// compressor and decompressor share the same preset dictionary.
+#derive(Debug)
 pub(all) struct DeflateOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
   level : Int32
@@ -13,7 +14,7 @@ pub(all) struct DeflateOptions {
   mem : Int32
   /// Optional preset dictionary for repeated or domain-specific data.
   dictionary : FixedArray[Byte]?
-} derive(Debug)
+}
 
 ///|
 pub extend DeflateOptions with Debug::{to_repr}
@@ -31,6 +32,7 @@ pub fn DeflateOptions::default() -> DeflateOptions {
 /// enough for the full uncompressed payload when it is supplied. The size limits
 /// are enforced before or during decompression to protect callers from malformed
 /// streams and zip-bomb style inputs.
+#derive(Debug)
 pub(all) struct InflateOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
@@ -40,7 +42,7 @@ pub(all) struct InflateOptions {
   max_output_size : Int32
   /// Maximum allowed compressed input size.
   max_input_size : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend InflateOptions with Debug::{to_repr}
@@ -65,6 +67,7 @@ pub fn InflateOptions::default() -> InflateOptions {
 /// single-byte header data when it is non-empty. GZIP does not record a
 /// dictionary identifier, so decompression must be given the same dictionary
 /// out of band when one is used.
+#derive(Debug)
 pub(all) struct GzipOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
   level : Int32
@@ -76,7 +79,7 @@ pub(all) struct GzipOptions {
   mtime : Int32
   /// Optional original filename to store in the GZIP header as single-byte data.
   filename : String
-} derive(Debug)
+}
 
 ///|
 pub extend GzipOptions with Debug::{to_repr}
@@ -94,6 +97,7 @@ pub fn GzipOptions::default() -> GzipOptions {
 /// `verify_checksum` only when data integrity is already guaranteed elsewhere
 /// and decompression speed is more important. Concatenated members are decoded
 /// in order, with `max_output_size` applied to their combined output.
+#derive(Debug)
 pub(all) struct GunzipOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
@@ -105,7 +109,7 @@ pub(all) struct GunzipOptions {
   max_input_size : Int32
   /// Whether to verify the GZIP CRC-32 checksum.
   verify_checksum : Bool
-} derive(Debug)
+}
 
 ///|
 pub extend GunzipOptions with Debug::{to_repr}
@@ -128,6 +132,7 @@ pub fn GunzipOptions::default() -> GunzipOptions {
 /// Zlib wraps a raw DEFLATE stream with a header and Adler-32 checksum. When a
 /// dictionary is supplied, its Adler-32 value is written to the Zlib header and
 /// decompression must use the same dictionary.
+#derive(Debug)
 pub(all) struct ZlibOptions {
   /// Compression level, from 0 (store) to 9 (maximum compression).
   level : Int32
@@ -135,7 +140,7 @@ pub(all) struct ZlibOptions {
   mem : Int32
   /// Optional preset dictionary for the inner DEFLATE stream.
   dictionary : FixedArray[Byte]?
-} derive(Debug)
+}
 
 ///|
 pub extend ZlibOptions with Debug::{to_repr}
@@ -153,6 +158,7 @@ pub fn ZlibOptions::default() -> ZlibOptions {
 /// dictionary is required, the stream must advertise that requirement and the
 /// caller must provide the matching dictionary. The header DICTID is always
 /// checked, independently of footer checksum verification.
+#derive(Debug)
 pub(all) struct UnzlibOptions {
   /// Optional pre-allocated output buffer; when supplied, it must fit the full output.
   out : FixedArray[Byte]?
@@ -164,7 +170,7 @@ pub(all) struct UnzlibOptions {
   max_input_size : Int32
   /// Whether to verify the Zlib Adler-32 checksum.
   verify_checksum : Bool
-} derive(Debug)
+}
 
 ///|
 pub extend UnzlibOptions with Debug::{to_repr}
@@ -187,6 +193,7 @@ pub fn UnzlibOptions::default() -> UnzlibOptions {
 /// The current API applies one set of options to every entry in the archive.
 /// `level = 0` stores entries without compression; other levels use DEFLATE.
 /// Extra fields are written as `(header_id, data)` pairs.
+#derive(Debug)
 pub(all) struct ZipEntryOptions {
   /// Compression level, expected to be 0-9; 0 stores entries and non-zero values deflate them.
   level : Int32
@@ -202,7 +209,7 @@ pub(all) struct ZipEntryOptions {
   comment : String
   /// Modification time value written into ZIP headers.
   mtime : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend ZipEntryOptions with Debug::{to_repr}
@@ -220,10 +227,11 @@ pub fn ZipEntryOptions::default() -> ZipEntryOptions {
 /// enables validation of each extracted entry against those values. It is off
 /// by default to preserve the historical `unzip_sync` performance profile; turn
 /// it on when archive integrity is not already guaranteed by the caller.
+#derive(Debug)
 pub(all) struct UnzipOptions {
   /// Whether to verify each extracted ZIP entry against its CRC-32 value.
   verify_checksum : Bool
-} derive(Debug)
+}
 
 ///|
 pub extend UnzipOptions with Debug::{to_repr}
@@ -236,6 +244,7 @@ pub fn UnzipOptions::default() -> UnzipOptions {
 
 ///|
 /// Metadata for an entry returned by `unzip_list`.
+#derive(Debug)
 pub(all) struct UnzipFileInfo {
   /// Entry path stored in the archive.
   name : String
@@ -245,7 +254,7 @@ pub(all) struct UnzipFileInfo {
   original_size : Int32
   /// ZIP compression method, usually 0 for stored or 8 for deflated.
   compression : Int32
-} derive(Debug)
+}
 
 ///|
 pub extend UnzipFileInfo with Debug::{to_repr}

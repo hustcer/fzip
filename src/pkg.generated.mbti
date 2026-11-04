@@ -84,11 +84,12 @@ pub(all) struct DecompressStream {
 pub fn DecompressStream::new(opts? : InflateOptions) -> Self
 pub fn DecompressStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
+#derive(@debug.Debug)
 pub(all) struct DeflateOptions {
   level : Int32
   mem : Int32
   dictionary : FixedArray[Byte]?
-} derive(@debug.Debug)
+}
 pub fn DeflateOptions::default() -> Self
 pub fn DeflateOptions::to_repr(Self) -> @debug.Repr
 
@@ -101,6 +102,7 @@ pub fn DeflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 
 pub(all) struct FlateStreamHandler((FixedArray[Byte], Bool) -> Unit)
 
+#derive(Eq, @debug.Debug)
 pub(all) enum FzipErrorCode {
   UnexpectedEOF
   InvalidBlockType
@@ -119,7 +121,7 @@ pub(all) enum FzipErrorCode {
   UnknownCompressionMethod
   InvalidChecksum
   Zip64ValueTooLarge
-} derive(Eq, @debug.Debug)
+}
 pub fn FzipErrorCode::equal(Self, Self) -> Bool
 pub fn FzipErrorCode::not_equal(Self, Self) -> Bool
 pub fn FzipErrorCode::output(Self, &Logger) -> Unit
@@ -127,13 +129,14 @@ pub fn FzipErrorCode::to_repr(Self) -> @debug.Repr
 pub fn FzipErrorCode::to_string(Self) -> String
 pub impl Show for FzipErrorCode
 
+#derive(@debug.Debug)
 pub(all) struct GunzipOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
   max_output_size : Int32
   max_input_size : Int32
   verify_checksum : Bool
-} derive(@debug.Debug)
+}
 pub fn GunzipOptions::default() -> Self
 pub fn GunzipOptions::to_repr(Self) -> @debug.Repr
 
@@ -144,13 +147,14 @@ pub(all) struct GunzipStream {
 pub fn GunzipStream::new(opts? : GunzipOptions) -> Self
 pub fn GunzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
+#derive(@debug.Debug)
 pub(all) struct GzipOptions {
   level : Int32
   mem : Int32
   dictionary : FixedArray[Byte]?
   mtime : Int32
   filename : String
-} derive(@debug.Debug)
+}
 pub fn GzipOptions::default() -> Self
 pub fn GzipOptions::to_repr(Self) -> @debug.Repr
 
@@ -161,12 +165,13 @@ pub(all) struct GzipStream {
 pub fn GzipStream::new(opts? : GzipOptions) -> Self
 pub fn GzipStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit
 
+#derive(@debug.Debug)
 pub(all) struct InflateOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
   max_output_size : Int32
   max_input_size : Int32
-} derive(@debug.Debug)
+}
 pub fn InflateOptions::default() -> Self
 pub fn InflateOptions::to_repr(Self) -> @debug.Repr
 
@@ -177,27 +182,30 @@ pub(all) struct InflateStream {
 pub fn InflateStream::new(opts? : InflateOptions) -> Self
 pub fn InflateStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
+#derive(@debug.Debug)
 pub(all) struct UnzipFileInfo {
   name : String
   size : Int32
   original_size : Int32
   compression : Int32
-} derive(@debug.Debug)
+}
 pub fn UnzipFileInfo::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct UnzipOptions {
   verify_checksum : Bool
-} derive(@debug.Debug)
+}
 pub fn UnzipOptions::default() -> Self
 pub fn UnzipOptions::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct UnzlibOptions {
   out : FixedArray[Byte]?
   dictionary : FixedArray[Byte]?
   max_output_size : Int32
   max_input_size : Int32
   verify_checksum : Bool
-} derive(@debug.Debug)
+}
 pub fn UnzlibOptions::default() -> Self
 pub fn UnzlibOptions::to_repr(Self) -> @debug.Repr
 
@@ -208,6 +216,7 @@ pub(all) struct UnzlibStream {
 pub fn UnzlibStream::new(opts? : UnzlibOptions) -> Self
 pub fn UnzlibStream::push(Self, FixedArray[Byte], final_? : Bool) -> Unit raise FzipError
 
+#derive(@debug.Debug)
 pub(all) struct ZipEntryOptions {
   level : Int32
   mem : Int32
@@ -216,15 +225,16 @@ pub(all) struct ZipEntryOptions {
   extra : Array[(Int32, FixedArray[Byte])]
   comment : String
   mtime : Int32
-} derive(@debug.Debug)
+}
 pub fn ZipEntryOptions::default() -> Self
 pub fn ZipEntryOptions::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct ZlibOptions {
   level : Int32
   mem : Int32
   dictionary : FixedArray[Byte]?
-} derive(@debug.Debug)
+}
 pub fn ZlibOptions::default() -> Self
 pub fn ZlibOptions::to_repr(Self) -> @debug.Repr
 
